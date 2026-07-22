@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 5%;
+    --foreground: 213 32% 95%;
+
+    --card: 222 39% 7%;
+    --card-foreground: 213 32% 95%;
+
+    --popover: 222 39% 7%;
+    --popover-foreground: 213 32% 95%;
+
+    --primary: 217 80% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 216 50% 28%;
+    --secondary-foreground: 213 32% 95%;
+
+    --muted: 222 30% 12%;
+    --muted-foreground: 215 20% 63%;
+
+    --accent: 217 80% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 100% / 0.10;
+    --input: 0 0% 100% / 0.10;
+    --ring: 217 80% 53%;
+
+    --radius: 0.375rem;
+
+    /* Velarix custom tokens — updated breathable palette */
+    --velarix-bg-primary: 222 47% 5%;
+    --velarix-bg-secondary: 222 39% 7%;
+    --velarix-bg-tertiary: 222 33% 13%;
+    --velarix-bg-card-dark: 217 33% 15%;
+    --velarix-bg-card-light: 216 20% 96%;
+    --velarix-bg-section-alt: 222 36% 9%;
+    --velarix-accent-blue: 217 80% 53%;
+    --velarix-accent-blue-soft: 217 90% 60%;
+    --velarix-accent-navy: 216 65% 28%;
+    --velarix-silver: 215 10% 72%;
+    --velarix-text-primary: 213 32% 95%;
+    --velarix-text-secondary: 215 20% 63%;
+    --velarix-text-dark: 220 40% 9%;
+    --velarix-glow: 217 80% 53%;
+
+    --sidebar-background: 222 39% 7%;
+    --sidebar-foreground: 213 32% 95%;
+    --sidebar-primary: 217 80% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 30% 12%;
+    --sidebar-accent-foreground: 213 32% 95%;
+    --sidebar-border: 0 0% 100% / 0.10;
+    --sidebar-ring: 217 80% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Inter', sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  .font-body {
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .glass-dark {
+    background: hsla(222, 47%, 5%, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid hsl(0 0% 100% / 0.06);
+  }
+
+  .metallic-border {
+    border: 1px solid hsl(0 0% 100% / 0.10);
+  }
+
+  .metallic-border-hover {
+    border: 1px solid hsl(0 0% 100% / 0.10);
+    transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+  }
+  .metallic-border-hover:hover {
+    border-color: hsl(217 80% 53% / 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px hsla(217, 80%, 53%, 0.08);
+  }
+
+  .blue-glow {
+    box-shadow: 0 0 60px -20px hsl(217 80% 53% / 0.25);
+  }
+
+  .blue-glow-subtle {
+    box-shadow: 0 0 40px -15px hsl(217 80% 53% / 0.12);
+  }
+
+  .grid-bg {
+    background-image: 
+      linear-gradient(hsl(0 0% 100% / 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(0 0% 100% / 0.025) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .fade-up {
+    animation: fadeUp 0.6s ease-out forwards;
+  }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .connector-line {
+    background: linear-gradient(90deg, hsl(217 80% 53% / 0.4), hsl(0 0% 100% / 0.15));
+    height: 2px;
+  }
+
+  .section-alt {
+    background-color: hsl(var(--velarix-bg-section-alt));
+  }
+}
