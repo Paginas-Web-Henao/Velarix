@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
+import { callAnthropic } from "../_shared/anthropic-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -463,19 +464,6 @@ Devuelve JSON: { "periodos": [{"etiqueta": "2024", "tipo": "anual", "columna_ind
 const SYSTEM_PARSER_FALLBACK = `Eres un extractor de datos financieros. Extrae cuentas contables con valores.
 Devuelve JSON: { "rows": [{"original_label": "...", "values": {"col_1": número}, "es_subtotal": false, "posicion": número}], "column_headers": ["Cuenta", "2024"], "total_rows_extracted": número }`;
 
-async function callAI(apiKey: string, systemPrompt: string, userPrompt: string, maxTokens = 3000): Promise<string | null> {
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-2.5-flash", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], max_tokens: maxTokens }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || null;
-  } catch { return null; }
-}
-
 function extractJSON(text: string): any {
   try { const m = text.match(/\{[\s\S]*\}/); if (m) return JSON.parse(m[0]); } catch {} return null;
 }
@@ -514,8 +502,7 @@ serve(async (req) => {
     const { data: fileData, error: downloadError } = await supabase.storage.from("financial-documents").download(document.storage_path!);
     if (downloadError || !fileData) throw new Error(`Failed to download: ${downloadError?.message}`);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!Deno.env.get("ANTHROPIC_API_KEY")) throw new Error("ANTHROPIC_API_KEY not configured");
 
     const arrayBuffer = await fileData.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
@@ -559,7 +546,7 @@ serve(async (req) => {
       if (!contentForAI || contentForAI.length < 50) {
         contentForAI = new TextDecoder("utf-8", { fatal: false }).decode(bytes).substring(0, 8000);
       }
-      const parseResult = await callAI(LOVABLE_API_KEY, SYSTEM_PARSER_FALLBACK,
+      const parseResult = await callAnthropic(SYSTEM_PARSER_FALLBACK,
         `Extrae todas las cuentas contables.\n\nContenido:\n${contentForAI.substring(0, 6000)}`, 4000);
       const parsed = parseResult ? extractJSON(parseResult) : null;
       if (parsed?.rows?.length > 0) {
@@ -606,7 +593,7 @@ serve(async (req) => {
 
     // AI Classification
     const sampleText = filas.slice(0, 30).map(f => `${f.texto}: ${f.valor_raw || "(encabezado)"}`).join("\n");
-    const classifyResult = await callAI(LOVABLE_API_KEY, SYSTEM_CLASSIFIER, `Clasifica este documento financiero.\n\nFilas extraídas:\n${sampleText}`, 500);
+    const classifyResult = await callAnthropic(SYSTEM_CLASSIFIER, `Clasifica este documento financiero.\n\nFilas extraídas:\n${sampleText}`, 500);
     const classification = classifyResult ? extractJSON(classifyResult) : null;
     let docType = classification?.tipo_documento || document.doc_type_declared || "no_reconocible";
 
@@ -616,7 +603,7 @@ serve(async (req) => {
     else if (docType === "no_reconocible" && contenido.tieneBalanceGeneral) docType = "balance_general";
 
     // AI Period Detection
-    const periodResult = await callAI(LOVABLE_API_KEY, SYSTEM_PERIOD_DETECTOR, `Detecta los períodos.\n\n${sampleText}`, 500);
+    const periodResult = await callAnthropic(SYSTEM_PERIOD_DETECTOR, `Detecta los períodos.\n\n${sampleText}`, 500);
     const periods = periodResult ? extractJSON(periodResult) : null;
     const periodsDetected = periods?.periodos?.map((p: any) => p.etiqueta) || [];
 

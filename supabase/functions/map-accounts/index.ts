@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { callAnthropic } from "../_shared/anthropic-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -149,23 +150,6 @@ function matchAccount(label: string): { canonical: string | null; category: stri
 }
 
 // ═══════════════════════════════════════════════════════════════
-// AI Helper
-// ═══════════════════════════════════════════════════════════════
-
-async function callAI(apiKey: string, systemPrompt: string, userPrompt: string, maxTokens = 4000): Promise<string | null> {
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-2.5-flash", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], max_tokens: maxTokens }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || null;
-  } catch { return null; }
-}
-
-// ═══════════════════════════════════════════════════════════════
 // MAIN HANDLER
 // ═══════════════════════════════════════════════════════════════
 
@@ -266,17 +250,16 @@ serve(async (req) => {
     }
 
     // ──── PASS 2: AI Consolidation-based mapping ────
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const unclassifiedCount = mappings.filter(m => m.canonical_account === "unclassified").length;
 
-    if (unclassifiedCount > 0 && LOVABLE_API_KEY) {
+    if (unclassifiedCount > 0) {
       // Send FULL document to AI for structural understanding
       const docSummary = allRows.map(r => {
         const vals = Object.entries(r.values).map(([k, v]) => `${k}:${v}`).join(", ");
         return `[${r.docType}] ${r.label} → ${vals || "sin valor"}`;
       }).join("\n");
 
-      const aiResult = await callAI(LOVABLE_API_KEY, SYSTEM_ACCOUNT_MAPPER,
+      const aiResult = await callAnthropic(SYSTEM_ACCOUNT_MAPPER,
         `Analiza este documento financiero COMPLETO y mapea las cuentas a la taxonomía canónica.\nConsolida cuentas que representan lo mismo.\n\nDocumento:\n${docSummary.substring(0, 8000)}`, 6000);
 
       if (aiResult) {

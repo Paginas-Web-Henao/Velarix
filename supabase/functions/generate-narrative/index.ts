@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { callAnthropic } from "../_shared/anthropic-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -296,39 +297,8 @@ Devuelve ÚNICAMENTE este JSON:
 Si no hay problemas: audit_passed = true, score = 100, issues = [].
 Solo JSON. Sin texto adicional.`;
 
-// ═══════════════════════════════════════════════════════════════
-// AI caller
-// ═══════════════════════════════════════════════════════════════
-
-async function callAI(apiKey: string, systemPrompt: string, userPrompt: string, maxTokens = 2000): Promise<string | null> {
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: maxTokens,
-      }),
-    });
-    if (!res.ok) {
-      const status = res.status;
-      console.error("AI call failed:", status, await res.text());
-      if (status === 429) return "__RATE_LIMITED__";
-      if (status === 402) return "__PAYMENT_REQUIRED__";
-      return null;
-    }
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || null;
-  } catch (e) { console.error("AI call error:", e); return null; }
-}
-
 function handleAIResult(content: string | null, title: string): { title: string; content: string; status: string } {
   if (content === "__RATE_LIMITED__") return { title, content: "[Sección pendiente — límite de solicitudes.]", status: "rate_limited" };
-  if (content === "__PAYMENT_REQUIRED__") return { title, content: "[Sección pendiente — créditos insuficientes.]", status: "payment_required" };
   if (content) return { title, content, status: "generated" };
   return { title, content: "[Error al generar esta sección]", status: "error" };
 }
@@ -358,8 +328,7 @@ serve(async (req) => {
     const { data: analysis } = await supabase.from("analyses").select("*").eq("id", analysis_id).single();
     if (!analysis || analysis.user_id !== user.id) throw new Error("Not found");
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!Deno.env.get("ANTHROPIC_API_KEY")) throw new Error("ANTHROPIC_API_KEY not configured");
 
     await supabase.from("analyses").update({ status: "interpretacion_en_curso" }).eq("id", analysis_id);
 
@@ -377,9 +346,9 @@ serve(async (req) => {
 
       const userPrompt = `Redacta la sección "${section.title}" del informe financiero con estos datos:\n\nEmpresa: ${analysis.company_name}\nSector: ${analysis.sector}\n\nDatos disponibles:\n${JSON.stringify(sectionData, null, 2)}\n\nDevuelve SOLO el texto de la sección.`;
 
-      const content = await callAI(LOVABLE_API_KEY, section.system, userPrompt, section.maxTokens);
+      const content = await callAnthropic(section.system, userPrompt, section.maxTokens);
       sectionsPayload[section.key] = handleAIResult(content, section.title);
-      if (section.key === "executive_summary" && content && content !== "__RATE_LIMITED__" && content !== "__PAYMENT_REQUIRED__") {
+      if (section.key === "executive_summary" && content && content !== "__RATE_LIMITED__") {
         executiveSummary = content;
       }
 
@@ -394,8 +363,8 @@ serve(async (req) => {
     let risksNarrative: any[] = [];
     if (risks.length > 0) {
       const risksPrompt = `Redacta la descripción para cada uno de estos riesgos identificados:\n\n${JSON.stringify(risks.map(r => ({ id: r.id, nombre: r.nombre, categoria: r.categoria, indicador: r.indicador, impacto: r.impacto, probabilidad: r.probabilidad })), null, 2)}`;
-      const risksContent = await callAI(LOVABLE_API_KEY, SYSTEM_RISKS_NARRATIVE, risksPrompt, 800);
-      if (risksContent && risksContent !== "__RATE_LIMITED__" && risksContent !== "__PAYMENT_REQUIRED__") {
+      const risksContent = await callAnthropic(SYSTEM_RISKS_NARRATIVE, risksPrompt, 800);
+      if (risksContent && risksContent !== "__RATE_LIMITED__") {
         try {
           const jsonMatch = risksContent.match(/\[[\s\S]*\]/);
           if (jsonMatch) risksNarrative = JSON.parse(jsonMatch[0]);
@@ -420,7 +389,7 @@ serve(async (req) => {
     // ── Phase 4: AI narrative for recommendations ──
     if (recommendations.length > 0) {
       const recsPrompt = `Redacta las recomendaciones del informe:\n\n${JSON.stringify(recommendations, null, 2)}`;
-      const recsContent = await callAI(LOVABLE_API_KEY, SYSTEM_RECS_NARRATIVE, recsPrompt, 800);
+      const recsContent = await callAnthropic(SYSTEM_RECS_NARRATIVE, recsPrompt, 800);
       sectionsPayload["recommendations"] = handleAIResult(recsContent, "Recomendaciones");
       sectionsPayload["recommendations"].recommendations_data = recommendations;
       await new Promise(r => setTimeout(r, 300));
@@ -433,7 +402,7 @@ serve(async (req) => {
 
     const conclusionPrompt = `Redacta la conclusión final del informe:\n\nEmpresa: ${analysis.company_name} · Sector: ${analysis.sector}\n\nDiagnóstico:\n  Margen EBITDA: ${calculation_output.kpis?.margenEBITDA?.toFixed(1) || "N/D"}%\n  Enterprise Value: USD ${calculation_output.enterpriseValue ? Math.round(calculation_output.enterpriseValue).toLocaleString() : "N/D"}\n  WACC: ${calculation_output.wacc ? (calculation_output.wacc * 100).toFixed(1) : "N/D"}%\n\nEstado general: ${estado}\nRiesgo principal: ${risks[0]?.nombre || "Ninguno identificado"}\nRecomendación prioritaria: ${recommendations[0]?.titulo || "Ninguna"}\n\nDevuelve SOLO el texto.`;
 
-    const conclusionContent = await callAI(LOVABLE_API_KEY, SYSTEM_CONCLUSION, conclusionPrompt, 800);
+    const conclusionContent = await callAnthropic(SYSTEM_CONCLUSION, conclusionPrompt, 800);
     sectionsPayload["conclusion"] = handleAIResult(conclusionContent, "Conclusión General");
 
     await new Promise(r => setTimeout(r, 300));
@@ -461,8 +430,8 @@ serve(async (req) => {
       evHigh: calculation_output.evHigh,
     }, null, 2)}\n\nNARRATIVA COMPLETA POR SECCIÓN:\n${allNarrative}`;
 
-    const auditResult = await callAI(LOVABLE_API_KEY, SYSTEM_AUDITOR, auditPrompt, 1200);
-    if (auditResult && auditResult !== "__RATE_LIMITED__" && auditResult !== "__PAYMENT_REQUIRED__") {
+    const auditResult = await callAnthropic(SYSTEM_AUDITOR, auditPrompt, 1200);
+    if (auditResult && auditResult !== "__RATE_LIMITED__") {
       try {
         const jsonMatch = auditResult.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
