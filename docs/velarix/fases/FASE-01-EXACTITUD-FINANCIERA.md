@@ -269,16 +269,23 @@ igual.
 
 ## Bloque 1B — Correcciones financieras
 
-> **1B-P0 completado; 1B-metodología pendiente** (2026-07-23). Ver
-> `docs/velarix/bloque-1b/REPORTE-IMPLEMENTACION-1B-P0.md`. Se
-> corrigieron `BL-02`, `BL-03`, `BL-04`, `BL-05` y `BL-06` con pruebas
-> ejecutables reales (financial-accounts.test.ts, currency.test.ts,
-> pdf-generator.currency.spec.test.ts, capital-structure.test.ts,
-> pipeline-guards.test.ts). **No completado todavía**: `BL-17`
-> (consolidación de constantes), `R-19` (7 supuestos ajustables sin
-> reconciliar), y cualquier cambio metodológico de WACC/CAPM/estructura
-> de capital/escenarios/ROE-ROA — ver sección "Alcance" abajo, sin
-> modificar.
+> **1B-P0 completado; 1B-M (reconciliación metodológica) completado
+> parcialmente** (2026-07-23). Ver
+> `docs/velarix/bloque-1b/REPORTE-IMPLEMENTACION-1B-P0.md` y
+> `docs/velarix/bloque-1b-metodologia/REPORTE-RECONCILIACION-METODOLOGICA.md`.
+> 1B-P0 corrigió `BL-02`, `BL-03`, `BL-04`, `BL-05` y `BL-06`. 1B-M
+> clasificó las 12 diferencias cliente/servidor de `BL-26` en 5
+> categorías, corrigió 4 bugs técnicos evidentes (escenarios sin variar
+> capex/wc% en el servidor, 2 variables muertas, 2 KPIs demo con
+> evaluación engañosa en el PDF), creó la fuente única y versionada de
+> supuestos (`_shared/financial-methodology.ts`, `BL-17` parcial), y
+> registró **10 decisiones metodológicas pendientes** de aprobación del
+> fundador/revisor externo en
+> `docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-PENDIENTES.md`
+> — ninguna se decidió silenciosamente. **`BL-17` sigue parcialmente
+> pendiente**: la fuente única cubre `ejecutar-calculo`, no unifica
+> todavía con las copias del cliente ni de `build-structured-input`
+> (fuera de alcance: "no hagas un refactor general del sistema").
 
 ### Alcance
 
@@ -290,18 +297,27 @@ igual.
   confiabilidad del mismo pipeline que se está corrigiendo). **Corregido en 1B-P0.**
 - ROE/ROA (parte de `R-04`/hallazgo #4 de `auditoria/04`) — usar
   `net_income` real donde exista, agregar clamps de sanidad.
-  **Pendiente (1B-metodología) — no tocado en 1B-P0.**
+  **Clasificado en 1B-M como decisión metodológica pendiente #7
+  (uso de utilidad neta vs. NOPAT) — no se cambió el código.**
 - Signos, unidades, redondeos — revisión puntual para confirmar que no
-  queda ninguna doble aplicación. **Pendiente (1B-metodología).**
+  queda ninguna doble aplicación. **Revisado en 1B-M** (ver
+  `REPORTE-RECONCILIACION-METODOLOGICA.md` — no se encontró doble
+  aplicación nueva más allá de lo ya documentado en `auditoria/04`).
 - Constantes macro y sectoriales (`BL-17`): definir una **sola fuente
   canónica, fija, versionada y determinística**. Registrar en cada
   resultado qué versión de fórmulas y de fuentes se utilizó (usando el
   diseño de versionado de `BL-32`). **No conectar automatizaciones
   dinámicas, cron, ni actualización automática de `external_snapshots`
   en este bloque** — esa automatización queda diferida a Fase 7
-  explícitamente. **Pendiente (1B-metodología) — no tocado en 1B-P0.**
+  explícitamente. **Parcialmente corregido en 1B-M**: `_shared/financial-methodology.ts`
+  centraliza los 7+1 supuestos del servidor, versionados y marcados
+  `approved: false`. No unifica con el cliente ni con `build-structured-input`
+  (serían refactors mayores fuera de alcance de este bloque).
 - Fórmulas duplicadas que afecten el resultado canónico — reconciliar
-  contra la tabla comparativa de 1A. **Pendiente (1B-metodología).**
+  contra la tabla comparativa de 1A. **Reconciliado en 1B-M**: 12
+  diferencias clasificadas, 4 bugs técnicos corregidos, 7 decisiones
+  metodológicas registradas como pendientes (una de las 12 no requería
+  acción — ya resuelta en 1B-P0).
 
 ### Orden obligatorio por cada bug
 
@@ -400,6 +416,18 @@ y se escala al revisor financiero externo.
 ---
 
 ## Bloque 1C — Casos dorados, trazabilidad y revisión externa
+
+> **1C-Prep realizado (2026-07-23) — Bloque 1C NO iniciado ni cerrado.**
+> Se crearon 3 casos dorados **técnicos y provisionales** (no formales,
+> no aprobados) para preparar este bloque, ver
+> `docs/velarix/bloque-1c/CASOS-DORADOS-PROVISIONALES.md` y
+> `MATRIZ-DE-PRUEBAS-FINANCIERAS.md`. Explícitamente **no** se hizo en
+> esta preparación: `BL-15` (trazabilidad completa), implementación real
+> del versionado de `BL-32` (solo se diseñó en 1A), ni ninguna
+> aprobación formal de un revisor financiero externo — los 3 casos
+> quedan etiquetados "Caso dorado técnico provisional — pendiente de
+> aprobación financiera" en todo momento. Bloque 1C sigue con sus
+> condiciones de entrada sin cumplir formalmente (ver abajo).
 
 ### Alcance
 

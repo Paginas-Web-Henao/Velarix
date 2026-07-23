@@ -137,8 +137,8 @@ decisión" ahora depende de **implementarla** en la secuencia correcta:
 | Tarea | Bloqueada por |
 |---|---|
 | Bloque 1B-P0 (corrección de BL-02/03/04/05/06) | **Completado 2026-07-23** — ver `docs/velarix/bloque-1b/REPORTE-IMPLEMENTACION-1B-P0.md` |
-| Bloque 1B-metodología (BL-17, R-19, ROE/ROA, escenarios) | Autorización explícita del fundador — sigue sin iniciarse |
-| Bloque 1C (casos dorados y trazabilidad) | Bloque 1B completo |
+| Bloque 1B-metodología (BL-17, R-19, ROE/ROA, escenarios) | **Completado parcialmente 2026-07-23** (1B-M) — 12 diferencias clasificadas, 4 bugs corregidos, 10 decisiones registradas como pendientes de aprobación. Ver `docs/velarix/bloque-1b-metodologia/REPORTE-RECONCILIACION-METODOLOGICA.md`. Las 10 decisiones en sí requieren al fundador/revisor externo |
+| Bloque 1C (casos dorados y trazabilidad) | Bloque 1B completo — **1C-Prep realizado 2026-07-23** (3 casos dorados técnicos provisionales, no formales), pero Bloque 1C como tal **no se inició**: falta `BL-15` (trazabilidad), implementación real de `BL-32`, y aprobación formal del revisor financiero externo |
 | Bloque 1E (integración y activación) | Bloques 1B, 1C **y** 1D todos cerrados — 1D-P0 tiene el código completo (2026-07-23), pero la migración SQL de BL-10 no está aplicada; el cierre formal de 1D es una decisión del fundador, no se autodeclara aquí |
 | Conexión real de `generate-narrative` y del PDF al servidor | Bloque 1E — no antes, bajo ninguna circunstancia |
 | Automatización de cobro (Fase 5) | Precio validado + al menos un cliente pagado |

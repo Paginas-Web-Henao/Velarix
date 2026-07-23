@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { computeCapitalStructure, resolveFinancialDebtTotal } from "../_shared/capital-structure.ts";
 import { canExecuteCalculation, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
+import { CANONICAL_METHODOLOGY } from "../_shared/financial-methodology.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,7 +62,7 @@ function computeProjections(
     const costOfSales = revenue * costRatio;
     const grossProfit = revenue - costOfSales;
     const ebitda = revenue * (ebitdaMargin / 100);
-    const depreciation = revenue * 0.03;
+    const depreciation = revenue * (CANONICAL_METHODOLOGY.assumptions.depreciationPctOfRevenue.value / 100);
     const ebit = ebitda - depreciation;
     const interest = totalDebt * (costOfDebt / 100);
     const ebt = ebit - interest;
@@ -87,8 +88,15 @@ function runEngine(input: any, sector: string, expectedGrowth: number) {
   const opex = Math.abs(is.opex || 0);
   const da = Math.abs(is.da || is.depreciation || 0);
   const interestExpense = Math.abs(is.interest_expense || 0);
-  const taxes = Math.abs(is.taxes || 0);
-  const netIncome = is.net_income || 0;
+  // Bloque 1B-M: `is.taxes`/`is.net_income` se leían en variables locales
+  // que ningún cálculo posterior de esta función usaba (ver
+  // docs/velarix/bloque-1a/BL-26-tabla-comparativa-motores.md sección 2,
+  // "impuestos históricos"/"utilidad neta histórica") — código muerto,
+  // eliminado. Los KPIs recalculan impuestos/utilidad neta con la tasa
+  // corporativa (netIncome0 más abajo), nunca con el valor histórico
+  // declarado; esa es una decisión metodológica pendiente (ver
+  // docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-PENDIENTES.md),
+  // no algo que esta eliminación de código muerto decida.
 
   // BL-05: el nombre real del campo en structured_inputs.balance_sheet es
   // `financial_debt_total` (build-structured-input/index.ts:210) — antes
@@ -105,13 +113,19 @@ function runEngine(input: any, sector: string, expectedGrowth: number) {
   const ebit0 = ebitda0 - da;
   const costRatio = costOfSales / revenue;
   const ebitdaMargin = (ebitda0 / revenue) * 100;
-  const taxRate = 30; // Colombian corporate rate
-  const capexPct = 5;
-  const wcPct = 3;
-  const terminalGrowth = 3;
-  const costOfDebt = 8;
-  const riskFreeRate = 4.35;
-  const erp = 5.80;
+  // Bloque 1B-M: estos 7 valores ya no son literales duplicados dentro de
+  // esta función — vienen del contrato tipado y versionado
+  // `_shared/financial-methodology.ts` (mismos valores exactos que antes,
+  // ningún número nuevo). Siguen siendo `approved: false` (provisionales)
+  // — ver docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-PENDIENTES.md.
+  const { assumptions } = CANONICAL_METHODOLOGY;
+  const taxRate = assumptions.taxRatePct.value;
+  const capexPct = assumptions.capexPctOfRevenue.value;
+  const wcPct = assumptions.workingCapitalPctOfRevenue.value;
+  const terminalGrowth = assumptions.terminalGrowthPct.value;
+  const costOfDebt = assumptions.costOfDebtPct.value;
+  const riskFreeRate = assumptions.riskFreeRatePct.value;
+  const erp = assumptions.equityRiskPremiumPct.value;
 
   // BL-05: estructura de capital (peso equity/deuda, Hamada, CAPM, WACC,
   // deuda neta) delegada al módulo puro compartido — la misma función
@@ -195,9 +209,21 @@ function runEngine(input: any, sector: string, expectedGrowth: number) {
   };
 
   // Scenarios
-  const mkScenario = (gMod: number, mMod: number, wMod: number, tg: number) => {
+  // Bloque 1B-M: antes, esta función no variaba capexPct/wcPct por
+  // escenario en absoluto (usaba siempre las constantes fijas de la
+  // línea ~109) — a diferencia del motor cliente
+  // (financial-engine.ts:376-400), que sí las ajusta por escenario
+  // (pesimista: +2pp/+1pp; optimista: -1pp/-1pp con piso de 1%). Sin
+  // ninguna razón documentada para la divergencia (ver
+  // docs/velarix/bloque-1a/BL-26-tabla-comparativa-motores.md sección 3),
+  // se corrige para que ambos motores calculen el mismo escenario de la
+  // misma forma — duplicación que producía resultados diferentes sin
+  // justificación.
+  const mkScenario = (gMod: number, mMod: number, wMod: number, tg: number, capexDelta: number, wcDelta: number) => {
     const sG = growth * gMod, sM = ebitdaMargin + mMod, sW = (waccPct + wMod) / 100;
-    const sP = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, sG, sM, capexPct, wcPct, sW);
+    const sCapexPct = Math.max(capexPct + capexDelta, 1);
+    const sWcPct = Math.max(wcPct + wcDelta, 1);
+    const sP = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, sG, sM, sCapexPct, sWcPct, sW);
     const sTg = tg / 100;
     let sEV = 0;
     if (sW > sTg) {
@@ -207,8 +233,8 @@ function runEngine(input: any, sector: string, expectedGrowth: number) {
     return { projections: sP, ev: sEV, assumptions: { growth: sG, ebitdaMargin: sM, wacc: waccPct + wMod, terminalGrowth: tg } };
   };
 
-  const pessimistic = mkScenario(0.6, -3, 1.5, 2);
-  const optimistic = mkScenario(1.4, 3, -1.5, 4);
+  const pessimistic = mkScenario(0.6, -3, 1.5, 2, 2, 1);
+  const optimistic = mkScenario(1.4, 3, -1.5, 4, -1, -1);
 
   return {
     projections,

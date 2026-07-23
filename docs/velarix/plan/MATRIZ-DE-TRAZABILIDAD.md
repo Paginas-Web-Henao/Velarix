@@ -54,6 +54,16 @@ enlaces rotos (`structured_inputs → fórmula aplicada`,
 exactamente igual de rotos que antes, y se cierran en los bloques ya
 indicados (1C/1D/1E), no en 1B-P0.
 
+**Actualizado 2026-07-23 (1B-M + 1C-Prep)**: `_shared/financial-methodology.ts`
+agrega la versión de metodología (`methodologyVersion`) que el enlace
+"`structured_inputs` → fórmula aplicada" necesitaba — pero el servidor
+**todavía no la persiste** en `calculation_result` (eso es la
+implementación real de `BL-32`, tarea de Bloque 1C, no hecha en esta
+preparación). Los 3 casos dorados provisionales
+(`docs/velarix/bloque-1c/CASOS-DORADOS-PROVISIONALES.md`) tampoco
+cambian ninguna fila de "Falta" a "Existe" — son pruebas técnicas, no
+trazabilidad de producción.
+
 **Actualizado 2026-07-23 (D-07)**: con `D-06`/`D-07` ya decididos y
 aprobados, cada enlace faltante tiene un bloque concreto donde se cierra.
 El orden real es: **1A diseña** (contrato, estados, versionado) → **1B
