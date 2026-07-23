@@ -54,6 +54,19 @@ decisión" ahora depende de **implementarla** en la secuencia correcta:
 
 ## Dependencias de seguridad — Bloque 1D (independiente de 1A/1B/1C como bloque, coordinado en archivos compartidos)
 
+> **Actualizado 2026-07-23 (1D-P0 completado)**: R-06, R-07 y el recorte
+> P0 de R-08 quedan corregidos en el código
+> (`_shared/authorization.ts` + Edge Functions). R-09 (`BL-10`) se
+> resolvió **junto con** R-08 en la misma migración SQL, tal como
+> anticipaba esta nota — pero la migración **no está aplicada**, así que
+> la brecha de auto-escalamiento de `role` sigue viva en cualquier
+> entorno real hasta que se ejecute. Migración corregida (imprecisión
+> transaccional de auditoría) y con rollback documentado
+> (`supabase/rollback/`) — intento de aplicación bloqueado por falta de
+> Supabase CLI/psql/Docker y de credenciales de conexión en este entorno,
+> no improvisado. Ver
+> `docs/velarix/bloque-1d/REPORTE-IMPLEMENTACION-1D-P0.md` §12.
+
 - R-06 (`ejecutar-calculo` sin ownership) — depende únicamente de que
   `D-06`/`D-07` ya estén decididos (lo están); no depende de que 1A/1B/1C
   avancen. Coordinar en secuencia (no en paralelo) con los cambios que 1A
@@ -126,7 +139,7 @@ decisión" ahora depende de **implementarla** en la secuencia correcta:
 | Bloque 1B-P0 (corrección de BL-02/03/04/05/06) | **Completado 2026-07-23** — ver `docs/velarix/bloque-1b/REPORTE-IMPLEMENTACION-1B-P0.md` |
 | Bloque 1B-metodología (BL-17, R-19, ROE/ROA, escenarios) | Autorización explícita del fundador — sigue sin iniciarse |
 | Bloque 1C (casos dorados y trazabilidad) | Bloque 1B completo |
-| Bloque 1E (integración y activación) | Bloques 1B, 1C **y** 1D todos cerrados |
+| Bloque 1E (integración y activación) | Bloques 1B, 1C **y** 1D todos cerrados — 1D-P0 tiene el código completo (2026-07-23), pero la migración SQL de BL-10 no está aplicada; el cierre formal de 1D es una decisión del fundador, no se autodeclara aquí |
 | Conexión real de `generate-narrative` y del PDF al servidor | Bloque 1E — no antes, bajo ninguna circunstancia |
 | Automatización de cobro (Fase 5) | Precio validado + al menos un cliente pagado |
 | Retainers/time entries (Fase 7) | Repetibilidad demostrada (Fase 6) — diferido explícitamente por negocio |

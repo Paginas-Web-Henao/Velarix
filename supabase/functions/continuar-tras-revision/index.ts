@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
+import { canContinueAfterReview, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,18 +14,35 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || serviceRoleKey;
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
+    const authHeader = req.headers.get("Authorization");
     const { analysis_id } = await req.json();
     if (!analysis_id) {
       return new Response(
         JSON.stringify({ success: false, error: { message: "analysis_id requerido" } }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // BL-08/BL-09: función privilegiada. Ownership por sí solo NUNCA es
+    // suficiente aquí -- a diferencia de ejecutar-calculo, el cliente
+    // propietario del análisis no puede aprobar/continuar su propia
+    // revisión. Se requiere analista, admin, o invocación interna real
+    // (nunca un campo público como {internal:true}).
+    const isInternalCall = isInternalServiceCall(authHeader, serviceRoleKey);
+    let actor: AuthenticatedActor | null = null;
+    if (!isInternalCall && authHeader) {
+      const anonClient = createClient(supabaseUrl, anonKey);
+      const { data: { user } } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
+      if (user) {
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+        actor = { userId: user.id, role: (profile?.role as ActorRole) || "user" };
+      }
     }
 
     // 1. Get analysis
@@ -38,6 +56,45 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ success: false, error: { message: "Análisis no encontrado" } }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 1b. Estado de la revisión manual más reciente + control de
+    // idempotencia (no se permite continuar dos veces la misma
+    // aprobación): si el análisis ya no está en
+    // "revision_manual_requerida", la continuación ya ocurrió antes.
+    const { data: review } = await supabase
+      .from("manual_reviews")
+      .select("*")
+      .eq("analysis_id", analysis_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const reviewState = (review as { estado?: string } | null)?.estado ?? null;
+    const alreadyContinued = analysis.status !== "revision_manual_requerida";
+
+    const decision = canContinueAfterReview({
+      actor,
+      isInternalCall,
+      analysisOwnerId: analysis.user_id,
+      reviewState,
+      alreadyContinued,
+    });
+
+    if (!decision.allowed) {
+      await supabase.from("audit_events").insert({
+        analysis_id,
+        user_id: actor?.userId || null,
+        event_type: decision.reasonCode === "owner_self_approval_blocked"
+          ? "acceso_rechazado_autoaprobacion"
+          : "acceso_rechazado_continuar_revision",
+        event_detail: `Motivo: ${decision.reasonCode}`,
+        component: "continuar-tras-revision",
+      });
+      return new Response(
+        JSON.stringify({ success: false, error: { code: "UNAUTHORIZED", message: decision.publicMessage } }),
+        { status: decision.httpStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -173,8 +230,9 @@ serve(async (req) => {
     // 7. Audit
     await supabase.from("audit_events").insert({
       analysis_id,
+      user_id: actor?.userId || null,
       event_type: "flujo_reanudado_tras_revision",
-      event_detail: "Validación aprobada post-revisión manual. Flujo continúa.",
+      event_detail: `Validación aprobada post-revisión manual. Flujo continúa. Autorizado por: ${decision.reasonCode}.`,
       component: "continuar-tras-revision",
     });
 

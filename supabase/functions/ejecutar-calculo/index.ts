@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { computeCapitalStructure, resolveFinancialDebtTotal } from "../_shared/capital-structure.ts";
+import { canExecuteCalculation, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -248,27 +249,59 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const startTime = Date.now();
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || serviceRoleKey;
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
     const { analysis_id } = await req.json();
     if (!analysis_id) throw new Error("analysis_id required");
 
     console.log(`[ejecutar-calculo] Starting for ${analysis_id}`);
 
-    // Get analysis with input_payload
+    // BL-07: identidad real resuelta server-side. Nunca se confía en un
+    // user_id enviado por el frontend — se deriva del JWT verificado
+    // (auth.getUser) o de una invocación interna real (comparación
+    // contra la service role key, no un campo público como {internal:true}).
+    const isInternalCall = isInternalServiceCall(authHeader, serviceRoleKey);
+    let actor: AuthenticatedActor | null = null;
+    if (!isInternalCall && authHeader) {
+      const anonClient = createClient(supabaseUrl, anonKey);
+      const { data: { user } } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
+      if (user) {
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+        actor = { userId: user.id, role: (profile?.role as ActorRole) || "user" };
+      }
+    }
+
+    // Get analysis with input_payload (siempre con service role, para
+    // poder decidir la autorización sin revelar antes de tiempo si el
+    // recurso existe).
     const { data: analysis, error: fetchErr } = await supabase
       .from("analyses")
       .select("*")
       .eq("id", analysis_id)
       .single();
+    const analysisOwnerId = (!fetchErr && analysis) ? analysis.user_id : null;
 
-    if (fetchErr || !analysis) throw new Error("Analysis not found");
+    const decision = canExecuteCalculation({ actor, isInternalCall, analysisOwnerId });
+    if (!decision.allowed) {
+      await supabase.from("audit_events").insert({
+        analysis_id: analysisOwnerId ? analysis_id : null, // evita violar la FK si el análisis no existe
+        user_id: actor?.userId || null,
+        event_type: "acceso_rechazado_ejecutar_calculo",
+        event_detail: `Motivo: ${decision.reasonCode}`,
+        component: "ejecutar-calculo",
+      });
+      return new Response(JSON.stringify({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: decision.publicMessage },
+      }), { status: decision.httpStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (!analysis) throw new Error("Analysis not found");
 
     const input = analysis.input_payload;
     if (!input || !input.income_statement?.revenue) {

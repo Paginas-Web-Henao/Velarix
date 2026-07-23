@@ -14,10 +14,31 @@ BL-03 y BL-05 tienen evidencia de trazado manual, pero sus pruebas de
 especificación ejecutables siguen **pendientes** — no se consideran
 resueltas por esta evidencia. Ver sección "Bloque 1A" para el detalle de
 entregables y el documento
-`docs/velarix/bloque-1a/REPORTE-CIERRE-BLOQUE-1A.md`. Bloques 1B, 1C, 1D y
-1E siguen **sin autorizar y sin iniciar** — ningún código de producción
-fue modificado durante 1A, solo se agregaron pruebas nuevas, un contrato
-de tipos no conectado, y documentación de diseño.
+`docs/velarix/bloque-1a/REPORTE-CIERRE-BLOQUE-1A.md`.
+
+**Bloque 1B-P0 completado (2026-07-23)**: BL-02, BL-03, BL-04, BL-05 y
+BL-06 corregidos con pruebas ejecutables reales. **1B-metodología sigue
+pendiente** (BL-17, R-19, ROE/ROA, escenarios). Ver
+`docs/velarix/bloque-1b/REPORTE-IMPLEMENTACION-1B-P0.md`.
+
+**Bloque 1D-P0 completado (2026-07-23)**: BL-07, BL-08, recorte P0 de
+BL-09 implementados y activos en el código. **BL-10 corregido y
+revisado, pero sigue sin aplicarse**: la migración SQL fue corregida
+(la auditoría de intentos rechazados no puede persistir dentro de la
+misma transacción que un `RAISE EXCEPTION` — se documentó esa limitación
+y se rediseñó `admin_set_user_role` para devolver un resultado
+estructurado en vez de lanzar excepción, permitiendo que sus rechazos sí
+se auditen de forma durable), se creó su rollback
+(`supabase/rollback/`), pero **no se pudo aplicar**: Supabase CLI,
+`psql` y Docker no están disponibles en este entorno, y no hay
+credenciales de conexión directa (`.env` solo tiene la anon key/URL/project
+id, sin service role key ni cadena de conexión). BL-10 permanece
+**abierto en producción real** hasta que el fundador aplique la
+migración manualmente. Ver
+`docs/velarix/bloque-1d/REPORTE-IMPLEMENTACION-1D-P0.md` §12.
+
+Bloques 1C y 1E, y el resto de 1B (1B-metodología), siguen **sin
+autorizar y sin iniciar**.
 
 ## Objetivo
 
@@ -444,6 +465,29 @@ indefinidamente hasta lograr esa aprobación — no se fuerza el cierre.
 
 ## Bloque 1D — Seguridad P0 del flujo
 
+> **1D-P0 completado (2026-07-23).** Ver
+> `docs/velarix/bloque-1d/REPORTE-IMPLEMENTACION-1D-P0.md` y
+> `MATRIZ-PRUEBAS-AUTORIZACION.md`. Se implementaron BL-07, BL-08, el
+> recorte P0 de BL-09 y BL-10 (migración SQL creada, **no aplicada**).
+> Hallazgo nuevo descubierto durante este bloque: la política RLS de
+> `manual_reviews` permitía la autoaprobación **directamente contra la
+> base de datos**, no solo por falta de verificación en la Edge
+> Function — corregido en la misma migración. No se tocó `src/App.tsx`
+> ni ningún gate de rol en el frontend (fuera de alcance explícito de
+> 1D-P0: "no dashboards", "no reorganices código") — la defensa
+> principal quedó en la Edge Function + RLS, tal como exige la regla
+> explícita de este bloque.
+>
+> **Finalización operativa (2026-07-23, sesión posterior)**: se corrigió
+> una imprecisión de la migración (auditaba un intento rechazado con un
+> `INSERT` que un `RAISE EXCEPTION` posterior revertía en la misma
+> transacción — ver §12.1 del reporte). Se creó el rollback
+> (`supabase/rollback/`). **La migración no se pudo aplicar**: sin
+> Supabase CLI, `psql` ni Docker disponibles, y sin credenciales de
+> conexión directa en este entorno — se reportó el bloqueo, no se
+> improvisó ninguna vía alternativa. BL-10 sigue **sin efecto real**
+> hasta que se aplique manualmente.
+
 ### Alcance
 
 Ejecución **secuencial**, no con agentes paralelos que toquen los mismos
@@ -546,16 +590,43 @@ Ver `R-06`, `R-07`, `R-08`, `R-09` en `plan/MATRIZ-DE-RIESGOS.md`.
 
 Las 10 listadas arriba, automatizadas.
 
+- [x] **Cumplido (1D-P0)**: las 10 (más 2 adicionales) están cubiertas
+      como pruebas puras reales en
+      `supabase/functions/_shared/authorization.test.ts` (24 pruebas,
+      todas pasan) — ver `docs/velarix/bloque-1d/MATRIZ-PRUEBAS-AUTORIZACION.md`
+      para el mapeo exacto. La verificación end-to-end contra un
+      Postgres/Deno real sigue pendiente (bloqueo ambiental, mismo que
+      Bloque 1A).
+
 ### Criterios de aceptación
 
 Las 10 pruebas pasan; ningún cliente propietario puede aprobar su propia
 revisión; ningún usuario puede auto-escalar su `role`.
+
+- [x] Las 10 pruebas (pure-function) pasan.
+- [x] `canContinueAfterReview` bloquea explícitamente al propietario
+      (`owner_self_approval_blocked`), y la migración de BL-10 cierra
+      también la vía de UPDATE directo a `manual_reviews`.
+- [x] `canChangeRole` + el trigger de BL-10 bloquean el auto-escalamiento
+      — pendiente de que la migración se **aplique** para que la
+      protección de base de datos tenga efecto real (hoy la protección
+      real y activa es la de la Edge Function/RLS de la aplicación
+      cuando exista; el trigger SQL está creado pero no aplicado).
 
 ### Plan de rollback
 
 Cambios aditivos de autorización — bajo riesgo de romper el flujo
 legítimo si siguen el patrón ya probado en las demás funciones y respetan
 la tabla de actores.
+
+Código (`ejecutar-calculo`, `continuar-tras-revision`): ningún commit
+todavía — revertir es descartar los archivos modificados. Migración SQL:
+no aplicada, por lo que no hay nada que revertir en Supabase; si se
+aplica en el futuro y hay que revertirla, el rollback es: `DROP TRIGGER
+trg_protect_profile_role`, `DROP FUNCTION protect_profile_role_column`,
+`DROP FUNCTION admin_set_user_role`, y restaurar la política `FOR ALL`
+original de `manual_reviews` (queda documentada en el comentario de la
+migración, con `DROP POLICY IF EXISTS` sobre las 4 nuevas).
 
 ### Condiciones de detención
 
