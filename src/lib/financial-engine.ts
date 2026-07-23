@@ -94,9 +94,15 @@ export const SECTOR_BENCHMARKS: Record<string, SectorBenchmark> = {
 
 export const SECTOR_KEYS = Object.keys(SECTOR_BENCHMARKS);
 
+export type ReportingCurrency = "COP" | "USD";
+
 export interface FinancialInputs {
   companyName: string;
   sector: string;
+  // Moneda en la que se reportan revenue/costOfSales/etc. y en la que el
+  // PDF debe presentar los valores (BL-04, Bloque 1B-P0). No cambia
+  // ningún cálculo — solo cómo se formatean los valores en el informe.
+  reportingCurrency: ReportingCurrency;
   // Historical (Year 0)
   revenue: number;
   costOfSales: number;
@@ -125,6 +131,7 @@ export interface FinancialInputs {
 export const DEFAULT_INPUTS: FinancialInputs = {
   companyName: "Empresa Demo",
   sector: "Software / Tecnología",
+  reportingCurrency: "COP",
   revenue: 3_000_000,
   costOfSales: 1_350_000,
   opex: 300_000,

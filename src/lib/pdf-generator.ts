@@ -8,6 +8,7 @@ import {
   SECTOR_BENCHMARKS,
   type AnalysisResult,
   type FinancialInputs,
+  type ReportingCurrency,
 } from "./financial-engine";
 
 // ═══════════════════════════════════════════════════════════════
@@ -82,8 +83,17 @@ const COMPLETO_PAGES: PageKey[] = [
 ];
 
 // ─── FORMAT HELPERS ─────────────────────────────────────────────
-const fUSD = (v: number | null | undefined) =>
-  v != null ? (Math.abs(v) >= 1e6 ? `USD ${(v / 1e6).toFixed(1)}M` : Math.abs(v) >= 1e3 ? `USD ${(v / 1e3).toFixed(0)}K` : `USD ${Math.round(v).toLocaleString("es-CO")}`) : "N/D";
+// BL-04 (Bloque 1B-P0): `fUSD` mostraba "USD" de forma incondicional sin
+// importar la moneda real del análisis (docs/velarix/bloque-1a/BL-26-*,
+// docs/velarix/bloque-1a/BL-30-*). `formatMoneda` es la versión
+// paramétrica — recibe la moneda explícitamente, no la asume.
+export function formatMoneda(v: number | null | undefined, currency: ReportingCurrency): string {
+  if (v == null) return "N/D";
+  const abs = Math.abs(v);
+  if (abs >= 1e6) return `${currency} ${(v / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${currency} ${(v / 1e3).toFixed(0)}K`;
+  return `${currency} ${Math.round(v).toLocaleString("es-CO")}`;
+}
 const fPctVal = (v: number | null | undefined) =>
   v != null ? `${(typeof v === "number" && v < 1 && v > -1 ? v * 100 : v).toFixed(1)}%` : "N/D";
 const fPctRaw = (v: number) => `${v.toFixed(1)}%`;
@@ -214,6 +224,11 @@ export async function generatePDF(
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const M = DS.margin.left;
   const W = DS.contentW;
+
+  // BL-04: moneda de reporte real del análisis, no un literal fijo. Se
+  // mantiene el nombre `fUSD` (en vez de renombrar sus 44 usos) para que
+  // esta corrección sea mínima y no toque el resto del archivo.
+  const fUSD = (v: number | null | undefined) => formatMoneda(v, inputs.reportingCurrency);
 
   const fecha = new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
   const empresa = inputs.companyName?.trim() || "Empresa demo";
@@ -430,7 +445,7 @@ export async function generatePDF(
         ["Empresa", empresa],
         ["Sector", sectorLabel],
         ["País", "Colombia"],
-        ["Moneda del análisis", "USD"],
+        ["Moneda del análisis", inputs.reportingCurrency],
         ["Fuente de benchmarks", bm.source],
         ["Fecha del informe", fecha],
       ],
@@ -526,7 +541,7 @@ export async function generatePDF(
 
     autoTable(doc, {
       startY: y, margin: { left: M, right: DS.margin.right },
-      head: [["Estado de Resultados", "Valor (USD)", "% Ingresos"]],
+      head: [["Estado de Resultados", `Valor (${inputs.reportingCurrency})`, "% Ingresos"]],
       body: bodyPnl,
       headStyles: { fillColor: DS.color.azulOscuro, textColor: DS.color.blanco, fontSize: 8.5, fontStyle: "bold" },
       bodyStyles: { fontSize: 9, textColor: DS.color.grisOscuro },
@@ -641,7 +656,7 @@ export async function generatePDF(
     ];
     autoTable(doc, {
       startY: y, margin: { left: M, right: DS.margin.right },
-      head: [["Situación Financiera", "Valor (USD)"]],
+      head: [["Situación Financiera", `Valor (${inputs.reportingCurrency})`]],
       body: bodyBal,
       headStyles: { fillColor: DS.color.azulOscuro, textColor: DS.color.blanco, fontSize: 8.5, fontStyle: "bold" },
       bodyStyles: { fontSize: 9, textColor: DS.color.grisOscuro },
@@ -883,7 +898,7 @@ export async function generatePDF(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(...DS.color.gris);
-    doc.text("Enterprise Value (USD) para cada combinación de WACC y g terminal", M, y);
+    doc.text(`Enterprise Value (${inputs.reportingCurrency}) para cada combinación de WACC y g terminal`, M, y);
     y += 5;
 
     const waccBase = result.wacc / 100;

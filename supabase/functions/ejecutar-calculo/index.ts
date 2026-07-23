@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { computeCapitalStructure, resolveFinancialDebtTotal } from "../_shared/capital-structure.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,7 +89,11 @@ function runEngine(input: any, sector: string, expectedGrowth: number) {
   const taxes = Math.abs(is.taxes || 0);
   const netIncome = is.net_income || 0;
 
-  const totalDebt = Math.abs(bs.total_debt || bs.financial_debt || 0);
+  // BL-05: el nombre real del campo en structured_inputs.balance_sheet es
+  // `financial_debt_total` (build-structured-input/index.ts:210) — antes
+  // se leía `total_debt`/`financial_debt`, campos inexistentes, forzando
+  // totalDebt a 0 siempre.
+  const totalDebt = resolveFinancialDebtTotal(bs);
   const cash = Math.abs(bs.cash || 0);
   const equity = Math.abs(bs.equity || bs.total_equity || 0);
 
@@ -104,20 +109,23 @@ function runEngine(input: any, sector: string, expectedGrowth: number) {
   const wcPct = 3;
   const terminalGrowth = 3;
   const costOfDebt = 8;
-  const riskFreeRate = 4.35 / 100;
-  const erp = 5.80 / 100;
-  const equityWeight = equity > 0 ? equity / (equity + totalDebt) : 0.70;
-  const debtWeight = 1 - equityWeight;
+  const riskFreeRate = 4.35;
+  const erp = 5.80;
 
-  // Beta re-levered (Hamada)
-  const deRatio = debtWeight / equityWeight;
-  const betaLevered = bench.beta * (1 + (1 - taxRate / 100) * deRatio);
-
-  // CAPM + WACC
-  const costOfEquity = riskFreeRate + betaLevered * erp;
-  const costOfDebtAfterTax = (costOfDebt / 100) * (1 - taxRate / 100);
-  const waccDecimal = costOfEquity * equityWeight + costOfDebtAfterTax * debtWeight;
-  const waccPct = waccDecimal * 100;
+  // BL-05: estructura de capital (peso equity/deuda, Hamada, CAPM, WACC,
+  // deuda neta) delegada al módulo puro compartido — la misma función
+  // que prueba `capital-structure.test.ts` demuestra que un `totalDebt`
+  // correctamente resuelto efectivamente cambia debtWeight/WACC/netDebt.
+  const capitalStructure = computeCapitalStructure({
+    totalDebt, cash, equity,
+    sectorBetaUnlevered: bench.beta,
+    taxRatePct: taxRate,
+    costOfDebtPct: costOfDebt,
+    riskFreeRatePct: riskFreeRate,
+    erpPct: erp,
+  });
+  const { betaLevered, costOfEquityPct, costOfDebtAfterTaxPct, waccPct, netDebt } = capitalStructure;
+  const waccDecimal = waccPct / 100;
 
   const growth = expectedGrowth || 25;
 
@@ -136,7 +144,7 @@ function runEngine(input: any, sector: string, expectedGrowth: number) {
 
   const sumDCF = projections.reduce((s, p) => s + p.discountedFcf, 0);
   const enterpriseValue = sumDCF + discountedTV;
-  const netDebt = totalDebt - cash;
+  // netDebt ya viene de computeCapitalStructure (capitalStructure.netDebt).
   const equityValue = Math.max(enterpriseValue - netDebt, 0);
 
   // Sensitivity ±1% WACC
@@ -211,8 +219,8 @@ function runEngine(input: any, sector: string, expectedGrowth: number) {
     kpis,
     valuation: {
       betaLevered,
-      costOfEquity: costOfEquity * 100,
-      costOfDebtAfterTax: costOfDebtAfterTax * 100,
+      costOfEquity: costOfEquityPct,
+      costOfDebtAfterTax: costOfDebtAfterTaxPct,
       wacc: waccPct,
       terminalValue,
       discountedTV,

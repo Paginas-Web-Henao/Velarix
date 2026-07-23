@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
+import { computeTotalConversionFactor, normalizeCurrencyCode } from "../_shared/currency.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,12 +33,12 @@ const SECTOR_SNAPSHOTS_2026: Record<string, any> = {
 // TRM from macro data (single source of truth)
 const TRM = 4080;
 
-function getAccountValue(accounts: any[], canonical: string): number | null {
-  const match = accounts.find((a: any) => a.canonical_account === canonical && a.value != null);
-  if (!match) return null;
-  const val = Number(match.value);
-  if (["cash", "accounts_receivable", "inventory", "ppe", "total_assets"].includes(canonical) && val < 0) return Math.abs(val);
-  return val;
+// BL-02: la consolidación de subcuentas (sumar todas las filas del mismo
+// `canonical_account`, no tomar solo la primera con `.find()`) ahora vive
+// en el módulo puro compartido `_shared/financial-accounts.ts`, usado
+// también por `validate-analysis` y `continuar-tras-revision`.
+function getAccountValue(accounts: HomologatedAccountRow[], canonical: string): number | null {
+  return sumAccountValue(accounts, canonical);
 }
 
 function buildDefaultSnapshot(sector: string) {
@@ -156,31 +158,37 @@ serve(async (req) => {
     if (interestExpense == null) qualityFlags.push("sin_gastos_financieros");
     if (ebitda == null) qualityFlags.push("ebitda_no_derivable");
 
-    // ── Currency conversion: ONLY when user chose a different currency ──
-    const monedaAnalisis = (analysis as any).moneda_analisis || "COP";
+    // ── Currency conversion (BL-03) ──
+    // monedaAnalisis: elección real del usuario (analyses.moneda_analisis,
+    // default 'COP' — es un valor de producto, no una moneda "detectada").
+    const monedaAnalisis = normalizeCurrencyCode((analysis as any).moneda_analisis) ?? "COP";
     const { data: auditParse } = await supabase.from("audit_events")
       .select("metadata").eq("analysis_id", analysis_id).eq("event_type", "parse_complete")
       .order("created_at", { ascending: false }).limit(1);
     const parseMeta = (auditParse?.[0]?.metadata as any) || {};
-    const monedaDoc = parseMeta.moneda_documento || "COP";
-    const factorEscala = parseMeta.factor_escala || 1;
+    // monedaDoc: moneda REAL del documento fuente, detectada por
+    // parse-document. Antes de la corrección de BL-03, este campo nunca
+    // sobrevivía la persistencia (ver parse-document/index.ts) y siempre
+    // caía al valor por defecto — ahora, si sigue ausente, es porque
+    // genuinamente no se detectó ninguna evidencia, no por un bug de
+    // persistencia. No se asume "COP" en ese caso.
+    const monedaDoc = normalizeCurrencyCode(parseMeta.moneda_documento);
+    const factorEscala = Number(parseMeta.factor_escala) || 1;
 
-    // Conversion factor: only apply if user selected a DIFFERENT currency
-    let factorConversion = 1;
-    let notaConversionSI: string | null = null;
-    if (monedaAnalisis === "USD" && monedaDoc === "COP") {
-      factorConversion = 1 / TRM;
-      notaConversionSI = `Valores convertidos de COP a USD (TRM ${TRM})`;
-    } else if (monedaAnalisis === "COP" && monedaDoc === "USD") {
-      factorConversion = TRM;
-      notaConversionSI = `Valores convertidos de USD a COP (TRM ${TRM})`;
-    }
-    // If monedaAnalisis === monedaDoc → factorConversion stays 1, no conversion
+    const { totalConversionFactor: factorTotal, currencyConversionApplied, currencyUndetected } =
+      computeTotalConversionFactor({
+        sourceCurrency: monedaDoc,
+        reportingCurrency: monedaAnalisis,
+        scaleFactor: factorEscala,
+        exchangeRate: TRM,
+      });
 
-    // Total factor = scale * currency conversion
-    const factorTotal = factorEscala * factorConversion;
-    if (factorTotal !== 1) {
-      qualityFlags.push(notaConversionSI || `Factor de escala aplicado: ${factorEscala}`);
+    if (currencyUndetected) {
+      qualityFlags.push("moneda_documento_no_detectada");
+    } else if (currencyConversionApplied) {
+      qualityFlags.push(`Valores convertidos de ${monedaDoc} a ${monedaAnalisis} (TRM ${TRM})`);
+    } else if (factorTotal !== 1) {
+      qualityFlags.push(`Factor de escala aplicado: ${factorEscala}`);
     }
 
     const conv = (v: number | null) => v !== null ? v * factorTotal : null;

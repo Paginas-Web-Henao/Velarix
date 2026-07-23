@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { evaluateMapAccountsResult } from "../_shared/pipeline-guards.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -121,13 +122,36 @@ serve(async (req) => {
       const mapResult = await mapResp.json();
       steps.push({ step: "map-accounts", success: mapResult.success, detail: mapResult.success ? `${mapResult.data?.total_mapped} cuentas mapeadas` : mapResult.error?.message });
 
-      if (mapResult.data?.has_blocking_issues) {
-        steps.push({ step: "map-accounts", success: false, detail: `Cuentas críticas faltantes: ${mapResult.data.missing_critical.join(", ")}` });
+      // BL-06: antes, ni `success: false` ni `has_blocking_issues: true`
+      // detenían el pipeline — la ejecución siempre continuaba a
+      // validación con cuentas mal homologadas o sin homologar, y
+      // terminaba produciendo un informe como si todo hubiera salido
+      // bien. `evaluateMapAccountsResult` es la misma función pura que
+      // prueba `pipeline-guards.test.ts`.
+      const decision = evaluateMapAccountsResult(mapResult);
+      if (decision.shouldAbort) {
+        steps.push({ step: "map-accounts", success: false, detail: decision.errorMessage });
+        await updateJob("homologacion", 0, decision.errorMessage || "Error en homologación", "error");
+        await supabase.from("analyses").update({ status: decision.analysisStatus }).eq("id", analysis_id);
+        await releaseLock(supabase, analysis_id);
+        return new Response(JSON.stringify({
+          success: false,
+          error: { code: decision.errorCode, message: decision.errorMessage },
+          data: { steps },
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       await updateJob("homologacion", 100, "Homologación completada.", "completado");
     } catch (e) {
-      steps.push({ step: "map-accounts", success: false, detail: e instanceof Error ? e.message : "Error" });
-      await updateJob("homologacion", 0, "Error en homologación", "error");
+      const errMsg = e instanceof Error ? e.message : "Error técnico durante la homologación.";
+      steps.push({ step: "map-accounts", success: false, detail: errMsg });
+      await updateJob("homologacion", 0, errMsg, "error");
+      await supabase.from("analyses").update({ status: "error_tecnico" }).eq("id", analysis_id);
+      await releaseLock(supabase, analysis_id);
+      return new Response(JSON.stringify({
+        success: false,
+        error: { code: "MAP_ACCOUNTS_ERROR", message: errMsg },
+        data: { steps },
+      }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Step 3: Validate

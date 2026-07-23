@@ -103,10 +103,17 @@ const Dashboard = () => {
       const equityWeight = totalCapital > 0 ? equity / totalCapital : DEFAULT_INPUTS.equityWeight;
       const debtWeight = 1 - equityWeight;
 
+      // BL-04: moneda real del análisis, tal como la persistió
+      // build-structured-input (input_payload.moneda_analisis) — no se
+      // recalcula aquí, solo se pasa al generador de PDF.
+      const reportingCurrency: FinancialInputs["reportingCurrency"] =
+        ip.moneda_analisis === "USD" ? "USD" : "COP";
+
       const inputs: FinancialInputs = {
         ...DEFAULT_INPUTS,
         companyName: analysis.company_name,
         sector: analysis.sector,
+        reportingCurrency,
         revenue,
         costOfSales,
         opex,

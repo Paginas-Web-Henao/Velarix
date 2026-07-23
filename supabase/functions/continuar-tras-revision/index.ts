@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,28 +78,33 @@ serve(async (req) => {
     }
 
     // 4. Build structured input from corrected homologations
-    const getValue = (canonical: string) => {
-      const found = cuentas.find((c: any) => c.canonical_account === canonical);
-      return found?.value || 0;
-    };
+    // BL-02: antes tomaba la primera fila con `.find()` sin siquiera
+    // filtrar `value != null`, y devolvía 0 en vez de distinguir ausencia
+    // real. Ahora usa el módulo puro compartido (suma todas las
+    // subcuentas del mismo `canonical_account`).
+    const getValue = (canonical: string): number | null =>
+      sumAccountValue(cuentas as HomologatedAccountRow[], canonical);
 
-    const revenue = getValue("revenue");
-    const costOfSales = getValue("cost_of_sales");
-    const opex = getValue("opex");
-    const da = getValue("da");
-    const interestExpense = getValue("interest_expense");
+    // Campos usados en aritmética directa en este archivo: se coacciona
+    // explícitamente `null -> 0` aquí, no dentro del helper compartido
+    // (que preserva `null` como "sin dato" para el resto de consumidores).
+    const revenue = getValue("revenue") ?? 0;
+    const costOfSales = getValue("cost_of_sales") ?? 0;
+    const opex = getValue("opex") ?? 0;
+    const da = getValue("da") ?? 0;
+    const interestExpense = getValue("interest_expense") ?? 0;
     const taxes = getValue("taxes");
     const cash = getValue("cash");
     const equity = getValue("equity");
     const totalAssets = getValue("total_assets");
     const totalLiabilities = getValue("total_liabilities");
-    const currentDebt = getValue("current_financial_debt");
-    const longTermDebt = getValue("long_term_financial_debt");
-    const financialDebtTotal = currentDebt + longTermDebt || getValue("financial_debt_total");
+    const currentDebt = getValue("current_financial_debt") ?? 0;
+    const longTermDebt = getValue("long_term_financial_debt") ?? 0;
+    const financialDebtTotal = (currentDebt + longTermDebt) || (getValue("financial_debt_total") ?? 0);
 
     const ebitda = revenue - costOfSales - opex + da;
     const ebit = ebitda - da;
-    const netIncome = getValue("net_income") || (ebit - interestExpense) * (1 - 0.3);
+    const netIncome = getValue("net_income") ?? (ebit - interestExpense) * (1 - 0.3);
 
     // Get snapshot
     const { data: snapshot } = await supabase

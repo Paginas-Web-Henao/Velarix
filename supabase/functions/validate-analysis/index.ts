@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { sumAccountValue, hasAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,13 +21,14 @@ interface ValidationResult {
   blocking: boolean;
 }
 
-function getVal(accounts: any[], canonical: string): number | null {
-  const m = accounts.find((a: any) => a.canonical_account === canonical && a.value != null);
-  return m ? Number(m.value) : null;
+// BL-02: reemplaza el `.find()` que tomaba solo la primera subcuenta
+// coincidente por la consolidación real (suma) del módulo compartido.
+function getVal(accounts: HomologatedAccountRow[], canonical: string): number | null {
+  return sumAccountValue(accounts, canonical);
 }
 
-function hasAccount(accounts: any[], canonical: string): boolean {
-  return accounts.some((a: any) => a.canonical_account === canonical && a.value != null);
+function hasAccount(accounts: HomologatedAccountRow[], canonical: string): boolean {
+  return hasAccountValue(accounts, canonical);
 }
 
 function evaluate(accounts: any[], documents: any[], periods: string[]): ValidationResult[] {

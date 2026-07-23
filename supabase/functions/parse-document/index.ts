@@ -151,10 +151,15 @@ function extraerExcel(bytes: Uint8Array): { filas: ParsedRow[]; metadatos: Recor
   }
 
   // Detect currency/scale info from headers (store in metadata, do NOT convert)
+  // BL-03: nunca se asume una moneda por defecto sin evidencia — si no se
+  // detecta ningún marcador explícito, monedaDoc queda en null (no "USD").
   const textoHeader = matriz.slice(0, 5).flat().filter(Boolean).join(" ");
-  let monedaDoc = "USD";
+  let monedaDoc: string | null = null;
   let escalaDoc = "";
   let factorEscala = 1;
+  if (/\bUSD\b|\bUS\$|dolares|dólares/i.test(textoHeader)) {
+    monedaDoc = "USD";
+  }
   if (/cop\s*mm|mm\s*cop|millones\s*de\s*pesos|cifras\s*en\s*millones/i.test(textoHeader)) {
     monedaDoc = "COP"; escalaDoc = "MM"; factorEscala = 1_000_000;
   } else if (/cop\s*miles|miles\s*de\s*pesos/i.test(textoHeader)) {
@@ -162,6 +167,7 @@ function extraerExcel(bytes: Uint8Array): { filas: ParsedRow[]; metadatos: Recor
   } else if (/\bCOP\b|pesos/i.test(textoHeader)) {
     monedaDoc = "COP"; escalaDoc = "unidades"; factorEscala = 1;
   }
+  const monedaDocumentoDetectada = monedaDoc !== null;
 
   // Detect header row (years)
   const patronAnio = /\b(19|20)\d{2}\b/;
@@ -231,7 +237,8 @@ function extraerExcel(bytes: Uint8Array): { filas: ParsedRow[]; metadatos: Recor
     metadatos: {
       hojas: nombreHojas, hoja_usada: hojaUsada, multiple_hojas: nombreHojas.length > 1,
       column_headers: columnHeaders.filter(Boolean), tipo_interno: "excel",
-      moneda_documento: monedaDoc, escala_documento: escalaDoc, factor_escala: factorEscala,
+      moneda_documento: monedaDoc, moneda_documento_detectada: monedaDocumentoDetectada,
+      escala_documento: escalaDoc, factor_escala: factorEscala,
       contenido_por_hoja: contenidoPorHoja,
     },
     textoCompleto,
@@ -426,18 +433,20 @@ function validarEstructuraAmigable(filas: ParsedRow[]): { valida: boolean; error
 // Currency Detection (non-Excel paths)
 // ═══════════════════════════════════════════════════════════════
 
-function detectarMoneda(filas: ParsedRow[], textoCompleto: string): { moneda: string; factor: number; nota: string | null } {
-  // Only detect currency — NO conversion. Conversion happens in build-structured-input.
+function detectarMoneda(filas: ParsedRow[], textoCompleto: string): { moneda: string | null; nota: string | null } {
+  // Solo detecta moneda — NO convierte. La conversión ocurre en build-structured-input.
+  // BL-03: nunca se asume una moneda por defecto sin evidencia — si no hay
+  // ningún indicio (ni texto explícito ni magnitud), se devuelve null.
   const esUSD = /\bUSD\b|\bUS\$|dolares|dólares/i.test(textoCompleto);
-  if (esUSD) return { moneda: "USD", factor: 1, nota: null };
+  if (esUSD) return { moneda: "USD", nota: null };
   const esCOPMM = /cop\s*mm|mm\s*cop|millones\s*de\s*pesos|cifras\s*en\s*millones/i.test(textoCompleto);
-  if (esCOPMM) return { moneda: "COP", factor: 1, nota: "Valores en COP (millones)" };
+  if (esCOPMM) return { moneda: "COP", nota: "Valores en COP (millones)" };
   const esCOP = /\bCOP\b|\$\s*\d|pesos/i.test(textoCompleto);
-  if (esCOP) return { moneda: "COP", factor: 1, nota: "Valores en COP" };
+  if (esCOP) return { moneda: "COP", nota: "Valores en COP" };
   const valores = filas.filter(f => f.valor !== null).map(f => Math.abs(f.valor!));
   const max = valores.length > 0 ? Math.max(...valores) : 0;
-  if (max > 1_000_000_000) return { moneda: "COP", factor: 1, nota: "Valores detectados en COP (por magnitud)" };
-  return { moneda: "USD", factor: 1, nota: null };
+  if (max > 1_000_000_000) return { moneda: "COP", nota: "Valores detectados en COP (por magnitud)" };
+  return { moneda: null, nota: null };
 }
 
 function detectarEscala(filas: ParsedRow[]): { escala: number; nota: string | null } {
@@ -562,20 +571,27 @@ serve(async (req) => {
     filas = detectarConvencionSignos(filas);
 
     // Currency/scale for non-Excel
+    // BL-03: antes, `moneda` se descartaba siempre (solo se guardaba si
+    // `factorMoneda !== 1`, y `factorMoneda` de `detectarMoneda` era
+    // siempre 1 — esa rama nunca se ejecutaba). Ahora se persiste la
+    // moneda detectada (o `null` si no hay evidencia) de forma
+    // incondicional, igual que la escala.
     const yaConvertido = metadatos.factor_conversion_aplicado !== undefined;
     if (!yaConvertido) {
-      const { factor: factorMoneda, nota: notaMoneda } = detectarMoneda(filas, textoPlano);
-      if (factorMoneda !== 1) {
-        filas = filas.map(f => ({ ...f, valor: f.valor !== null ? Math.round(f.valor * factorMoneda) : null }));
-        metadatos = { ...metadatos, factor_conversion: factorMoneda, nota_moneda: notaMoneda };
+      const { moneda: monedaDetectadaTexto, nota: notaMoneda } = detectarMoneda(filas, textoPlano);
+      const { escala, nota: notaEscala } = detectarEscala(filas);
+      if (escala !== 1) {
+        filas = filas.map(f => ({ ...f, valor: f.valor !== null ? f.valor * escala : null }));
       }
-      if (factorMoneda === 1) {
-        const { escala, nota: notaEscala } = detectarEscala(filas);
-        if (escala !== 1) {
-          filas = filas.map(f => ({ ...f, valor: f.valor !== null ? f.valor * escala : null }));
-          metadatos = { ...metadatos, escala_detectada: escala, nota_escala: notaEscala };
-        }
-      }
+      metadatos = {
+        ...metadatos,
+        moneda_documento: monedaDetectadaTexto,
+        moneda_documento_detectada: monedaDetectadaTexto !== null,
+        escala_documento: escala !== 1 ? String(escala) : "",
+        factor_escala: escala,
+        nota_moneda: notaMoneda,
+        nota_escala: notaEscala,
+      };
     }
 
     // Content detection
@@ -639,6 +655,13 @@ serve(async (req) => {
         tiempo_ms: tiempoMs,
         contenido_detectado: contenido,
         nota_conversion: metadatos.nota_conversion || metadatos.nota_moneda || null,
+        // BL-03: antes se descartaban estos campos numéricos/de moneda —
+        // solo sobrevivía una nota de texto para humanos. Ahora se
+        // persisten realmente, que es lo que `build-structured-input` lee.
+        moneda_documento: metadatos.moneda_documento ?? null,
+        moneda_documento_detectada: metadatos.moneda_documento_detectada ?? false,
+        escala_documento: metadatos.escala_documento ?? "",
+        factor_escala: metadatos.factor_escala ?? 1,
       },
     });
 
@@ -654,6 +677,13 @@ serve(async (req) => {
         contenido_detectado: contenido,
         nota_conversion: metadatos.nota_conversion || metadatos.nota_moneda || null,
         ai_fallback: usedAIFallback, tiempo_ms: tiempoMs,
+        // BL-03: campos reales que `build-structured-input` lee de este
+        // mismo evento (`event_type: "parse_complete"`) para decidir la
+        // conversión de moneda/escala — antes se descartaban aquí.
+        moneda_documento: metadatos.moneda_documento ?? null,
+        moneda_documento_detectada: metadatos.moneda_documento_detectada ?? false,
+        escala_documento: metadatos.escala_documento ?? "",
+        factor_escala: metadatos.factor_escala ?? 1,
       },
     });
 
