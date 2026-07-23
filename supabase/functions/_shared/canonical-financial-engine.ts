@@ -13,27 +13,29 @@
 // Usa los tipos reales de `structured_input` tal como los escribe
 // `build-structured-input/index.ts` — no el `FinancialInputs` del motor
 // cliente.
+//
+// La normalización del input efectivo (`Math.abs()` por campo, fallback
+// de sector, fallback de crecimiento, fallback de moneda/factor) vive
+// centralizada en `canonical-input-normalization.ts` desde el ajuste de
+// semántica de fingerprint/procedencia (2026-07-23) — el fingerprint del
+// input (`calculation-fingerprint.ts`) importa exactamente las mismas
+// funciones, para que nunca puedan divergir. Mismas reglas de siempre,
+// solo extraídas; ningún resultado de A/B/C cambia.
 
 import { computeCapitalStructure, resolveFinancialDebtTotal } from "./capital-structure.ts";
 import { CANONICAL_METHODOLOGY } from "./financial-methodology.ts";
+import {
+  SECTOR_BENCHMARKS,
+  resolveEffectiveIncomeStatement,
+  resolveEffectiveCash,
+  resolveEffectiveEquity,
+  resolveEffectiveSectorBenchmark,
+  resolveEffectiveGrowth,
+  resolveEffectiveMoneda,
+  resolveEffectiveFactorConversion,
+} from "./canonical-input-normalization.ts";
 
-export const SECTOR_BENCHMARKS: Record<string, { beta: number; ebitdaMargin: number; evEbitda: number; evRevenue: number; waccRef: number }> = {
-  "Software / Tecnología":          { beta: 1.22, ebitdaMargin: 26,   evEbitda: 13,   evRevenue: 4.8, waccRef: 11.2 },
-  "Retail / Comercio":              { beta: 1.08, ebitdaMargin: 18.5, evEbitda: 9.5,  evRevenue: 2.2, waccRef: 10.2 },
-  "Servicios empresariales":        { beta: 0.98, ebitdaMargin: 20.5, evEbitda: 10.5, evRevenue: 2.6, waccRef: 9.6 },
-  "Manufactura":                    { beta: 1.18, ebitdaMargin: 16.5, evEbitda: 8.5,  evRevenue: 1.9, waccRef: 10.6 },
-  "Consumo":                        { beta: 0.93, ebitdaMargin: 22.5, evEbitda: 11.5, evRevenue: 3.1, waccRef: 9.1 },
-  "Alimentos y bebidas":            { beta: 0.78, ebitdaMargin: 18.5, evEbitda: 10.5, evRevenue: 2.3, waccRef: 9.1 },
-  "Agroindustria":                  { beta: 0.83, ebitdaMargin: 15.5, evEbitda: 8.5,  evRevenue: 1.6, waccRef: 9.6 },
-  "Salud":                          { beta: 0.88, ebitdaMargin: 20.5, evEbitda: 11.5, evRevenue: 2.9, waccRef: 9.6 },
-  "Educación":                      { beta: 0.73, ebitdaMargin: 18.5, evEbitda: 9.5,  evRevenue: 2.1, waccRef: 8.6 },
-  "Transporte y logística":         { beta: 1.03, ebitdaMargin: 14.5, evEbitda: 8.5,  evRevenue: 1.7, waccRef: 10.1 },
-  "Construcción e infraestructura": { beta: 1.13, ebitdaMargin: 13.5, evEbitda: 7.5,  evRevenue: 1.5, waccRef: 10.6 },
-  "Energía y utilities":            { beta: 0.52, ebitdaMargin: 36,   evEbitda: 9.5,  evRevenue: 3.1, waccRef: 8.1 },
-  "Turismo y hospitalidad":         { beta: 1.28, ebitdaMargin: 16.5, evEbitda: 9.5,  evRevenue: 2.1, waccRef: 11.1 },
-  "Inmobiliario":                   { beta: 0.68, ebitdaMargin: 41,   evEbitda: 13.5, evRevenue: 5.2, waccRef: 8.6 },
-  "Financiero / Seguros":           { beta: 0.83, ebitdaMargin: 31,   evEbitda: 10.5, evRevenue: 3.6, waccRef: 9.1 },
-};
+export { SECTOR_BENCHMARKS };
 
 export interface CanonicalIncomeStatement {
   revenue?: number | null;
@@ -171,19 +173,12 @@ export function runCanonicalFinancialEngine(
   sector: string,
   expectedGrowth: number | null | undefined,
 ): CanonicalFinancialEngineResult {
-  const bench = SECTOR_BENCHMARKS[sector] || SECTOR_BENCHMARKS["Software / Tecnología"];
-  const is = input.income_statement || {};
-  const bs = input.balance_sheet || {};
+  const bench = resolveEffectiveSectorBenchmark(sector);
+  const { revenue, costOfSales, opex, da, interestExpense } = resolveEffectiveIncomeStatement(input.income_statement);
 
-  const revenue = Math.abs(is.revenue || 0);
-  const costOfSales = Math.abs(is.cost_of_sales || 0);
-  const opex = Math.abs(is.opex || 0);
-  const da = Math.abs(is.da || is.depreciation || 0);
-  const interestExpense = Math.abs(is.interest_expense || 0);
-
-  const totalDebt = resolveFinancialDebtTotal(bs);
-  const cash = Math.abs(bs.cash || 0);
-  const equity = Math.abs(bs.equity || bs.total_equity || 0);
+  const totalDebt = resolveFinancialDebtTotal(input.balance_sheet || {});
+  const cash = resolveEffectiveCash(input.balance_sheet);
+  const equity = resolveEffectiveEquity(input.balance_sheet);
 
   if (revenue === 0) throw new Error("Revenue es 0 — no se puede calcular valoración.");
 
@@ -212,7 +207,7 @@ export function runCanonicalFinancialEngine(
   const { betaLevered, costOfEquityPct, costOfDebtAfterTaxPct, waccPct, netDebt } = capitalStructure;
   const waccDecimal = waccPct / 100;
 
-  const growth = expectedGrowth || 25;
+  const growth = resolveEffectiveGrowth(expectedGrowth);
 
   // Projections
   const projections = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, waccDecimal);
@@ -320,7 +315,7 @@ export function runCanonicalFinancialEngine(
     },
     sensitivityMatrix,
     sectorBenchmark: bench,
-    moneda: input.moneda_analisis || "COP",
-    factor_conversion: input.factor_conversion || 1,
+    moneda: resolveEffectiveMoneda(input.moneda_analisis),
+    factor_conversion: resolveEffectiveFactorConversion(input.factor_conversion),
   };
 }

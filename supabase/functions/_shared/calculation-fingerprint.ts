@@ -21,6 +21,16 @@
 //      forma síncrona, sin dependencias externas, igual en Deno y Vitest.
 
 import type { CanonicalStructuredInput } from "./canonical-financial-engine.ts";
+import {
+  resolveEffectiveIncomeStatement,
+  resolveEffectiveCash,
+  resolveEffectiveEquity,
+  resolveEffectiveSectorBenchmark,
+  resolveEffectiveGrowth,
+  resolveEffectiveMoneda,
+  resolveEffectiveFactorConversion,
+} from "./canonical-input-normalization.ts";
+import { resolveFinancialDebtTotal } from "./capital-structure.ts";
 
 /**
  * Serializa cualquier valor JSON-compatible de forma determinística:
@@ -79,27 +89,54 @@ export function fnv1a64Hex(input: string): string {
 }
 
 /**
- * Fingerprint determinístico del input efectivamente usado por
- * `runCanonicalFinancialEngine` (income_statement, balance_sheet, moneda,
- * factor de conversión, sector y crecimiento esperado). Deliberadamente
- * NO incluye `analysis_id`, timestamps, tokens de sesión ni ningún otro
- * dato ajeno al cálculo financiero — dos análisis distintos con
- * exactamente las mismas cifras producen el mismo fingerprint, y ese es
- * el comportamiento esperado (el fingerprint identifica el INPUT
- * numérico, no el caso de negocio).
+ * Fingerprint determinístico del input EFECTIVAMENTE usado por
+ * `runCanonicalFinancialEngine` — no de los objetos crudos
+ * `income_statement`/`balance_sheet` tal como llegan. Ajuste de
+ * semántica (2026-07-23): antes se serializaban esos objetos completos,
+ * lo que hacía cambiar el fingerprint por campos que el motor ni
+ * siquiera lee (`taxes`, `net_income`), por campos de deuda ignorados
+ * por la prioridad real (`resolveFinancialDebtTotal`), o por
+ * representaciones distintas que el motor normaliza al mismo valor
+ * (`revenue: -100` y `revenue: 100`, ambos `Math.abs()`-normalizados a
+ * 100). Ahora se calcula exclusivamente sobre los valores resueltos por
+ * `canonical-input-normalization.ts` — las MISMAS funciones que usa el
+ * motor, importadas aquí, nunca reimplementadas — para que el motor y el
+ * fingerprint no puedan divergir.
+ *
+ * Deliberadamente NO incluye `analysis_id`, timestamps, tokens de sesión
+ * ni ningún otro dato ajeno al cálculo financiero — dos inputs que
+ * producen exactamente el mismo cálculo (aunque su representación cruda
+ * difiera) producen el mismo fingerprint, y ese es el comportamiento
+ * esperado (el fingerprint identifica el cálculo EFECTIVO, no la forma
+ * literal del JSON de origen).
  */
 export function computeInputFingerprint(
   input: CanonicalStructuredInput,
   sector: string,
   expectedGrowth: number | null | undefined,
 ): string {
+  const { revenue, costOfSales, opex, da, interestExpense } = resolveEffectiveIncomeStatement(input.income_statement);
+  const financialDebtTotal = resolveFinancialDebtTotal(input.balance_sheet || {});
+  const cash = resolveEffectiveCash(input.balance_sheet);
+  const equity = resolveEffectiveEquity(input.balance_sheet);
+  const sectorBenchmark = resolveEffectiveSectorBenchmark(sector);
+  const growth = resolveEffectiveGrowth(expectedGrowth);
+  const monedaAnalisis = resolveEffectiveMoneda(input.moneda_analisis);
+  const factorConversion = resolveEffectiveFactorConversion(input.factor_conversion);
+
   const payload = {
-    income_statement: input.income_statement ?? null,
-    balance_sheet: input.balance_sheet ?? null,
-    moneda_analisis: input.moneda_analisis ?? null,
-    factor_conversion: input.factor_conversion ?? null,
-    sector,
-    expected_growth: expectedGrowth ?? null,
+    revenue,
+    cost_of_sales: costOfSales,
+    opex,
+    da,
+    interest_expense: interestExpense,
+    financial_debt_total: financialDebtTotal,
+    cash,
+    equity,
+    moneda_analisis: monedaAnalisis,
+    factor_conversion: factorConversion,
+    sector_benchmark: sectorBenchmark,
+    expected_growth: growth,
   };
   return fnv1a64Hex(canonicalStringify(payload));
 }

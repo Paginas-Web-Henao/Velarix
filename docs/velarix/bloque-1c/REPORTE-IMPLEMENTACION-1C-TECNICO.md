@@ -18,11 +18,15 @@ Módulo puro y tipado. Responde, para 8 cifras financieras priorizadas
 Reutiliza exclusivamente IDs que ya existen (`account_homologations.id`,
 `.document_id`, `.canonical_account`) — no crea ninguna tabla nueva.
 
-Cada cifra tiene un `source_status`: `"complete"` (todas sus subcuentas
-tienen fila homologada), `"partial"` (solo algunas — aplica a
-`financial_debt_total`, que es la suma de deuda corriente + deuda de
-largo plazo) o `"missing"` (ninguna). El objeto completo también expone
-un `overall_status` agregado.
+Cada cifra tiene un `source_status`: `"complete"` (**ajuste de semántica,
+2026-07-23**: exige que TODAS sus subcuentas requeridas tengan al menos
+una homologación identificable **con `document_id` no nulo** — antes
+bastaba con que existiera la fila homologada, sin exigir el documento),
+`"partial"` (homologación encontrada pero sin documento, o solo una
+parte de una cifra compuesta con homologación+documento — aplica en
+particular a `financial_debt_total`, suma de deuda corriente + deuda de
+largo plazo) o `"missing"` (ninguna homologación en absoluto). El objeto
+completo también expone un `overall_status` agregado.
 
 **Limitación real, documentada explícitamente, no oculta**:
 `source_row_ids` es siempre `null` con `source_row_ids_status: "missing"`
@@ -54,21 +58,36 @@ dependencias externas, síncrono en Deno y en Vitest por igual (se evitó
 nada aquí: este fingerprint no tiene fines de seguridad). Ver comentarios
 del archivo para el detalle del porqué de esta elección.
 
-`computeInputFingerprint` se calcula únicamente sobre lo que
-`runCanonicalFinancialEngine` efectivamente usa (`income_statement`,
-`balance_sheet`, `moneda_analisis`, `factor_conversion`, `sector`,
-`expected_growth`) — nunca sobre `analysis_id`, timestamps, tokens de
-sesión ni ningún otro dato ajeno al cálculo.
+**Ajuste de semántica (2026-07-23)**: `computeInputFingerprint` ya no
+serializa los objetos crudos `income_statement`/`balance_sheet`. Se
+calcula sobre los valores EFECTIVOS que consume
+`runCanonicalFinancialEngine` — revenue/costOfSales/opex/da/
+interestExpense normalizados con `Math.abs()`, deuda resuelta vía
+`resolveFinancialDebtTotal`, cash/equity normalizados, el benchmark de
+sector realmente resuelto (no el string crudo), y el growth/moneda/
+factor con sus fallbacks reales. Esas reglas viven centralizadas en el
+nuevo módulo puro `_shared/canonical-input-normalization.ts`, importado
+tanto por el motor (`canonical-financial-engine.ts`) como por el
+fingerprint — nunca reimplementadas por separado. Esto corrige que el
+fingerprint cambiara antes por campos que el motor no lee (`taxes`,
+`net_income`), por campos de deuda ignorados por la prioridad real, o
+por representaciones distintas que el motor normaliza al mismo valor
+(`revenue: -100` y `revenue: 100`). Sigue sin incluir `analysis_id`,
+timestamps, tokens de sesión ni ningún otro dato ajeno al cálculo.
 
 ## 2. Propagación real implementada
 
 `build-structured-input/index.ts` ahora construye `provenance` a partir
-de las mismas filas de `account_homologations` que ya consultaba
-(ninguna consulta nueva a Supabase) y la incluye como
-`structuredInput.provenance` — ese objeto es el mismo que
-`run-analysis-pipeline` copia a `analyses.input_payload`, así que la
-procedencia viaja con el input hasta `ejecutar-calculo` sin ningún paso
-adicional.
+de las mismas filas de `account_homologations` que ya consultaba — **no
+se agregó ninguna consulta nueva para obtener homologaciones**. **Corrección**:
+sí se agregó una consulta nueva, pero distinta — un `select("id")` sobre
+`structured_inputs` para reutilizar (o generar) el id real de esa fila
+antes de construir `provenance.structured_input_id`, ya que ese id debe
+existir antes de poder incluirlo en el propio payload que se persiste en
+esa misma fila. `provenance` se incluye como `structuredInput.provenance`
+— ese objeto es el mismo que `run-analysis-pipeline` copia a
+`analyses.input_payload`, así que la procedencia viaja con el input hasta
+`ejecutar-calculo` sin ningún paso adicional.
 
 `ejecutar-calculo/index.ts` importa `computeInputFingerprint`,
 `buildCalculationVersionInfo` y `buildMissingProvenance` (o usa la
@@ -83,15 +102,19 @@ tarea de Bloque 1E, no de este bloque.
 
 ## 3. Compatibilidad
 
-`canonical-financial-engine.ts` (fórmulas del motor) **no se modificó ni
-una línea** en este bloque. `projections`, `scenarios`, `kpis`,
-`valuation`, `sensitivityMatrix`, `sectorBenchmark`, `moneda` y
+**Corrección (ajuste de semántica, 2026-07-23)**: `canonical-financial-engine.ts`
+sí se tocó, pero exclusivamente para EXTRAER la normalización del input
+(`Math.abs()` por campo, fallback de sector/growth/moneda/factor) al
+nuevo módulo `canonical-input-normalization.ts` — mismas reglas exactas,
+ninguna fórmula ni resultado cambiado. `projections`, `scenarios`,
+`kpis`, `valuation`, `sensitivityMatrix`, `sectorBenchmark`, `moneda` y
 `factor_conversion` siguen siendo exactamente los mismos objetos que
 produce `runCanonicalFinancialEngine` — verificado con una prueba de
 compatibilidad que compara por referencia/igualdad (no solo por tipo).
 Las regresiones numéricas exactas de los Casos A/B/C
 (`canonical-financial-engine.golden-cases.test.ts`) no cambiaron: mismo
-archivo, mismas 19 pruebas, mismos valores esperados.
+archivo, mismas 19 pruebas, mismos valores esperados — reconfirmado tras
+la extracción.
 
 ## 4. Pruebas nuevas
 
@@ -102,7 +125,13 @@ archivo, mismas 19 pruebas, mismos valores esperados.
 | `calculation-provenance.test.ts` | Trazabilidad completa/parcial/missing (incluido el caso compuesto `financial_debt_total`), referencias de revenue/deuda/caja/equity preservadas, `source_row_ids` siempre `null`+`"missing"` explícito, sin secretos |
 | `calculation-envelope.integration.test.ts` | Compatibilidad del envelope sobre los 3 fixtures dorados del servidor, `revenue=0` sigue rechazado, verificación estática de que `ejecutar-calculo/index.ts` importa y usa realmente los 3 módulos nuevos |
 
-32 pruebas nuevas, todas verdes. Total de la suite: 172 pasan + 1 falla
+32 pruebas nuevas en la implementación inicial de este bloque, todas
+verdes (total en ese momento: 172 pasan + 1 falla esperada). **Ajuste de
+semántica de fingerprint/procedencia (2026-07-23)**: pruebas del
+fingerprint reescritas sobre el input efectivo (normalización
+centralizada en `canonical-input-normalization.ts`) y pruebas nuevas de
+procedencia (`document_id` requerido para `"complete"`, fallback de
+moneda/factor real). Total actual de la suite: 185 pasan + 1 falla
 esperada (`revenue=0` del motor cliente, sin cambios).
 
 ## 5. Estado al terminar este bloque

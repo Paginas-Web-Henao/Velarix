@@ -104,3 +104,19 @@ fila pasa a "Existe" (completa): las dos filas de narrativa/PDF siguen
 parciales, no completos (ver `plan/BACKLOG-CLASIFICADO.md`). La
 aprobación formal del revisor financiero externo sigue pendiente
 (`docs/velarix/bloque-1c/PAQUETE-REVISION-FINANCIERA.md`).
+
+**Actualizado 2026-07-23 (ajuste de semántica de fingerprint/procedencia)**:
+corrección sobre la fila `account_homologations → structured_inputs`:
+un campo solo cuenta como trazabilidad "complete" si su homologación
+tiene además `document_id` no nulo — una homologación sin documento
+identificable queda "partial", no "complete" (antes bastaba con que
+existiera la fila homologada). El fingerprint (`input_fingerprint`, fila
+`structured_inputs → fórmula aplicada`) ya no se calcula sobre los
+objetos crudos `income_statement`/`balance_sheet`, sino sobre los
+valores EFECTIVOS que usa el motor (normalización centralizada en el
+nuevo `_shared/canonical-input-normalization.ts`, importado también por
+`canonical-financial-engine.ts` — extracción sin cambio de fórmulas ni
+de resultados A/B/C). Corrección adicional: la construcción de
+`provenance` en `build-structured-input` no agregó una consulta nueva
+para homologaciones, pero sí agregó una consulta nueva a
+`structured_inputs` (para reutilizar su id).

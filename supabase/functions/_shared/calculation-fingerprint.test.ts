@@ -1,6 +1,8 @@
-// Bloque 1C-T — Pruebas del fingerprint determinístico del input canónico.
-// Importa las funciones reales, nunca reimplementa la serialización o el
-// hash dentro de la prueba.
+// Bloque 1C-T (ajuste de semántica) — Pruebas del fingerprint
+// determinístico del input EFECTIVO que consume
+// `runCanonicalFinancialEngine`. Importa las funciones reales, nunca
+// reimplementa la serialización, el hash ni la normalización dentro de
+// la prueba.
 
 import { describe, it, expect } from "vitest";
 import { canonicalStringify, fnv1a64Hex, computeInputFingerprint } from "./calculation-fingerprint";
@@ -14,7 +16,7 @@ const BASE_INPUT: CanonicalStructuredInput = {
 };
 
 describe("canonicalStringify — serialización determinística", () => {
-  it("1. produce el mismo string aunque cambie el orden de las propiedades (a cualquier nivel de anidamiento)", () => {
+  it("produce el mismo string aunque cambie el orden de las propiedades (a cualquier nivel de anidamiento)", () => {
     const a = { z: 1, a: { y: 2, x: 3 }, m: [1, 2, 3] };
     const b = { a: { x: 3, y: 2 }, m: [1, 2, 3], z: 1 };
     expect(canonicalStringify(a)).toBe(canonicalStringify(b));
@@ -44,14 +46,14 @@ describe("fnv1a64Hex — hash determinístico (no criptográfico)", () => {
   });
 });
 
-describe("computeInputFingerprint — fingerprint del input efectivamente usado por el motor", () => {
-  it("2. el mismo input produce el mismo fingerprint", () => {
+describe("computeInputFingerprint — fingerprint del input EFECTIVO (normalizado, no del JSON crudo)", () => {
+  it("mismo input → mismo fingerprint", () => {
     const f1 = computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(structuredClone(BASE_INPUT), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(JSON.parse(JSON.stringify(BASE_INPUT)), "Software / Tecnología", 45);
     expect(f1).toBe(f2);
   });
 
-  it("el mismo input con las propiedades de income_statement/balance_sheet reordenadas produce el mismo fingerprint", () => {
+  it("9. el orden de las propiedades de income_statement/balance_sheet no afecta el fingerprint", () => {
     const reordered: CanonicalStructuredInput = {
       moneda_analisis: "COP",
       factor_conversion: 1,
@@ -62,37 +64,84 @@ describe("computeInputFingerprint — fingerprint del input efectivamente usado 
       .toBe(computeInputFingerprint(reordered, "Software / Tecnología", 45));
   });
 
-  it("3. cambiar revenue produce un fingerprint diferente", () => {
-    const changed: CanonicalStructuredInput = {
+  it("1. cambiar taxes o net_income no cambia el fingerprint — el motor no los lee", () => {
+    const withTaxesAndNetIncome: CanonicalStructuredInput = {
       ...BASE_INPUT,
-      income_statement: { ...BASE_INPUT.income_statement, revenue: 2_000_000_001 },
+      income_statement: { ...BASE_INPUT.income_statement, taxes: 999_999_999, net_income: 123_456_789 } as CanonicalStructuredInput["income_statement"],
     };
+    expect(computeInputFingerprint(withTaxesAndNetIncome, "Software / Tecnología", 45))
+      .toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45));
+  });
+
+  it("2. revenue: -100 y revenue: 100 producen el mismo fingerprint (el motor aplica Math.abs())", () => {
+    const negative: CanonicalStructuredInput = { ...BASE_INPUT, income_statement: { ...BASE_INPUT.income_statement, revenue: -100 } };
+    const positive: CanonicalStructuredInput = { ...BASE_INPUT, income_statement: { ...BASE_INPUT.income_statement, revenue: 100 } };
+    expect(computeInputFingerprint(negative, "Software / Tecnología", 45))
+      .toBe(computeInputFingerprint(positive, "Software / Tecnología", 45));
+  });
+
+  it("3. da: 0, depreciation: 50 usa exactamente el mismo fallback que el motor (da || depreciation || 0)", () => {
+    const daZeroDepreciationFifty: CanonicalStructuredInput = {
+      ...BASE_INPUT,
+      income_statement: { ...BASE_INPUT.income_statement, da: 0, depreciation: 50 } as CanonicalStructuredInput["income_statement"],
+    };
+    const daOmittedDepreciationFifty: CanonicalStructuredInput = {
+      ...BASE_INPUT,
+      income_statement: { revenue: BASE_INPUT.income_statement!.revenue, cost_of_sales: BASE_INPUT.income_statement!.cost_of_sales, opex: BASE_INPUT.income_statement!.opex, interest_expense: BASE_INPUT.income_statement!.interest_expense, depreciation: 50 } as CanonicalStructuredInput["income_statement"],
+    };
+    const daFiftyDirect: CanonicalStructuredInput = { ...BASE_INPUT, income_statement: { ...BASE_INPUT.income_statement, da: 50 } };
+
+    const f1 = computeInputFingerprint(daZeroDepreciationFifty, "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(daOmittedDepreciationFifty, "Software / Tecnología", 45);
+    const f3 = computeInputFingerprint(daFiftyDirect, "Software / Tecnología", 45);
+    expect(f1).toBe(f2);
+    expect(f1).toBe(f3);
+  });
+
+  it("4. cambiar un campo de deuda ignorado por la prioridad real (total_debt/financial_debt) no cambia el fingerprint cuando financial_debt_total ya existe", () => {
+    const withIgnoredDebtFields: CanonicalStructuredInput = {
+      ...BASE_INPUT,
+      balance_sheet: { ...BASE_INPUT.balance_sheet, total_debt: 999_999_999, financial_debt: 888_888_888 } as CanonicalStructuredInput["balance_sheet"],
+    };
+    expect(computeInputFingerprint(withIgnoredDebtFields, "Software / Tecnología", 45))
+      .toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45));
+  });
+
+  it("5. cambiar la deuda efectiva (financial_debt_total) sí cambia el fingerprint", () => {
+    const changed: CanonicalStructuredInput = { ...BASE_INPUT, balance_sheet: { ...BASE_INPUT.balance_sheet, financial_debt_total: 200_000_001 } };
     expect(computeInputFingerprint(changed, "Software / Tecnología", 45))
       .not.toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45));
   });
 
-  it("4. cambiar la deuda (financial_debt_total) produce un fingerprint diferente", () => {
-    const changed: CanonicalStructuredInput = {
-      ...BASE_INPUT,
-      balance_sheet: { ...BASE_INPUT.balance_sheet, financial_debt_total: 200_000_001 },
-    };
+  it("6. un sector desconocido y el sector fallback (Software / Tecnología) producen el mismo fingerprint — el motor usa el mismo benchmark para ambos", () => {
+    expect(computeInputFingerprint(BASE_INPUT, "Sector Que No Existe En SECTOR_BENCHMARKS", 45))
+      .toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45));
+  });
+
+  it("cambiar a un sector CONOCIDO con benchmark distinto sí cambia el fingerprint", () => {
+    expect(computeInputFingerprint(BASE_INPUT, "Manufactura", 45))
+      .not.toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45));
+  });
+
+  it("7. expectedGrowth: 0 y el valor fallback actual (25) producen el mismo fingerprint — el motor usa expectedGrowth || 25", () => {
+    expect(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 0))
+      .toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 25));
+  });
+
+  it("cambiar expectedGrowth a un valor distinto del fallback sí cambia el fingerprint", () => {
+    expect(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 10))
+      .not.toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45));
+  });
+
+  it("8. cambiar el revenue efectivo (no solo el signo) sigue produciendo un fingerprint distinto", () => {
+    const changed: CanonicalStructuredInput = { ...BASE_INPUT, income_statement: { ...BASE_INPUT.income_statement, revenue: 2_000_000_001 } };
     expect(computeInputFingerprint(changed, "Software / Tecnología", 45))
       .not.toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45));
   });
 
-  it("cambiar el sector o el crecimiento esperado también produce un fingerprint diferente (son parte del input real del motor)", () => {
-    const base = computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45);
-    expect(computeInputFingerprint(BASE_INPUT, "Manufactura", 45)).not.toBe(base);
-    expect(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 10)).not.toBe(base);
-  });
-
-  it("12. no incluye ningún token, secreto o dato ajeno al cálculo — solo depende de income_statement/balance_sheet/moneda/factor/sector/growth", () => {
+  it("no incluye ningún token, secreto, id o dato ajeno al cálculo — solo depende de los valores efectivos del motor", () => {
     const withExtra = { ...BASE_INPUT, provenance: { analysis_id: "secret-analysis-id-should-not-affect-hash" } } as CanonicalStructuredInput;
     expect(computeInputFingerprint(withExtra, "Software / Tecnología", 45))
       .toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45));
   });
 });
-
-function structuredClone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value));
-}

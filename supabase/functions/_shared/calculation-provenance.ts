@@ -87,6 +87,16 @@ export interface CalculationProvenance {
   warnings: string[];
 }
 
+/**
+ * Un `canonical_account` requerido queda "satisfecho" únicamente cuando
+ * existe al menos una homologación identificable PARA ESE CAMPO **con
+ * `document_id` no nulo**. Una homologación encontrada pero sin
+ * documento no basta — la cifra existe en `account_homologations`, pero
+ * no se puede rastrear hasta un documento real, así que no es
+ * trazabilidad "completa" (ajuste de semántica, 2026-07-23: antes
+ * bastaba con que existiera la fila homologada, sin exigir el
+ * documento).
+ */
 function buildFieldProvenance(
   rows: readonly HomologationReference[],
   canonicalAccounts: readonly string[],
@@ -94,12 +104,24 @@ function buildFieldProvenance(
   const matched = rows.filter((r) => canonicalAccounts.includes(r.canonical_account));
   const homologationIds = [...new Set(matched.map((r) => r.id))];
   const documentIds = [...new Set(matched.map((r) => r.document_id).filter((d): d is string => !!d))];
+
   const accountsFound = new Set(matched.map((r) => r.canonical_account));
+  const accountsSatisfied = new Set(
+    matched.filter((r) => r.document_id !== null && r.document_id !== undefined).map((r) => r.canonical_account),
+  );
 
   let sourceStatus: ProvenanceStatus;
-  if (accountsFound.size === 0) sourceStatus = "missing";
-  else if (accountsFound.size < canonicalAccounts.length) sourceStatus = "partial";
-  else sourceStatus = "complete";
+  if (accountsFound.size === 0) {
+    sourceStatus = "missing";
+  } else if (accountsSatisfied.size === canonicalAccounts.length) {
+    // Complete exige que TODAS las cuentas requeridas (ambas, para el
+    // caso compuesto financial_debt_total) tengan homologación Y documento.
+    sourceStatus = "complete";
+  } else {
+    // Encontrada pero sin documento, o solo una parte de una cifra
+    // compuesta con homologación+documento — nunca "complete" a medias.
+    sourceStatus = "partial";
+  }
 
   return { source_status: sourceStatus, homologation_ids: homologationIds, document_ids: documentIds };
 }
@@ -170,16 +192,30 @@ export function buildCalculationProvenance(params: {
  * procedencia adjunta al `input_payload` (por ejemplo, un análisis
  * calculado antes de este bloque, o invocado sin pasar por
  * `build-structured-input`). Declara explícitamente `missing` en todos
- * los campos — nunca simula trazabilidad que no existe.
+ * los campos documentales — nunca simula trazabilidad que no existe.
+ *
+ * Ajuste de semántica (2026-07-23): la moneda y el factor de conversión
+ * SÍ deben reflejar los valores reales efectivamente usados por el
+ * cálculo (`input.moneda_analisis`/`input.factor_conversion`, ya
+ * resueltos por `canonical-input-normalization.ts`) — nunca se asume
+ * `"COP"`/`1` cuando el input indica otra cosa. La ausencia de
+ * trazabilidad documental (homologaciones/documentos) es independiente
+ * de qué moneda se usó para calcular.
  */
-export function buildMissingProvenance(params: { analysisId: string; builtAt?: string }): CalculationProvenance {
+export function buildMissingProvenance(params: {
+  analysisId: string;
+  monedaAnalisis: string;
+  monedaDocumento: string | null;
+  factorConversion: number;
+  builtAt?: string;
+}): CalculationProvenance {
   return buildCalculationProvenance({
     analysisId: params.analysisId,
     structuredInputId: null,
     homologationRows: [],
-    monedaAnalisis: "COP",
-    monedaDocumento: null,
-    factorConversion: 1,
+    monedaAnalisis: params.monedaAnalisis,
+    monedaDocumento: params.monedaDocumento,
+    factorConversion: params.factorConversion,
     builtAt: params.builtAt,
   });
 }

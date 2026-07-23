@@ -45,7 +45,13 @@ describe("Compatibilidad del envelope (versionado + procedencia) sobre el result
 
     // Misma composición que ejecutar-calculo/index.ts: `{ ...result, version, provenance }`.
     const inputFingerprint = computeInputFingerprint(fixture.input, fixture.sector, fixture.expectedGrowth);
-    const provenance = buildMissingProvenance({ analysisId: "test-analysis", builtAt: "2026-07-23T00:00:00.000Z" });
+    const provenance = buildMissingProvenance({
+      analysisId: "test-analysis",
+      monedaAnalisis: fixture.input.moneda_analisis || "COP",
+      monedaDocumento: null,
+      factorConversion: fixture.input.factor_conversion || 1,
+      builtAt: "2026-07-23T00:00:00.000Z",
+    });
     const version = buildCalculationVersionInfo({ inputFingerprint, provenanceStatus: provenance.overall_status, calculatedAt: "2026-07-23T00:00:00.000Z" });
     const enveloped = { ...result, version, provenance };
 

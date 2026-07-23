@@ -95,13 +95,79 @@ describe("buildCalculationProvenance", () => {
     }
     expect(serialized).not.toMatch(/eyj[a-z0-9_-]+\.eyj[a-z0-9_-]+\./);
   });
+
+  it("ajuste de semántica: una homologación existente con document_id: null NO cuenta como 'complete' — queda 'partial'", () => {
+    const rows: HomologationReference[] = [
+      { id: "hom-revenue", document_id: null, canonical_account: "revenue" },
+    ];
+    const p = buildCalculationProvenance(baseParams(rows));
+    expect(p.fields.revenue.source_status).toBe("partial");
+    expect(p.fields.revenue.homologation_ids).toEqual(["hom-revenue"]);
+    expect(p.fields.revenue.document_ids).toEqual([]); // sin documento identificable
+  });
+
+  it("ajuste de semántica: cifra compuesta (financial_debt_total) donde una parte tiene documento y la otra no queda 'partial', no 'complete'", () => {
+    const rows: HomologationReference[] = [
+      { id: "hom-debt-cp", document_id: "doc-1", canonical_account: "current_financial_debt" },
+      { id: "hom-debt-lp", document_id: null, canonical_account: "long_term_financial_debt" },
+    ];
+    const p = buildCalculationProvenance(baseParams(rows));
+    expect(p.fields.financial_debt_total.source_status).toBe("partial");
+    expect(p.fields.financial_debt_total.homologation_ids.sort()).toEqual(["hom-debt-cp", "hom-debt-lp"]);
+    expect(p.fields.financial_debt_total.document_ids).toEqual(["doc-1"]);
+  });
+
+  it("ajuste de semántica: todas las referencias con homologación Y documento sí quedan 'complete'", () => {
+    const p = buildCalculationProvenance(baseParams(ALL_FIELDS_ROWS));
+    expect(p.overall_status).toBe("complete");
+    expect(p.fields.financial_debt_total.source_status).toBe("complete");
+    expect(p.fields.revenue.source_status).toBe("complete");
+  });
+
+  it("una cuenta sin ninguna homologación (ni siquiera sin documento) sigue siendo 'missing', no 'partial'", () => {
+    const p = buildCalculationProvenance(baseParams([]));
+    expect(p.fields.revenue.source_status).toBe("missing");
+  });
 });
 
 describe("buildMissingProvenance", () => {
-  it("declara explícitamente 'missing' en todo — usado cuando ejecutar-calculo no recibe procedencia adjunta al input", () => {
-    const p = buildMissingProvenance({ analysisId: "analysis-x", builtAt: "2026-07-23T00:00:00.000Z" });
+  it("declara explícitamente 'missing' en todos los campos documentales — usado cuando ejecutar-calculo no recibe procedencia adjunta al input", () => {
+    const p = buildMissingProvenance({
+      analysisId: "analysis-x",
+      monedaAnalisis: "COP",
+      monedaDocumento: null,
+      factorConversion: 1,
+      builtAt: "2026-07-23T00:00:00.000Z",
+    });
     expect(p.overall_status).toBe("missing");
     expect(p.analysis_id).toBe("analysis-x");
     expect(p.structured_input_id).toBeNull();
+  });
+
+  it("ajuste de semántica: conserva la moneda y el factor de conversión REALES del cálculo — no asume COP/1 cuando el input indica otra cosa (caso USD, factor ≠ 1)", () => {
+    const p = buildMissingProvenance({
+      analysisId: "analysis-usd",
+      monedaAnalisis: "USD",
+      monedaDocumento: "USD",
+      factorConversion: 4080,
+      builtAt: "2026-07-23T00:00:00.000Z",
+    });
+    expect(p.currency.moneda_analisis).toBe("USD");
+    expect(p.currency.moneda_documento).toBe("USD");
+    expect(p.currency.factor_conversion).toBe(4080);
+    expect(p.overall_status).toBe("missing"); // sin homologaciones, independientemente de la moneda
+  });
+
+  it("mismo caso con EUR y sin moneda de documento detectada", () => {
+    const p = buildMissingProvenance({
+      analysisId: "analysis-eur",
+      monedaAnalisis: "EUR",
+      monedaDocumento: null,
+      factorConversion: 4450.5,
+      builtAt: "2026-07-23T00:00:00.000Z",
+    });
+    expect(p.currency.moneda_analisis).toBe("EUR");
+    expect(p.currency.moneda_documento).toBeNull();
+    expect(p.currency.factor_conversion).toBe(4450.5);
   });
 });

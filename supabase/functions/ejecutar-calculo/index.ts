@@ -5,6 +5,7 @@ import { runCanonicalFinancialEngine, type CanonicalStructuredInput } from "../_
 import { computeInputFingerprint } from "../_shared/calculation-fingerprint.ts";
 import { buildCalculationVersionInfo } from "../_shared/calculation-versioning.ts";
 import { buildMissingProvenance, type CalculationProvenance } from "../_shared/calculation-provenance.ts";
+import { resolveEffectiveMoneda, resolveEffectiveFactorConversion } from "../_shared/canonical-input-normalization.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,7 +117,19 @@ serve(async (req) => {
     const inputFingerprint = computeInputFingerprint(typedInput, analysis.sector, analysis.expected_growth);
     const provenance: CalculationProvenance =
       (input as { provenance?: CalculationProvenance }).provenance ||
-      buildMissingProvenance({ analysisId: analysis_id, builtAt: new Date().toISOString() });
+      buildMissingProvenance({
+        analysisId: analysis_id,
+        // Ajuste de semántica (2026-07-23): la moneda/factor del
+        // fallback deben ser los REALES efectivamente usados por el
+        // cálculo (mismas funciones que usa el motor), nunca un "COP"/1
+        // asumido cuando el input indica otra cosa. La ausencia de
+        // homologaciones/documentos (campos documentales "missing") es
+        // independiente de la moneda en la que se calculó.
+        monedaAnalisis: resolveEffectiveMoneda(typedInput.moneda_analisis),
+        monedaDocumento: (input as { moneda_documento?: string | null }).moneda_documento ?? null,
+        factorConversion: resolveEffectiveFactorConversion(typedInput.factor_conversion),
+        builtAt: new Date().toISOString(),
+      });
     const version = buildCalculationVersionInfo({
       inputFingerprint,
       provenanceStatus: provenance.overall_status,
