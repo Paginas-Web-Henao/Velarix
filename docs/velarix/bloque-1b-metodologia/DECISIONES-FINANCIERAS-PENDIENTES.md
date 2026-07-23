@@ -89,12 +89,23 @@ oficial.
   arquitectura (arrays de tamaño fijo en ambos motores), no un ajuste
   trivial.
 - **Impacto en valoración**: medio-alto, especialmente para el Caso B
-  (alto crecimiento) de este bloque, donde 5 años no alcanzan a
-  estabilizar el FCFF antes del valor terminal (ver
+  (alto crecimiento) de este bloque — pero de forma distinta en cada
+  motor: en la **referencia del motor cliente** (`runAnalysis`, con
+  reinversión intensa CAPEX 15%/capital de trabajo 8%), 5 años no
+  alcanzan a estabilizar el FCFF antes del valor terminal y el Enterprise
+  Value resulta negativo (−COP 12.335.061.263). El **motor servidor
+  canónico** (`runCanonicalFinancialEngine`) produce un Enterprise Value
+  **positivo** (COP 9.615.506.880) para el mismo Caso B, precisamente
+  porque usa capex/wc% fijos más bajos (5%/3%) y no puede reflejar esa
+  reinversión intensa — ver decisión #9. El riesgo del horizonte fijo de
+  5 años es real para el perfil de empresa que el cliente modeló, no
+  necesariamente para el servidor con sus supuestos actuales (ver
   `docs/velarix/bloque-1c/CASOS-DORADOS-PROVISIONALES.md`).
-- **Riesgo de decidir mal**: para empresas de alto crecimiento, un
-  horizonte corto puede producir un Enterprise Value negativo o
-  artificialmente bajo, como se observó en el Caso B.
+- **Riesgo de decidir mal**: para empresas de alto crecimiento con
+  reinversión intensa, un horizonte corto puede producir un Enterprise
+  Value negativo o artificialmente bajo, como se observó en la
+  referencia del motor **cliente** para el Caso B — no en el resultado
+  del motor servidor canónico para ese mismo caso, que fue positivo.
 - **Quién debe aprobarla**: revisor financiero externo + fundador (impacto de producto/arquitectura).
 
 ### 5. Normalización de EBITDA e impuestos/utilidad neta históricos declarados pero ignorados

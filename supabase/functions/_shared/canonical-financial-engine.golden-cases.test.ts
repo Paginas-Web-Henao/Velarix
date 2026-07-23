@@ -21,11 +21,12 @@ import {
 } from "./canonical-financial-engine.golden-cases.fixtures";
 
 // Tolerancias explícitas (ver instrucción de cierre técnico):
-// - tasas (wacc, costOfEquity, costOfDebtAfterTax, betaLevered): máx. 0.01 puntos.
+// - tasas (wacc, costOfEquity, costOfDebtAfterTax, betaLevered): máx. 0.01 puntos
+//   porcentuales — aplicada abajo vía `toBeCloseTo(..., 2)`, que exige
+//   |actual-esperado| < 0.005pp, igual o más estricta que 0.01pp.
 // - valores monetarios (EV, equity value, net debt, FCFF, terminal value): máx. 0.1% o
 //   tolerancia absoluta de 1000 (lo que sea mayor), documentada aquí.
 // - campos discretos (waccWarning): igualdad exacta.
-const RATE_TOLERANCE = 0.01;
 
 function expectMonetaryClose(actual: number, expected: number, label: string) {
   const relativeTolerance = Math.abs(expected) * 0.001; // 0.1%
@@ -106,7 +107,9 @@ describe("runCanonicalFinancialEngine — regresiones financieras reales (motor 
     expect(r.valuation.betaLevered).toBeCloseTo(expected.betaLevered, 2);
     expect(r.valuation.costOfEquity).toBeCloseTo(expected.costOfEquity, 2);
     expect(r.valuation.costOfDebtAfterTax).toBeCloseTo(expected.costOfDebtAfterTax, 2);
-    expect(Math.abs(r.valuation.wacc - expected.wacc)).toBeLessThanOrEqual(RATE_TOLERANCE * 100); // margen amplio, toBeCloseTo ya es más estricto
+    // toBeCloseTo(..., 2) ya exige |actual-esperado| < 0.005 puntos porcentuales,
+    // igual o más estricta que la tolerancia máxima de 0.01pp documentada
+    // arriba — no se repite la comparación como una segunda aserción redundante.
   });
 
   it.each(CASOS)("Caso %s: Enterprise Value, Equity Value, Net Debt (tolerancia 0.1% o 1000)", (_nombre, fixture, expected) => {

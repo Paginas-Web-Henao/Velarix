@@ -73,3 +73,16 @@ el revisor externo → **1D cierra** la autorización de quién puede aprobar
 → **1E conecta** realmente narrativa y PDF al resultado, y activa el
 bloqueo de descarga hasta `approved_for_delivery`. Ningún enlace de
 narrativa/PDF se cierra antes de 1E, bajo ninguna circunstancia.
+
+**Actualizado 2026-07-23 (cierre técnico de 1B-M/1C-Prep, commit `9cfe14a`)**:
+el motor servidor canónico (`supabase/functions/_shared/canonical-financial-engine.ts`)
+se extrajo y quedó consumido realmente por
+`supabase/functions/ejecutar-calculo/index.ts`, con fixtures propios
+(`canonical-financial-engine.golden-cases.fixtures.ts`) y regresiones
+numéricas reales (`canonical-financial-engine.golden-cases.test.ts`). Los
+resultados de `runAnalysis` (motor cliente) siguen siendo **referencia**,
+no resultados canónicos — los únicos resultados canónicos son los de
+`runCanonicalFinancialEngine`. Esto tampoco cambia ninguna fila de
+"Falta" a "Existe": son pruebas técnicas sobre el motor, no trazabilidad
+de producción. Estado: casos técnicos provisionales, pendientes de
+aprobación financiera.
