@@ -15,9 +15,9 @@ exige que cada cifra material sea trazable hasta la persona que aprobó).
 | Documento original → `documents` | Sí | `upload-document/index.ts` inserta fila con `storage_path`, checksum | — | — |
 | `documents` → `documents_parsed` (parsed document) | Sí, por `document_id` | `parse-document/index.ts:628` (`documents_parsed.document_id`) | — | — |
 | `documents_parsed` → `account_homologations` (mapping) | Sí, por `document_id` | `map-accounts/index.ts:219,234` guarda `document_id` por fila | — | — |
-| `account_homologations` → `structured_inputs` (structured input) | **No** | `build-structured-input` agrega valores vía `getAccountValue` sin guardar de qué fila(s) vino la suma | Campo `source_mapping_ids`/`document_ids` en `structured_inputs.input_payload` o tabla aparte | **Bloque 1C** (diseño del campo en 1A, `BL-15`) |
-| `structured_inputs` → fórmula aplicada | **No** | `ejecutar-calculo`/`financial-engine.ts` no registran qué versión de fórmula/constantes se usó | Campo de versión de fórmula | **Bloque 1C** (diseño de versionado en 1A, `BL-32`; consolidación de constantes en 1B, `BL-17`; implementación del registro en 1C) |
-| Fórmula → `calculation_result` | Parcial | El resultado se guarda (`analyses.calculation_result`), pero no los supuestos intermedios más allá de lo que ya está en el JSON de salida | El contrato tipado (`BL-31`, diseñado en 1A) debe incluir explícitamente cada supuesto usado | **Bloque 1A** (contrato) **→ Bloque 1C** (población real del contrato con datos de versionado) |
+| `account_homologations` → `structured_inputs` (structured input) | **Parcial (desde 1C-T, 2026-07-23)** | `structured_inputs.input_payload.provenance` (`_shared/calculation-provenance.ts`) guarda `homologation_ids`/`document_ids` por cifra para 8 campos priorizados. `source_row_ids` sigue `null`/`"missing"` — no existe identificador de fila cruda anterior a `account_homologations` en el esquema actual | Persistir un identificador de fila del documento parseado (`documents_parsed.parsed_structure[].posicion`) hasta `account_homologations`, para cerrar `source_row_ids` | **Bloque 1C** (`BL-15`, parcial — falta el nivel de fila cruda) |
+| `structured_inputs` → fórmula aplicada | **Parcial (desde 1C-T, 2026-07-23)** | `_shared/calculation-versioning.ts` agrega `methodology_version` (de `CANONICAL_METHODOLOGY`) e `input_fingerprint` determinístico a cada resultado — pero solo del motor **servidor**; `financial-engine.ts` (cliente) sigue sin ningún registro de versión | Registrar versión de fórmula también en el motor cliente, si se decide que siga siendo relevante tras 1E | **Bloque 1C** (`BL-32`, parcial — falta versión de datos macro/sectoriales y el lado cliente) |
+| Fórmula → `calculation_result` | **Parcial, ampliado en 1C-T** | El resultado se guarda (`analyses.calculation_result`) con `version`/`provenance` agregados como campos adicionales (`ejecutar-calculo/index.ts`) sin alterar `projections`/`scenarios`/`kpis`/`valuation`/etc. El contrato tipado formal (`BL-31`, `src/types/calculation-result.ts`) sigue sin conectarse a producción | Conectar el contrato tipado real de `BL-31`, no solo campos adicionales compatibles | **Bloque 1A** (contrato) **→ Bloque 1C** (población parcial ya hecha en 1C-T; conexión del contrato tipado formal sigue pendiente) |
 | `calculation_result` → `report_narratives` (narrative) | **No, hoy** | `generate-narrative` no se invoca en el flujo real (ver `auditoria/04`, `auditoria/08`) | Conectar `generate-narrative` a `run-analysis-pipeline` (`BL-29`) | **Bloque 1E** — no antes: requiere que 1B (bugs corregidos), 1C (casos dorados aprobados) y 1D (seguridad) ya estén cerrados |
 | `report_narratives`/`calculation_result` → PDF | **No, hoy** | El PDF se genera desde un recálculo independiente en el navegador (`financial-engine.ts`), no desde `calculation_result` ni `report_narratives` | Reconectar `Dashboard.tsx::handleDownloadPDF` a `calculation_result` | **Bloque 1E** — hallazgo central del split-brain; decisión ya tomada (`D-06`) y aprobada, pero la activación real espera a que 1B/1C/1D cierren |
 | Cifra del PDF → persona que aprobó | **No** | Ningún flujo de revisión humana se ejecuta sobre el resultado numérico final antes de la descarga | Requiere el estado `approved_for_delivery` (diseñado en 1A) aplicado con autorización real (1D) y activado en el flujo real (1E) | **Bloque 1A** (diseña el estado) **+ Bloque 1D** (quién puede aprobar, sin autoaprobación) **+ Bloque 1E** (bloquea la descarga hasta que el estado se alcance realmente) |
@@ -25,13 +25,15 @@ exige que cada cifra material sea trazable hasta la persona que aprobó).
 ## Conclusión
 
 La trazabilidad es sólida en los primeros 3 pasos (documento → parseo →
-mapping) y se rompe completamente a partir de `structured_inputs`. Esto
-significa que hoy, ante la pregunta "¿de qué fila del Excel salió este
-EBITDA en el PDF que descargó el cliente?", la única forma de responder es
-re-consultar manualmente `account_homologations` por `analysis_id` +
-`canonical_account`, sin poder filtrar por el período o el valor
-específico que efectivamente se usó — y ni siquiera esa reconstrucción
-manual llega hasta el PDF, porque el PDF usa un recálculo independiente.
+mapping). **Desde 1C-T (2026-07-23)** existe trazabilidad real, aunque
+parcial, desde `account_homologations` hasta `calculation_result` para 8
+cifras priorizadas (`homologation_ids`/`document_ids` por campo) — pero
+sigue sin poder responderse "¿de qué FILA EXACTA del Excel salió este
+EBITDA?" (`source_row_ids` es `"missing"`, no existe ese nivel de detalle
+en el esquema hoy), y esa trazabilidad **no llega todavía al PDF**,
+porque el PDF sigue usando un recálculo independiente del motor cliente,
+sin relación con `calculation_result`. Eso se cierra en Bloque 1E, no
+antes.
 
 **Actualizado 2026-07-23 (cierre de Bloque 1A)**: el contrato tipado
 mencionado en las filas de abajo (`BL-31`) ya existe como diseño en
@@ -86,3 +88,19 @@ no resultados canónicos — los únicos resultados canónicos son los de
 "Falta" a "Existe": son pruebas técnicas sobre el motor, no trazabilidad
 de producción. Estado: casos técnicos provisionales, pendientes de
 aprobación financiera.
+
+**Actualizado 2026-07-23 (Bloque 1C-T — trazabilidad, versionado y
+fingerprint)**: tres filas de esta tabla pasan de "No" a "Parcial" (ver
+arriba): `account_homologations → structured_inputs`,
+`structured_inputs → fórmula aplicada`, y `Fórmula → calculation_result`
+se amplía. Implementado con módulos puros nuevos
+(`_shared/calculation-provenance.ts`, `_shared/calculation-versioning.ts`,
+`_shared/calculation-fingerprint.ts`), sin tocar ninguna fórmula del
+motor canónico ni los resultados de los Casos A/B/C. Detalle completo en
+`docs/velarix/bloque-1c/REPORTE-IMPLEMENTACION-1C-TECNICO.md`. Ninguna
+fila pasa a "Existe" (completa): las dos filas de narrativa/PDF siguen
+"No, hoy", y la fila de `Cifra del PDF → persona que aprobó` sigue "No"
+— ninguna de las dos se toca hasta Bloque 1E. `BL-15`/`BL-32` quedan
+parciales, no completos (ver `plan/BACKLOG-CLASIFICADO.md`). La
+aprobación formal del revisor financiero externo sigue pendiente
+(`docs/velarix/bloque-1c/PAQUETE-REVISION-FINANCIERA.md`).

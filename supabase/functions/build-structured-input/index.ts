@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
 import { computeTotalConversionFactor, normalizeCurrencyCode } from "../_shared/currency.ts";
+import { buildCalculationProvenance, type HomologationReference } from "../_shared/calculation-provenance.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -206,6 +207,39 @@ serve(async (req) => {
     const snapshot = dbSnapshot || buildDefaultSnapshot(analysis.sector);
     const snapshotId = dbSnapshot?.id || null;
 
+    const builtAt = new Date().toISOString();
+
+    // Bloque 1C-T: procedencia técnica — reutiliza las mismas filas de
+    // `account_homologations` ya consultadas arriba (id, document_id,
+    // canonical_account). No agrega ninguna consulta nueva a Supabase.
+    const homologationRefs: HomologationReference[] = (accounts || []).map(
+      (a: { id: string; document_id: string | null; canonical_account: string }) => ({
+        id: a.id,
+        document_id: a.document_id ?? null,
+        canonical_account: a.canonical_account,
+      }),
+    );
+
+    // Se necesita el id real de la fila de `structured_inputs` para la
+    // procedencia (`structured_input_id`) antes de construir el payload
+    // que se va a persistir en esa misma fila. Se reutiliza el id
+    // existente si ya hay una fila para este `analysis_id` (columna
+    // UNIQUE); si no, se genera uno nuevo aquí mismo para poder incluirlo
+    // en el único upsert de abajo, sin una escritura previa intermedia.
+    const { data: existingRow } = await supabase
+      .from("structured_inputs").select("id").eq("analysis_id", analysis_id).maybeSingle();
+    const structuredInputId: string = existingRow?.id || crypto.randomUUID();
+
+    const provenance = buildCalculationProvenance({
+      analysisId: analysis_id,
+      structuredInputId,
+      homologationRows: homologationRefs,
+      monedaAnalisis,
+      monedaDocumento: monedaDoc,
+      factorConversion: factorTotal,
+      builtAt,
+    });
+
     const structuredInput = {
       analysis_id,
       sector: analysis.sector,
@@ -222,10 +256,17 @@ serve(async (req) => {
       snapshot_data: snapshot.data_payload || snapshot,
       macro_data: snapshot.macro_payload || null,
       version_input: "2.3",
-      created_at: new Date().toISOString(),
+      created_at: builtAt,
+      // Bloque 1C-T: trazabilidad técnica hacia account_homologations/documents.
+      // No conecta todavía al PDF (eso es Bloque 1E) ni reemplaza las 10
+      // decisiones metodológicas pendientes.
+      provenance,
     };
 
-    await supabase.from("structured_inputs").upsert({ analysis_id, input_payload: structuredInput, version_input: "2.3" }, { onConflict: "analysis_id" });
+    await supabase.from("structured_inputs").upsert(
+      { id: structuredInputId, analysis_id, input_payload: structuredInput, version_input: "2.3" },
+      { onConflict: "analysis_id" },
+    );
     if (snapshotId) await supabase.from("analyses").update({ snapshot_id: snapshotId }).eq("id", analysis_id);
 
     await supabase.from("audit_events").insert({

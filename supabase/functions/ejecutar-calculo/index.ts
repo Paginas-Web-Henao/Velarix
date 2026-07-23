@@ -2,6 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { canExecuteCalculation, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
 import { runCanonicalFinancialEngine, type CanonicalStructuredInput } from "../_shared/canonical-financial-engine.ts";
+import { computeInputFingerprint } from "../_shared/calculation-fingerprint.ts";
+import { buildCalculationVersionInfo } from "../_shared/calculation-versioning.ts";
+import { buildMissingProvenance, type CalculationProvenance } from "../_shared/calculation-provenance.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,15 +97,37 @@ serve(async (req) => {
     }, { onConflict: "analysis_id,job_type" });
 
     // Run engine
-    const result = runCanonicalFinancialEngine(input as CanonicalStructuredInput, analysis.sector, analysis.expected_growth);
+    const typedInput = input as CanonicalStructuredInput;
+    const result = runCanonicalFinancialEngine(typedInput, analysis.sector, analysis.expected_growth);
 
     const elapsed = Date.now() - startTime;
     console.log(`[ejecutar-calculo] Completed in ${elapsed}ms. EV: ${result.valuation.enterpriseValue}`);
 
+    // Bloque 1C-T: versionado + procedencia. Se agregan como campos
+    // adicionales del resultado persistido, sin modificar ni un solo
+    // campo de `result` (projections/scenarios/kpis/valuation/
+    // sensitivityMatrix/sectorBenchmark/moneda/factor_conversion quedan
+    // exactamente como los produce `runCanonicalFinancialEngine`).
+    // `provenance` viaja dentro de `input_payload.provenance` cuando
+    // `build-structured-input` la construyó; si no está (p. ej. un
+    // análisis calculado antes de este bloque, o invocado sin pasar por
+    // ese paso), se declara explícitamente "missing" — nunca se simula
+    // trazabilidad que no existe.
+    const inputFingerprint = computeInputFingerprint(typedInput, analysis.sector, analysis.expected_growth);
+    const provenance: CalculationProvenance =
+      (input as { provenance?: CalculationProvenance }).provenance ||
+      buildMissingProvenance({ analysisId: analysis_id, builtAt: new Date().toISOString() });
+    const version = buildCalculationVersionInfo({
+      inputFingerprint,
+      provenanceStatus: provenance.overall_status,
+      calculatedAt: new Date().toISOString(),
+    });
+    const enrichedResult = { ...result, version, provenance };
+
     // Store results
     await supabase.from("analyses").update({
       status: "calculo_completo",
-      calculation_result: result,
+      calculation_result: enrichedResult,
     }).eq("id", analysis_id);
 
     await supabase.from("analysis_jobs").upsert({

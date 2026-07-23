@@ -439,6 +439,25 @@ y se escala al revisor financiero externo.
 > técnico provisional — pendiente de aprobación financiera" en todo
 > momento. Bloque 1C sigue con sus condiciones de entrada sin cumplir
 > formalmente (ver abajo).
+>
+> **1C-T realizado (2026-07-23) — Bloque 1C sigue sin cerrarse
+> formalmente.** Se implementó trazabilidad técnica real
+> (`_shared/calculation-provenance.ts`), versionado del cálculo
+> (`_shared/calculation-versioning.ts`, deriva de `CANONICAL_METHODOLOGY`
+> sin duplicar valores) y un fingerprint determinístico del input
+> (`_shared/calculation-fingerprint.ts`), propagados realmente desde
+> `build-structured-input` hasta `analyses.calculation_result` en
+> `ejecutar-calculo`. Ver
+> `docs/velarix/bloque-1c/REPORTE-IMPLEMENTACION-1C-TECNICO.md` y
+> `docs/velarix/bloque-1c/PAQUETE-REVISION-FINANCIERA.md`. `BL-15` avanza
+> **parcialmente**: existe trazabilidad real hasta `account_homologations`
+> para 8 cifras priorizadas, pero `source_row_ids` (nivel de fila cruda
+> del documento) sigue sin poder rastrearse — limitación documentada, no
+> resuelta. El motor canónico (`canonical-financial-engine.ts`) no se
+> modificó — los resultados de A/B/C no cambiaron. La conexión de esta
+> trazabilidad al PDF sigue siendo exclusiva de Bloque 1E. Ninguna de las
+> 10 decisiones metodológicas pendientes se resolvió; la aprobación
+> formal del revisor financiero externo sigue pendiente.
 
 ### Alcance
 
