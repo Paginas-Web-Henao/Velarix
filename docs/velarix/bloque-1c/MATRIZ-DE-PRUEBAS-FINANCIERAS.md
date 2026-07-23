@@ -1,14 +1,17 @@
 # Matriz de pruebas financieras — Bloque 1C-Prep
 
 Mapea los 16 escenarios mínimos exigidos contra las pruebas reales.
-Todas importan `runAnalysis` (`src/lib/financial-engine.ts`) o
-`CANONICAL_METHODOLOGY` (`supabase/functions/_shared/financial-methodology.ts`)
-— las mismas funciones/objetos que usa producción, nunca una copia de
-sus fórmulas. Las comparaciones de identidad (FCFF, descuento a valor
-presente, EV, equity value) verifican consistencia **entre los propios
-campos de salida** de la función real, no reimplementan la fórmula desde
-los inputs — así la prueba detecta una regresión real sin duplicar la
-lógica que se supone debe vigilar.
+**Corrección de lenguaje (cierre técnico, 2026-07-23)**: `runAnalysis`
+(motor cliente) es una **referencia**, no el motor canónico. El motor
+canónico es `runCanonicalFinancialEngine`
+(`supabase/functions/_shared/canonical-financial-engine.ts`), extraído
+en este cierre técnico y ahora con sus propias regresiones numéricas
+reales (`canonical-financial-engine.golden-cases.test.ts`) — ver tabla
+abajo. Todas las pruebas importan la función/objeto real que usa
+producción, nunca una copia de sus fórmulas. Las comparaciones de
+identidad (FCFF, descuento a valor presente, EV, equity value) verifican
+consistencia **entre los propios campos de salida** de la función real,
+no reimplementan la fórmula desde los inputs.
 
 | # | Escenario | Archivo de prueba | Función real importada | Resultado |
 |---|---|---|---|---|
@@ -28,6 +31,20 @@ lógica que se supone debe vigilar.
 | 14 | Datos insuficientes (`revenue=0`) | `financial-engine.golden-cases.test.ts` | `runAnalysis` | Ver nota — 1 `test.fails()` + 1 evidencia |
 | 15 | Prevención de NaN e Infinity | `financial-engine.golden-cases.test.ts` | `runAnalysis` | Ver nota — mismo par de pruebas que #14 |
 | 16 | Consistencia del contrato de supuestos | `financial-methodology.test.ts` | `CANONICAL_METHODOLOGY` | Pasa (8 pruebas) |
+
+**Regresiones numéricas del motor canónico (servidor)** — no formaban
+parte de los 16 escenarios mínimos originales (que apuntaban al cliente
+por ser el único importable en ese momento), agregadas en este cierre
+técnico ahora que el servidor es importable:
+
+| Escenario | Archivo de prueba | Función real importada | Resultado |
+|---|---|---|---|
+| WACC, beta, costos de capital (tolerancia 0.01pp) | `canonical-financial-engine.golden-cases.test.ts` | `runCanonicalFinancialEngine` | Pasa (3 casos) |
+| Enterprise Value, Equity Value, Net Debt (tolerancia 0.1%/1000) | `canonical-financial-engine.golden-cases.test.ts` | `runCanonicalFinancialEngine` | Pasa (3 casos) |
+| Valor terminal y FCFF Y1/Y5 (tolerancia 0.1%/1000) | `canonical-financial-engine.golden-cases.test.ts` | `runCanonicalFinancialEngine` | Pasa (3 casos) |
+| `waccWarning` (igualdad exacta) | `canonical-financial-engine.golden-cases.test.ts` | `runCanonicalFinancialEngine` | Pasa (3 casos) |
+| Identidades (equity value, FCFF) | `canonical-financial-engine.golden-cases.test.ts` | `runCanonicalFinancialEngine` | Pasa (3 casos + identidades) |
+| `revenue=0` sigue rechazado por el servidor | `canonical-financial-engine.golden-cases.test.ts` | `runCanonicalFinancialEngine` | Pasa (comportamiento conservado, no decidido de nuevo) |
 
 ## Nota sobre los escenarios 14 y 15 (mismo hallazgo, dos ángulos)
 
@@ -57,18 +74,29 @@ $ npx vitest run supabase/functions/_shared/financial-methodology.test.ts
 
  Test Files  1 passed (1)
       Tests  8 passed (8)
+
+$ npx vitest run supabase/functions/_shared/canonical-financial-engine.golden-cases.test.ts
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
 ```
 
-## Qué NO se probó (limitación explícita)
+## Qué se resolvió en el cierre técnico (2026-07-23)
 
-El motor **servidor** (`ejecutar-calculo/index.ts::runEngine`) sigue sin
-ser importable en Vitest — mismo bloqueo ambiental documentado desde
-Bloque 1A (Deno no instalado, imports de URL, `serve()` de nivel
-superior). Las 31+8 pruebas de este bloque verifican el motor **cliente**
-(`runAnalysis`) sobre los 3 casos dorados. La corrección de escenarios
-aplicada a `ejecutar-calculo/index.ts` (capexPct/wcPct por escenario,
-ver `REPORTE-RECONCILIACION-METODOLOGICA.md`) se verificó por lectura
-cuidadosa del código y comparación algebraica contra el cliente ya
-probado — no por ejecución directa del servidor. Esta limitación ya
-estaba registrada desde Bloque 1A/1B-P0 y no se resolvió en este bloque
-(no era su alcance).
+El motor **servidor** (antes `ejecutar-calculo/index.ts::runEngine`, no
+importable en Vitest) fue extraído a
+`supabase/functions/_shared/canonical-financial-engine.ts`
+(`runCanonicalFinancialEngine`) — sin imports de URL/Supabase/Deno, sí
+importable. Las 19 pruebas nuevas son regresiones numéricas reales sobre
+el motor canónico, no solo verificación por lectura de código. La
+limitación de importabilidad que existía desde Bloque 1A/1B-P0 queda
+resuelta para el motor de cálculo — `ejecutar-calculo/index.ts` importa y
+usa `runCanonicalFinancialEngine` realmente, sin segunda copia.
+
+## Qué sigue sin probarse (limitación restante)
+
+El resto de la Edge Function `ejecutar-calculo/index.ts` (autenticación,
+autorización, lectura/escritura en Supabase, manejo de `serve()`) sigue
+sin poder ejecutarse en Vitest — mismo bloqueo ambiental de Deno
+documentado desde Bloque 1A. Solo el motor de cálculo puro se volvió
+testable, no la Edge Function completa.

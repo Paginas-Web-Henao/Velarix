@@ -122,27 +122,40 @@ oficial.
 
 ### 6. Tratamiento de empresas con patrimonio negativo y `total_assets` sintético
 
-- **Comportamiento actual**: con patrimonio negativo, `roe` se recorta a
-  0 (no revela la situación real); `total_assets` se calcula siempre como
-  `totalDebt + equity` (sintético) en vez de leer el campo real ya
+- **Comportamiento actual**: los dos motores tratan el patrimonio
+  negativo de forma **distinta entre sí**, no solo de forma imperfecta
+  (hallazgo del cierre técnico, 2026-07-23): el motor **cliente** usa el
+  valor de patrimonio con signo real, así que su clamp de ROE
+  (`equity > 0 ? ... : 0`) detecta correctamente el patrimonio negativo
+  y reporta `roe=0.0%` (Caso C). El motor **servidor** aplica
+  `Math.abs()` al patrimonio **antes** de cualquier cálculo — el mismo
+  patrimonio negativo se convierte en un número positivo, y el clamp de
+  ROE nunca se activa: el servidor reporta `roe=-77%` para el mismo Caso
+  C. `total_assets` sigue siendo sintético (`totalDebt + equity`, con o
+  sin `Math.abs()` según el motor) en vez de leer el campo real ya
   disponible en `structured_inputs.balance_sheet.total_assets` — en
-  ambos motores. Verificado con el Caso C de este bloque (patrimonio
-  negativo real): `roe=0.0`, `roa=-11.0%`, `leverage=0.00` (clamp por
-  EBITDA histórico negativo).
-- **Alternativas reales**: (a) mantener el clamp de ROE en 0 (actual,
-  evita división por un número negativo que produciría un ROE
-  positivo engañoso); (b) mostrar un ROE calculado igual pero con una
-  advertencia explícita de "patrimonio negativo — interpretar con
-  cautela"; (c) usar `total_assets` real cuando exista en vez del
-  sintético.
-- **Recomendación técnica**: (b) es más informativo que (a) para un
-  analista humano revisando el caso; (c) es más preciso pero cambia ROA
-  retroactivamente para todo análisis con `total_assets` real declarado.
+  ambos motores.
+- **Alternativas reales**: (a) mantener el clamp de ROE en 0 (como hace
+  hoy el cliente, evita un ROE positivo o negativo engañoso); (b) mostrar
+  un ROE calculado igual pero con una advertencia explícita de
+  "patrimonio negativo — interpretar con cautela"; (c) usar
+  `total_assets` real cuando exista en vez del sintético; (d) unificar
+  ambos motores para que ninguno aplique `Math.abs()` al patrimonio
+  antes de los clamps de KPI, independientemente de cuál de (a)/(b) se
+  elija.
+- **Recomendación técnica**: (d) es la corrección mínima urgente — hoy
+  el servidor y el cliente pueden reportar un ROE de signo y magnitud
+  completamente distintos para el mismo caso, lo cual es peor que
+  cualquiera de las dos alternativas individualmente. Sobre esa base,
+  (b) es más informativo que (a) para un analista humano; (c) es más
+  preciso pero cambia ROA retroactivamente para todo análisis con
+  `total_assets` real declarado.
 - **Impacto en valoración**: medio-alto para empresas en dificultades —
   exactamente el segmento donde una lectura equivocada de KPIs es más
-  peligrosa.
+  peligrosa, agravado por la inconsistencia entre motores.
 - **Riesgo de decidir mal**: ocultar una situación patrimonial crítica
-  detrás de un KPI en 0 sin ninguna advertencia visible.
+  detrás de un KPI en 0 sin ninguna advertencia visible, o — peor —
+  que el resultado mostrado al cliente dependa de cuál motor lo calculó.
 - **Quién debe aprobarla**: revisor financiero externo.
 
 ### 7. Uso de utilidad neta vs. NOPAT, y metodología definitiva de ROE/ROA
@@ -167,18 +180,29 @@ oficial.
 
 ### 8. Límites de los escenarios optimista y pesimista
 
-- **Comportamiento actual** (ya unificado entre motores en este bloque):
-  pesimista = 0.6x growth, -3pp margen, +1.5pp WACC, +2pp capex/wc;
-  optimista = 1.4x growth, +3pp margen, -1.5pp WACC, -1pp capex/wc (piso
-  1%). Estos multiplicadores no están documentados como derivados de
-  ningún análisis estadístico — parecen valores redondos elegidos por
-  conveniencia.
-- **Alternativas reales**: (a) mantenerlos como están (ahora al menos
-  consistentes entre ambos motores); (b) calibrarlos con volatilidad
-  histórica real del sector/la empresa cuando exista suficiente
-  histórico; (c) hacerlos configurables por el analista caso a caso.
+- **Comportamiento actual**: pesimista = 0.6x growth, -3pp margen, +1.5pp
+  WACC; optimista = 1.4x growth, +3pp margen, -1.5pp WACC. El servidor
+  **no** varía `capexPct`/`wcPct` por escenario; el cliente sí
+  (pesimista +2pp/+1pp, optimista -1pp/-1pp con piso de 1%). **Nota de
+  cierre técnico (2026-07-23)**: en una revisión anterior de este mismo
+  bloque se había hecho que el servidor también variara `capexPct`/`wcPct`
+  copiando el criterio del cliente — esa corrección se **revirtió**
+  porque era una decisión metodológica aplicada sin la aprobación que
+  esta misma fila exige. La divergencia entre motores sigue existiendo,
+  sin resolver. Ninguno de los multiplicadores está documentado como
+  derivado de un análisis estadístico — parecen valores redondos
+  elegidos por conveniencia.
+- **Alternativas reales**: (a) mantener la divergencia actual entre
+  motores tal como está (servidor sin variar capex/wc, cliente sí) hasta
+  tener una decisión aprobada; (b) unificar ambos motores para que
+  varíen capex/wc de la misma forma, una vez aprobados los
+  multiplicadores; (c) calibrarlos con volatilidad histórica real del
+  sector/la empresa cuando exista suficiente histórico; (d) hacerlos
+  configurables por el analista caso a caso.
 - **Recomendación técnica**: (a) para el corto plazo — no hay datos
-  históricos suficientes hoy para calibrar (b) de forma confiable.
+  históricos suficientes hoy para calibrar (c) de forma confiable, y (b)
+  requiere primero que el fundador/revisor aprueben multiplicadores
+  concretos.
 - **Impacto en valoración**: medio — define el ancho del rango
   pesimista/optimista mostrado al cliente, no el caso base.
 - **Riesgo de decidir mal**: un rango de escenarios que parezca

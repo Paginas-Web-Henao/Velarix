@@ -48,15 +48,20 @@ duplicar el mismo defecto en varias filas). Referencia cruzada a
 > **Actualizado 2026-07-23 (Bloque 1B-M + 1C-Prep)**: 12 diferencias
 > cliente/servidor de `BL-26` clasificadas en 5 categorías (ver
 > `docs/velarix/bloque-1b-metodologia/REPORTE-RECONCILIACION-METODOLOGICA.md`).
-> 4 bugs técnicos corregidos directamente (escenarios sin variar
-> capex/wc% en el servidor, 2 variables muertas, 2 KPIs demo con
-> evaluación engañosa en el PDF). `BL-17` avanza parcialmente
-> (`_shared/financial-methodology.ts`). **10 decisiones metodológicas
-> quedan pendientes de aprobación** — ninguna se decidió silenciosamente
-> (ver `DECISIONES-FINANCIERAS-PENDIENTES.md`). `BL-14` avanza como
-> **preparación técnica** (3 casos dorados provisionales, no formales,
-> no aprobados por ningún revisor) — Bloque 1C como tal **no se inició**.
-> `BL-15` sigue sin tocar.
+> 3 bugs técnicos corregidos directamente (2 variables muertas, 2 KPIs
+> demo con evaluación engañosa en el PDF — el cambio de escenarios que se
+> había aplicado copiando el criterio del cliente resultó ser una
+> decisión metodológica no autorizada y fue **revertido** en el cierre
+> técnico de 2026-07-23, no cuenta como corrección). `BL-17` avanza
+> parcialmente (`_shared/financial-methodology.ts`). **10 decisiones
+> metodológicas quedan pendientes de aprobación** — ninguna se decidió
+> silenciosamente (ver `DECISIONES-FINANCIERAS-PENDIENTES.md`). `BL-14`
+> avanza como **preparación técnica** (3 casos dorados provisionales, no
+> formales, no aprobados por ningún revisor); en el cierre técnico se
+> agregó además el motor servidor canónico extraído y ejecutable
+> (`_shared/canonical-financial-engine.ts`, `runCanonicalFinancialEngine`)
+> con regresiones numéricas reales (19 pruebas) — Bloque 1C como tal
+> **sigue sin iniciarse**. `BL-15` sigue sin tocar.
 | ID | Título | Descripción | Categoría | Severidad | Prioridad | Fase | Dependencia | Evidencia | Criterio de aceptación | Revisión requerida |
 |---|---|---|---|---|---|---|---|---|---|---|
 | BL-01 | Motor de cálculo oficial: diseño (1A) y activación (1E) | **Decisión ya tomada y aprobada (`D-06`/`D-07`)**: el pipeline del servidor es canónico. El diseño del contrato y de la estrategia de transición se hace en 1A; la conexión real de PDF/narrativa y la activación controlada se hacen en 1E, solo tras cerrar 1B/1C/1D | Arquitectura | Crítica | P0 | **Fase 1A (diseño) → Fase 1E (activación)** | 1A: ninguna. 1E: Bloques 1B, 1C y 1D cerrados | `auditoria/04`, `auditoria/02`, `R-04`, `REGISTRO-DE-DECISIONES.md` D-06/D-07 | 1A: contrato y estrategia documentados. 1E: PDF y narrativa consumen `calculation_result`; motor cliente acotado a Estimador/visualización/previsualización; activación solo en entorno controlado | Fundador (ya aprobó la decisión); revisor financiero valida la implementación en 1C/1E |

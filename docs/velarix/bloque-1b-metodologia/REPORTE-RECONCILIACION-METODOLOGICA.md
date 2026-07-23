@@ -20,7 +20,7 @@ actual del cliente.
 
 | # | Diferencia (BL-26 §) | Categoría | Resolución en este bloque |
 |---|---|---|---|
-| 1 | Escenarios: servidor no variaba `capexPct`/`wcPct` por escenario, cliente sí (§3) | **1 — Bug técnico evidente** | **Corregido**: `ejecutar-calculo/index.ts::mkScenario` ahora recibe `capexDelta`/`wcDelta` y aplica el mismo piso (`Math.max(x,1)`) que el cliente. Mismos multiplicadores en ambos motores ahora. |
+| 1 | Escenarios: servidor no variaba `capexPct`/`wcPct` por escenario, cliente sí (§3) | **4 — Decisión metodológica que requiere aprobación (reclasificado)** | **Revertido (2026-07-23)**: la corrección original (hacer que el servidor variara `capexPct`/`wcPct` copiando el criterio del cliente) fue una decisión metodológica aplicada sin autorización — los límites y multiplicadores de escenarios siguen sin aprobación financiera. Se deshizo; el servidor no varía `capexPct`/`wcPct` por escenario, solo growth/margen/WACC/g terminal, igual que antes de este bloque. Ver decisión pendiente #8 en `DECISIONES-FINANCIERAS-PENDIENTES.md`. |
 | 2 | 7 supuestos hardcodeados en el servidor, sin fuente única, no editables por input (§4, "Riesgo identificado") | **1 (fuente única) + 4 (¿deberían ser editables?)** | **Parcialmente corregido**: se creó `_shared/financial-methodology.ts` como fuente única versionada — el servidor ahora lee estos 7 valores (+ D&A%) de ahí, no de literales duplicados. La pregunta de si deben ser editables por `structured_input` **no se decidió** — ver decisión pendiente #1. |
 | 3 | `income_statement.taxes`/`net_income` leídos y nunca usados (variables muertas en el servidor) (§2) | **5 — Código demostrativo/muerto** | **Corregido**: se eliminaron las variables locales `taxes`/`netIncome` sin uso en `ejecutar-calculo/index.ts` (el cliente nunca tuvo estos campos, nada que tocar ahí). No se decidió si el contrato de `structured_input` debería dejar de enviarlos — eso es un cambio de contrato de datos, fuera de alcance aquí. |
 | 4 | KPIs de ciclo de caja del cliente (`daysReceivable=45`, `daysInventory=30`, `daysPayable=35`, `cashCycle=40`) — constantes fijas para cualquier empresa, presentadas en el PDF con evaluación "✓ Eficiente"/"⚠ Extendido" en un lugar y "Referencia demo" en otro (§3) | **5 — Código demostrativo, presentado de forma inconsistente como si fuera real** | **Corregido parcialmente**: se unificó el rótulo a "Referencia demo" en las 2 ubicaciones de `pdf-generator.ts` (antes una evaluaba "✓/⚠" sobre datos fabricados, dando una falsa señal de salud financiera). **No se corrigió** el cálculo en sí (seguir siendo valores fijos) — calcularlos con datos reales requiere que el `structured_input` capture cartera/inventario/proveedores por período, que hoy no existe de forma confiable — ver decisión pendiente #2. |
@@ -44,19 +44,43 @@ ejecutó).
 
 ## Resumen de cambios de código en este bloque
 
-1. `ejecutar-calculo/index.ts`: escenarios pesimista/optimista ahora
-   varían `capexPct`/`wcPct` igual que el cliente (bug técnico).
+1. ~~`ejecutar-calculo/index.ts`: escenarios pesimista/optimista variando
+   `capexPct`/`wcPct` igual que el cliente~~ — **revertido 2026-07-23**:
+   era una decisión metodológica no autorizada. El servidor no varía
+   `capexPct`/`wcPct` por escenario.
 2. `ejecutar-calculo/index.ts`: eliminadas 2 variables muertas
-   (`taxes`, `netIncome` sin uso) (código demostrativo/muerto).
+   (`taxes`, `netIncome` sin uso) (código demostrativo/muerto). **Se
+   conserva.**
 3. Nuevo `_shared/financial-methodology.ts`: fuente única y versionada
    para los 7+1 supuestos que antes eran literales duplicados dentro de
    `ejecutar-calculo/index.ts` — mismos valores exactos, ningún número
-   nuevo, todos marcados `approved: false`.
+   nuevo, todos marcados `approved: false`. **Se conserva.**
 4. `pdf-generator.ts`: 2 filas de KPIs demostrativos ("Días de cartera",
    "Ciclo de caja" en la sección de liquidez) dejaron de mostrar una
    evaluación "✓/⚠" sobre datos fabricados — ahora dicen "Referencia
-   demo" de forma consistente con la sección de eficiencia.
+   demo" de forma consistente con la sección de eficiencia. **Se
+   conserva.**
+5. Nuevo `_shared/canonical-financial-engine.ts` (cierre técnico
+   2026-07-23): el motor servidor (`runEngine`, antes inline en
+   `ejecutar-calculo/index.ts`) se extrajo tal cual — mismas fórmulas,
+   incluyendo la reversión del punto 1 — a un módulo puro, testable en
+   Vitest. `ejecutar-calculo/index.ts` ahora importa y usa
+   `runCanonicalFinancialEngine`; no queda ninguna segunda copia del
+   motor en la Edge Function.
+
+**Hallazgo nuevo (cierre técnico, verificado ejecutando el motor
+servidor contra el Caso C — patrimonio negativo)**: `runCanonicalFinancialEngine`
+aplica `Math.abs()` al patrimonio leído del balance
+(`bs.equity || bs.total_equity`), lo que **enmascara el signo negativo**
+antes de que cualquier KPI pueda detectarlo — a diferencia del motor
+cliente, que usa el valor con signo real y por eso su clamp de ROE
+(`equity > 0 ? ... : 0`) sí detecta el patrimonio negativo. El resultado:
+el servidor calcula un ROE de **−77%** para el Caso C, mientras el
+cliente reporta **0%** (clamp correcto). Ninguno de los dos es
+necesariamente "el correcto" sin una decisión metodológica — ver
+decisión pendiente #6 (refinada) en `DECISIONES-FINANCIERAS-PENDIENTES.md`.
+No se corrigió en este bloque.
 
 Ningún cambio afectó: Hamada, CAPM, WACC, FCFF, valor terminal, la forma
-de `AnalysisResult`/`calculation_result`, ni ninguna de las 7 decisiones
+de `AnalysisResult`/`calculation_result`, ni ninguna de las 10 decisiones
 metodológicas listadas en `DECISIONES-FINANCIERAS-PENDIENTES.md`.

@@ -275,17 +275,23 @@ igual.
 > `docs/velarix/bloque-1b-metodologia/REPORTE-RECONCILIACION-METODOLOGICA.md`.
 > 1B-P0 corrigió `BL-02`, `BL-03`, `BL-04`, `BL-05` y `BL-06`. 1B-M
 > clasificó las 12 diferencias cliente/servidor de `BL-26` en 5
-> categorías, corrigió 4 bugs técnicos evidentes (escenarios sin variar
-> capex/wc% en el servidor, 2 variables muertas, 2 KPIs demo con
-> evaluación engañosa en el PDF), creó la fuente única y versionada de
-> supuestos (`_shared/financial-methodology.ts`, `BL-17` parcial), y
-> registró **10 decisiones metodológicas pendientes** de aprobación del
-> fundador/revisor externo en
-> `docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-PENDIENTES.md`
-> — ninguna se decidió silenciosamente. **`BL-17` sigue parcialmente
-> pendiente**: la fuente única cubre `ejecutar-calculo`, no unifica
-> todavía con las copias del cliente ni de `build-structured-input`
-> (fuera de alcance: "no hagas un refactor general del sistema").
+> categorías, corrigió 3 bugs técnicos evidentes (2 variables muertas, 2
+> KPIs demo con evaluación engañosa en el PDF), creó la fuente única y
+> versionada de supuestos (`_shared/financial-methodology.ts`, `BL-17`
+> parcial), y registró **10 decisiones metodológicas pendientes** de
+> aprobación del fundador/revisor externo en
+> `docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-PENDIENTES.md`.
+> **Corrección de cierre técnico (2026-07-23)**: la 4ª corrección original
+> (hacer que el servidor variara capex/wc% por escenario, igual que el
+> cliente) fue **revertida** — era una decisión metodológica aplicada sin
+> autorización, ya que los límites de escenarios siguen pendientes de
+> aprobación (decisión #8). El servidor no varía capex/wc% por escenario,
+> como antes de este bloque. `BL-17` sigue parcialmente pendiente: la
+> fuente única cubre `ejecutar-calculo`, no unifica todavía con las
+> copias del cliente ni de `build-structured-input`. El cierre técnico
+> también extrajo el motor servidor a
+> `_shared/canonical-financial-engine.ts` (testable en Vitest) y creó
+> regresiones numéricas reales sobre él — ver Bloque 1C abajo.
 
 ### Alcance
 
@@ -421,13 +427,18 @@ y se escala al revisor financiero externo.
 > Se crearon 3 casos dorados **técnicos y provisionales** (no formales,
 > no aprobados) para preparar este bloque, ver
 > `docs/velarix/bloque-1c/CASOS-DORADOS-PROVISIONALES.md` y
-> `MATRIZ-DE-PRUEBAS-FINANCIERAS.md`. Explícitamente **no** se hizo en
-> esta preparación: `BL-15` (trazabilidad completa), implementación real
-> del versionado de `BL-32` (solo se diseñó en 1A), ni ninguna
-> aprobación formal de un revisor financiero externo — los 3 casos
-> quedan etiquetados "Caso dorado técnico provisional — pendiente de
-> aprobación financiera" en todo momento. Bloque 1C sigue con sus
-> condiciones de entrada sin cumplir formalmente (ver abajo).
+> `MATRIZ-DE-PRUEBAS-FINANCIERAS.md`. **Corrección de cierre técnico
+> (2026-07-23)**: los 3 casos ahora se ejecutan contra **ambos** motores
+> — el canónico (`runCanonicalFinancialEngine`, extraído a
+> `_shared/canonical-financial-engine.ts`) con regresiones numéricas
+> fijas, y el cliente (`runAnalysis`) como referencia, no como resultado
+> canónico. Explícitamente **no** se hizo en esta preparación: `BL-15`
+> (trazabilidad completa), implementación real del versionado de `BL-32`
+> (solo se diseñó en 1A), ni ninguna aprobación formal de un revisor
+> financiero externo — los 3 casos quedan etiquetados "Caso dorado
+> técnico provisional — pendiente de aprobación financiera" en todo
+> momento. Bloque 1C sigue con sus condiciones de entrada sin cumplir
+> formalmente (ver abajo).
 
 ### Alcance
 
