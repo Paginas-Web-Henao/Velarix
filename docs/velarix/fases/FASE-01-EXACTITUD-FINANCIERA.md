@@ -545,6 +545,20 @@ indefinidamente hasta lograr esa aprobación — no se fuerza el cierre.
 > conexión directa en este entorno — se reportó el bloqueo, no se
 > improvisó ninguna vía alternativa. BL-10 sigue **sin efecto real**
 > hasta que se aplique manualmente.
+>
+> **1D-OPS: activación parcial (2026-07-23).** Con el proyecto Supabase
+> de desarrollo ya autenticado y vinculado, se aplicó la cadena completa
+> de 9 migraciones (proyecto remoto vacío, sin esquema previo) — BL-10
+> **tiene ahora efecto real** en la base remota, verificado con pruebas
+> reales de SQL/RPC/RLS (protección de `role`, `admin_set_user_role`,
+> políticas de `manual_reviews`, auditoría persistente). El primer
+> administrador quedó configurado por bootstrap SQL autorizado. **No se
+> pudieron desplegar** `ejecutar-calculo`/`continuar-tras-revision`: el
+> token conectado no tiene privilegios sobre la API de gestión de
+> Functions (`403` estable). Por tanto **1D sigue sin cerrarse
+> formalmente** — ver
+> `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md` para el detalle
+> completo y las limitaciones.
 
 ### Alcance
 
