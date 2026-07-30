@@ -546,19 +546,23 @@ indefinidamente hasta lograr esa aprobación — no se fuerza el cierre.
 > improvisó ninguna vía alternativa. BL-10 sigue **sin efecto real**
 > hasta que se aplique manualmente.
 >
-> **1D-OPS: activación parcial (2026-07-23).** Con el proyecto Supabase
-> de desarrollo ya autenticado y vinculado, se aplicó la cadena completa
-> de 9 migraciones (proyecto remoto vacío, sin esquema previo) — BL-10
-> **tiene ahora efecto real** en la base remota, verificado con pruebas
-> reales de SQL/RPC/RLS (protección de `role`, `admin_set_user_role`,
-> políticas de `manual_reviews`, auditoría persistente). El primer
-> administrador quedó configurado por bootstrap SQL autorizado. **No se
-> pudieron desplegar** `ejecutar-calculo`/`continuar-tras-revision`: el
-> token conectado no tiene privilegios sobre la API de gestión de
-> Functions (`403` estable). Por tanto **1D sigue sin cerrarse
-> formalmente** — ver
+> **1D-OPS: CERRADO (2026-07-23, cierre completado 2026-07-30).** Con el
+> proyecto Supabase de desarrollo autenticado y vinculado, se aplicó la
+> cadena completa de 9 migraciones (proyecto remoto vacío, sin esquema
+> previo) — BL-10 tiene efecto real en la base remota, verificado con 15
+> pruebas reales de SQL/RPC/RLS. `ejecutar-calculo` y
+> `continuar-tras-revision` quedaron desplegadas (`ACTIVE`,
+> `verify_jwt: true`) — el `403` inicial no era un límite de privilegios,
+> era un Project Ref equivocado (dos identificadores distintos convivían
+> en el repositorio; corregido en `.env`, ver
+> `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md` §11). Las 14 pruebas
+> HTTP autenticadas pendientes (propietario/ajeno/analista/admin,
+> idempotencia, auditoría) se ejecutaron con usuarios sintéticos reales y
+> pasaron todas. **Limitación real que persiste**: no queda ningún
+> administrador configurado en el proyecto de desarrollo — el fundador
+> debe crear el primer admin real antes de 1E o de cualquier piloto. Ver
 > `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md` para el detalle
-> completo y las limitaciones.
+> completo.
 
 ### Alcance
 

@@ -67,15 +67,19 @@ decisión" ahora depende de **implementarla** en la secuencia correcta:
 > no improvisado. Ver
 > `docs/velarix/bloque-1d/REPORTE-IMPLEMENTACION-1D-P0.md` §12.
 
-> **Actualizado 2026-07-23 (1D-OPS)**: con el proyecto Supabase de
-> desarrollo autenticado y vinculado, la migración **sí se aplicó**
-> (`supabase db push --linked`, proyecto remoto vacío). R-09/`BL-10`
-> queda verificado con pruebas reales de SQL/RPC/RLS — la brecha de
-> auto-escalamiento ya no existe en ese entorno. Pendiente: desplegar
-> `ejecutar-calculo`/`continuar-tras-revision` (bloqueado por permisos
-> insuficientes del token conectado sobre la API de gestión de
-> Functions, no por falta de credencial) antes de poder considerar 1D
-> cerrado. Ver `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`.
+> **Actualizado 2026-07-30 (1D-OPS — CERRADO)**: con el proyecto Supabase
+> de desarrollo autenticado y vinculado, la migración se aplicó
+> (`supabase db push --linked`, proyecto remoto vacío) y ambas Edge
+> Functions (`ejecutar-calculo`, `continuar-tras-revision`) quedaron
+> desplegadas y `ACTIVE` (el bloqueo de permisos reportado antes era un
+> Project Ref equivocado, no una restricción real de la cuenta). R-09/
+> `BL-10` queda verificado con 15 pruebas SQL/RPC/RLS y 14 pruebas HTTP
+> reales — la brecha de auto-escalamiento ya no existe en ese entorno, y
+> el flujo completo de autorización (propietario/ajeno/analista/admin,
+> idempotencia) se confirmó de extremo a extremo. **1D queda cerrado.**
+> Pendiente antes de 1E: configurar un primer administrador real (la
+> cuenta de prueba se eliminó al cerrar este bloque). Ver
+> `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`.
 
 - R-06 (`ejecutar-calculo` sin ownership) — depende únicamente de que
   `D-06`/`D-07` ya estén decididos (lo están); no depende de que 1A/1B/1C
@@ -149,7 +153,7 @@ decisión" ahora depende de **implementarla** en la secuencia correcta:
 | Bloque 1B-P0 (corrección de BL-02/03/04/05/06) | **Completado 2026-07-23** — ver `docs/velarix/bloque-1b/REPORTE-IMPLEMENTACION-1B-P0.md` |
 | Bloque 1B-metodología (BL-17, R-19, ROE/ROA, escenarios) | **Completado parcialmente 2026-07-23** (1B-M, cierre técnico el mismo día) — 12 diferencias clasificadas, 3 bugs corregidos (el cambio de escenarios se revirtió por ser una decisión metodológica no autorizada, no cuenta como corrección), 10 decisiones registradas como pendientes de aprobación, motor servidor canónico extraído y con regresiones numéricas reales. Ver `docs/velarix/bloque-1b-metodologia/REPORTE-RECONCILIACION-METODOLOGICA.md`. Las 10 decisiones en sí requieren al fundador/revisor externo |
 | Bloque 1C (casos dorados y trazabilidad) | Bloque 1B completo — **1C-Prep realizado 2026-07-23** (3 casos dorados técnicos provisionales, no formales) y **1C-T realizado 2026-07-23** (trazabilidad técnica parcial y versionado real, ver `docs/velarix/bloque-1c/REPORTE-IMPLEMENTACION-1C-TECNICO.md`), pero Bloque 1C como tal **sigue sin cerrarse**: `BL-15` queda parcial (falta `source_row_ids`, limitación de esquema documentada), `BL-32` queda con implementación parcial (falta versión de datos macro/sectoriales), y falta la aprobación formal del revisor financiero externo (`docs/velarix/bloque-1c/PAQUETE-REVISION-FINANCIERA.md` prepara esa revisión, no la sustituye) |
-| Bloque 1E (integración y activación) | Bloques 1B, 1C **y** 1D todos cerrados — 1D tiene el código completo y la migración de BL-10 ya aplicada y verificada en el proyecto de desarrollo (1D-OPS, 2026-07-23), pero `ejecutar-calculo`/`continuar-tras-revision` siguen sin desplegarse (bloqueo de permisos, ver `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`); el cierre formal de 1D es una decisión del fundador, no se autodeclara aquí |
+| Bloque 1E (integración y activación) | Bloques 1B, 1C **y** 1D todos cerrados — 1D cerrado (1D-OPS, 2026-07-30): migración aplicada, ambas Edge Functions desplegadas y verificadas por HTTP real (ver `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`). Queda una condición previa a 1E fuera del código: configurar un primer administrador real, ya que la cuenta de prueba se eliminó al cerrar 1D-OPS |
 | Conexión real de `generate-narrative` y del PDF al servidor | Bloque 1E — no antes, bajo ninguna circunstancia |
 | Automatización de cobro (Fase 5) | Precio validado + al menos un cliente pagado |
 | Retainers/time entries (Fase 7) | Repetibilidad demostrada (Fase 6) — diferido explícitamente por negocio |
