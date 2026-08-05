@@ -79,10 +79,15 @@ decisión" ahora depende de **implementarla** en la secuencia correcta:
 > y 10 escenarios de autenticación + reglas de negocio por HTTP real — la
 > brecha de auto-escalamiento ya no existe. Primer administrador real
 > (fundador) identificado sin ambigüedad y promovido por bootstrap
-> protegido. **1D queda cerrado.** Pendiente, fuera de alcance de 1D:
-> revocar manualmente la legacy `service_role` una vez se migren las
-> otras 10 Edge Functions que aún dependen de ella. Ver
+> protegido. **1D queda cerrado.** Ver
 > `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`.
+
+> **Actualizado 2026-08-05 (saneamiento P0 de claves legacy)**: las otras
+> 10 Edge Functions que aún dependían de la legacy `service_role`/`anon`
+> fueron migradas en una sesión separada — ninguna Edge Function del
+> proyecto depende ya operativamente de ella. Pendiente: revocar
+> manualmente la legacy key desde el dashboard. Ver
+> `docs/velarix/seguridad-credenciales/REPORTE-MIGRACION-CLAVES-LEGACY.md`.
 
 - R-06 (`ejecutar-calculo` sin ownership) — depende únicamente de que
   `D-06`/`D-07` ya estén decididos (lo están); no depende de que 1A/1B/1C

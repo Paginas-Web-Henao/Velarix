@@ -14,3 +14,31 @@ verify_jwt = false
 
 [functions.continuar-tras-revision]
 verify_jwt = false
+
+# Saneamiento de claves legacy (2026-08-05). Diez funciones adicionales
+# migradas de SUPABASE_SERVICE_ROLE_KEY/SUPABASE_ANON_KEY a
+# SUPABASE_SECRET_KEYS.default / SUPABASE_PUBLISHABLE_KEYS.default
+# (`_shared/admin-key.ts`). verify_jwt se decidió función por función,
+# no de forma uniforme:
+#
+# - Las siguientes SOLO reciben un JWT real de usuario en `Authorization`
+#   (nunca una secret key ahí) — la puerta de entrada de Supabase sí
+#   reconoce ese formato, así que verify_jwt permanece en su valor por
+#   defecto `true` y no requieren sección propia: parse-document,
+#   map-accounts, validate-analysis, build-structured-input,
+#   generate-narrative, upload-document, run-analysis-pipeline.
+#
+# - Las siguientes son exclusivamente de invocación interna (nunca las
+#   llama el frontend): reciben la secret key `default` únicamente por
+#   `apikey`, nunca por `Authorization`, y verifican explícitamente esa
+#   igualdad en su propio código (`isInternalServiceCall`) — igual que
+#   ejecutar-calculo/continuar-tras-revision, la puerta de entrada no
+#   entiende ese formato de key, así que necesitan verify_jwt = false:
+[functions.enviar-notificacion]
+verify_jwt = false
+
+[functions.update-snapshots]
+verify_jwt = false
+
+[functions.check-data-freshness]
+verify_jwt = false

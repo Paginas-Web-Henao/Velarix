@@ -169,26 +169,30 @@ respuesta ni se escribió en el repositorio.
 `npm test -- --run`, `npx tsc --build --noEmit`, `npm run build`, `npm
 run lint` — resultados en la respuesta final.
 
-## 8. Componentes que todavía dependen de claves legacy (fuera de alcance de 1D)
+## 8. Componentes que todavía dependían de claves legacy (fuera de alcance de 1D) — **actualizado, ver nota**
 
-Las siguientes Edge Functions **no** son parte de 1D y siguen sin migrar
-(leen `SUPABASE_SERVICE_ROLE_KEY`/`SUPABASE_ANON_KEY` directamente):
-`parse-document`, `build-structured-input`, `upload-document`,
-`generate-narrative`, `map-accounts`, `validate-analysis`,
-`run-analysis-pipeline`, `check-data-freshness`, `enviar-notificacion`,
-`update-snapshots`. Migrarlas queda fuera del alcance de este bloque —
-no se tocaron.
+> **Actualización 2026-08-05**: las 10 funciones listadas originalmente
+> aquí fueron migradas en una sesión posterior, separada de este bloque.
+> Ver `docs/velarix/seguridad-credenciales/REPORTE-MIGRACION-CLAVES-LEGACY.md`
+> para el detalle completo — no se reabrió ni modificó el alcance
+> funcional de 1D descrito en este reporte.
+
+Las siguientes Edge Functions **no** eran parte de 1D y en su momento
+seguían sin migrar (leían `SUPABASE_SERVICE_ROLE_KEY`/`SUPABASE_ANON_KEY`
+directamente): `parse-document`, `build-structured-input`,
+`upload-document`, `generate-narrative`, `map-accounts`,
+`validate-analysis`, `run-analysis-pipeline`, `check-data-freshness`,
+`enviar-notificacion`, `update-snapshots`. Ya migradas — ver el reporte
+referido arriba.
 
 ## 9. Acción manual pendiente (fuera del alcance de este reporte)
 
 **Desactivar/rotar la legacy `service_role` key** desde el dashboard de
-Supabase (Project Settings → API Keys, proyecto `esaf…rzqh`). El código
-de `ejecutar-calculo`/`continuar-tras-revision` ya no la usa, pero sigue
-existiendo y siendo válida hasta que alguien con acceso al dashboard la
-revoque manualmente — no ejecutable desde la CLI ni desde este reporte.
-Las 10 funciones listadas en la sección 8 sí siguen dependiendo de ella
-operativamente, así que revocarla hoy las rompería — revocar solo
-después de migrar esas funciones (fuera de alcance de 1D).
+Supabase (Project Settings → API Keys, proyecto `esaf…rzqh`). Tras la
+migración de las 10 funciones de la sección 8 (ver actualización
+arriba), **ninguna de las 12 Edge Functions del proyecto depende ya
+operativamente de esta key** — sigue siendo una acción manual, no
+ejecutable desde la CLI ni desde ningún reporte.
 
 ## 10. Rollback disponible
 

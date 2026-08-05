@@ -568,9 +568,12 @@ indefinidamente hasta lograr esa aprobación — no se fuerza el cierre.
 > usuario — ningún componente de estas dos funciones depende ya de
 > `SUPABASE_SERVICE_ROLE_KEY` ni `SUPABASE_ANON_KEY`. La legacy
 > `service_role` sigue activa en Supabase hasta que se revoque
-> manualmente desde el dashboard (acción humana pendiente — otras 10
-> Edge Functions fuera del alcance de 1D todavía dependen de ella, así
-> que revocarla hoy las rompería).
+> manualmente desde el dashboard (acción humana pendiente). **Actualización
+> 2026-08-05**: las otras 10 Edge Functions que en su momento dependían
+> de ella también fueron migradas, en una sesión separada de saneamiento
+> P0 — ver `docs/velarix/seguridad-credenciales/REPORTE-MIGRACION-CLAVES-LEGACY.md`.
+> Ninguna Edge Function del proyecto depende ya operativamente de la
+> legacy `service_role`/`anon` key; la rotación manual sigue pendiente.
 >
 > **Administrador real configurado (2026-08-05)**: se identificó una
 > única cuenta real inequívoca del fundador en `auth.users` (el proyecto

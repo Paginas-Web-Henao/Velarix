@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,30 +14,13 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
 
-    // Try multiple env var sources for resilience
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") 
-      || Deno.env.get("VITE_SUPABASE_URL")
-      || `https://inujmyxdqbdnzbxxeoyh.supabase.co`;
-    
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") 
-      || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")
-      || req.headers.get("apikey");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || Deno.env.get("VITE_SUPABASE_URL")!;
+    const secretKey = resolveAdminSecretKey();
+    const anonKey = resolvePublishableKey();
 
-    // ENV vars verified available after deploy
+    const supabase = createClient(supabaseUrl, secretKey);
 
-    if (!anonKey) {
-      throw new Error("No API key available");
-    }
-
-    // Use service role key if available, otherwise use anon key with user JWT
-    const supabase = serviceRoleKey 
-      ? createClient(supabaseUrl, serviceRoleKey)
-      : createClient(supabaseUrl, anonKey, {
-          global: { headers: { Authorization: authHeader } }
-        });
-
-    // Verify user using anon key
+    // Verify user using publishable key
     const anonClient = createClient(supabaseUrl, anonKey);
     const { data: { user }, error: authError } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
     if (authError || !user) throw new Error("Unauthorized");

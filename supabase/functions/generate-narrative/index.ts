@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
+import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -315,9 +316,9 @@ serve(async (req) => {
     if (!authHeader) throw new Error("No authorization header");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || serviceRoleKey;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const secretKey = resolveAdminSecretKey();
+    const anonKey = resolvePublishableKey();
+    const supabase = createClient(supabaseUrl, secretKey);
     const anonClient = createClient(supabaseUrl, anonKey);
     const { data: { user } } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
     if (!user) throw new Error("Unauthorized");
@@ -484,7 +485,7 @@ serve(async (req) => {
     if (auditPassed) {
       fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/enviar-notificacion`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")}` },
+        headers: { "Content-Type": "application/json", "apikey": secretKey },
         body: JSON.stringify({ tipo: "analisis_completado", analysis_id }),
       }).catch(e => console.error("Notification error:", e));
     }

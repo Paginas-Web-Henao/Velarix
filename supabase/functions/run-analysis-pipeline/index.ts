@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { evaluateMapAccountsResult } from "../_shared/pipeline-guards.ts";
+import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,11 +16,10 @@ serve(async (req) => {
     if (!authHeader) throw new Error("No authorization header");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
-    if (!serviceRoleKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-    const anonClient = createClient(supabaseUrl, anonKey.length > 0 ? anonKey : serviceRoleKey);
+    const secretKey = resolveAdminSecretKey();
+    const anonKey = resolvePublishableKey();
+    const supabase = createClient(supabaseUrl, secretKey);
+    const anonClient = createClient(supabaseUrl, anonKey);
     const { data: { user } } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
     if (!user) throw new Error("Unauthorized");
 
@@ -176,7 +176,7 @@ serve(async (req) => {
           .map((r: any) => r.detail || r.rule_code);
         fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": authHeader },
+          headers: { "Content-Type": "application/json", "apikey": secretKey },
           body: JSON.stringify({ tipo: "analisis_bloqueado", analysis_id, datos_extra: { problemas: failedRules } }),
         }).catch(e => console.error("Notification error:", e));
 
@@ -301,12 +301,16 @@ serve(async (req) => {
     // Notify user about technical error
     const { analysis_id: aid } = await req.clone().json().catch(() => ({ analysis_id: null }));
     if (aid) {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") || "" },
-        body: JSON.stringify({ tipo: "error_analisis", analysis_id: aid, datos_extra: { mensaje_error: error instanceof Error ? error.message : "Error técnico inesperado." } }),
-      }).catch(e => console.error("Notification error:", e));
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "apikey": resolveAdminSecretKey() },
+          body: JSON.stringify({ tipo: "error_analisis", analysis_id: aid, datos_extra: { mensaje_error: error instanceof Error ? error.message : "Error técnico inesperado." } }),
+        }).catch(e => console.error("Notification error:", e));
+      } catch (e) {
+        console.error("Notification error:", e);
+      }
     }
     return new Response(JSON.stringify({ success: false, error: { code: "PIPELINE_ERROR", message: error instanceof Error ? error.message : "Error en el pipeline de análisis." } }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
