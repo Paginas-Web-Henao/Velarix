@@ -4,7 +4,7 @@ import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financia
 import { computeTotalConversionFactor, normalizeCurrencyCode } from "../_shared/currency.ts";
 import { buildCalculationProvenance, type HomologationReference } from "../_shared/calculation-provenance.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
-import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
+import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,8 +88,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, secretKey);
     const anonClient = createClient(supabaseUrl, anonKey);
     const user = await requireAuthenticatedUser(authHeader, async (token) => {
-      const { data } = await anonClient.auth.getUser(token);
-      return data.user;
+      const { data, error } = await anonClient.auth.getUser(token);
+      return { user: data.user, error };
     });
 
     const { analysis_id } = await req.json();
@@ -110,7 +110,9 @@ serve(async (req) => {
     }
 
     const { data: accounts } = await supabase.from("account_homologations").select("*").eq("analysis_id", analysis_id);
-    if (!accounts || accounts.length === 0) throw new Error("No hay cuentas homologadas.");
+    if (!accounts || accounts.length === 0) {
+      throw new BadRequestError("NO_ACCOUNTS", "No hay cuentas homologadas.");
+    }
 
     const periods = [...new Set(accounts.filter((a: any) => a.period).map((a: any) => a.period))].sort();
 

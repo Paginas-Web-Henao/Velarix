@@ -23,8 +23,8 @@ serve(async (req) => {
     // Verify user using publishable key
     const anonClient = createClient(supabaseUrl, anonKey);
     const user = await requireAuthenticatedUser(authHeader, async (token) => {
-      const { data } = await anonClient.auth.getUser(token);
-      return data.user;
+      const { data, error } = await anonClient.auth.getUser(token);
+      return { user: data.user, error };
     });
 
     const formData = await req.formData();

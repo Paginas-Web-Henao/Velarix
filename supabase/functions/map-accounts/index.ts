@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
-import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
+import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -167,8 +167,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, secretKey);
     const anonClient = createClient(supabaseUrl, anonKey);
     const user = await requireAuthenticatedUser(authHeader, async (token) => {
-      const { data } = await anonClient.auth.getUser(token);
-      return data.user;
+      const { data, error } = await anonClient.auth.getUser(token);
+      return { user: data.user, error };
     });
 
     const { analysis_id } = await req.json();
@@ -185,7 +185,9 @@ serve(async (req) => {
     const { data: documents } = await supabase.from("documents").select("id, doc_type_declared").eq("analysis_id", analysis_id);
     const { data: parsedDocs } = await supabase.from("documents_parsed").select("*").in("document_id", (documents || []).map(d => d.id));
 
-    if (!parsedDocs || parsedDocs.length === 0) throw new Error("No hay documentos parseados disponibles para homologar.");
+    if (!parsedDocs || parsedDocs.length === 0) {
+      throw new BadRequestError("NO_PARSED_DOCUMENTS", "No hay documentos parseados disponibles para homologar. Verifica que los documentos se procesaron correctamente.");
+    }
 
     // Clear previous mappings
     await supabase.from("account_homologations").delete().eq("analysis_id", analysis_id);

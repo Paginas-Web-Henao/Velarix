@@ -404,3 +404,28 @@ corrección, en el mismo estado de preparación técnica para una futura
 auditoría previa a la rotación de JWT Signing Keys que describía el
 reporte anterior, ahora con las respuestas de error correctamente
 clasificadas y verificadas en vivo contra el proyecto real.
+
+## 16. Cierre posterior (2026-08-05) — hallazgos de una auditoría independiente
+
+Una auditoría independiente posterior a este reporte encontró seis
+hallazgos que seguían pendientes tras este commit: las 7 funciones
+descartaban el campo `error` de `auth.getUser` (pudiendo ocultar un fallo
+técnico real de Supabase Auth como 401), la rama 500 podía exponer
+`error.message` crudo, cuatro funciones devolvían 500 ante precondiciones
+de negocio normales (ya reconocido como hallazgo honesto en la sección 14
+de este mismo reporte), el `project_id` desalineado en `config.toml`
+(también ya documentado en la sección 14), y una violación del proceso de
+lint (commit creado pese a un fallo real de `npm run lint`, aunque sin
+errores nuevos).
+
+Los seis se cerraron en la sesión siguiente — ver
+`docs/velarix/seguridad-credenciales/REPORTE-CIERRE-HALLAZGOS-AUTH-PRE-JWT.md`
+para la causa raíz completa, la corrección aplicada, las 65 pruebas
+automatizadas nuevas, y la matriz remota verificada en vivo contra el
+proyecto real (46 escenarios).
+
+Este reporte y su matriz de pruebas (secciones 1–15) se conservan tal
+cual, sin reescribir, como evidencia histórica del estado inmediatamente
+posterior a `217a677`. Las JWT Signing Keys **no fueron tocadas, creadas,
+rotadas ni migradas** en esa sesión posterior tampoco — sigue siendo un
+paso manual, pendiente de una auditoría final antes de iniciarse.

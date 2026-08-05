@@ -28,6 +28,23 @@ export class NotFoundError extends Error {
 }
 
 /**
+ * Precondición de negocio con JWT válido (p.ej. "sin cuentas homologadas
+ * todavía") — nunca un problema de autenticación ni de ownership. Mapea a
+ * 400 con un código y mensaje públicos definidos por cada función.
+ */
+export class BadRequestError extends Error {
+  code: string;
+  publicMessage: string;
+
+  constructor(code: string, publicMessage: string) {
+    super(code);
+    this.name = "BadRequestError";
+    this.code = code;
+    this.publicMessage = publicMessage;
+  }
+}
+
+/**
  * Extrae el token de un header `Authorization: Bearer <token>`. Exige el
  * esquema exacto `Bearer` (nunca `Basic` ni otro), uno o más espacios
  * como separador (nunca tab ni ausencia de separador), y un token no
@@ -48,31 +65,83 @@ export interface MinimalUser {
 }
 
 /**
+ * Forma mínima de un error de `@supabase/auth-js` (versión 2.68.0, la que
+ * resuelve realmente `@supabase/supabase-js@2.49.1`, importado por las 7
+ * Edge Functions vía esm.sh). Se identifica por `name`, igual que los
+ * type guards oficiales `isAuthApiError`/`isAuthRetryableFetchError` del
+ * propio paquete — sin importar las clases reales, para mantener este
+ * módulo puro y sin dependencias de Supabase.
+ */
+export interface MinimalAuthError {
+  name?: string;
+  status?: number;
+  message?: string;
+}
+
+/**
+ * Resultado de `auth.getUser(token)` con un token explícito: en esa forma
+ * de uso, auth-js 2.68.0 nunca lanza — atrapa internamente cualquier
+ * `AuthError` (`AuthApiError`, `AuthRetryableFetchError`,
+ * `AuthUnknownError`, `AuthSessionMissingError`, ...) y siempre resuelve
+ * `{ data: { user: null }, error }`. `verifyToken` debe devolver ambos
+ * campos — nunca descartar `error` quedándose solo con `data.user`.
+ */
+export interface AuthCheckResult {
+  user: MinimalUser | null;
+  error: MinimalAuthError | null;
+}
+
+/**
+ * Nombres de error que auth-js atribuye de forma inequívoca al propio
+ * JWT/cliente: `AuthApiError` (la API de Auth rechazó el token — inválido,
+ * alterado, expirado, revocado) y `AuthSessionMissingError` (el
+ * `session_id` del JWT ya no corresponde a una sesión activa, p.ej. el
+ * usuario cerró sesión en otro lugar). Nunca incluye
+ * `AuthRetryableFetchError` (red, timeout, 502/503/504 del propio
+ * servicio de Auth) ni `AuthUnknownError` — esos son fallos técnicos
+ * reales, no problemas de autenticación del cliente.
+ */
+const CLIENT_AUTH_ERROR_NAMES = new Set(["AuthApiError", "AuthSessionMissingError"]);
+
+export function isClientAuthError(error: MinimalAuthError | null | undefined): boolean {
+  return !!error && typeof error.name === "string" && CLIENT_AUTH_ERROR_NAMES.has(error.name);
+}
+
+/**
  * Valida la sesión de un usuario real a partir del header `Authorization`.
  * `verifyToken` es la única parte impura de esta función — cada Edge
  * Function la implementa llamando al mecanismo oficial de Supabase Auth
- * (`anonClient.auth.getUser(token)`), nunca decodificando el JWT
- * manualmente. Lanza siempre `UnauthorizedError`, sin distinguir la
- * causa exacta (token ausente, esquema incorrecto, vacío, malformado,
- * alterado, expirado, no resuelto por Supabase, o un fallo técnico del
- * propio chequeo) — la respuesta pública debe ser 401 uniforme en todos
- * los casos, sin filtrar cuál fue el motivo real del rechazo.
+ * (`anonClient.auth.getUser(token)`) y devolviendo tanto `data.user` como
+ * `error`, nunca decodificando el JWT manualmente.
+ *
+ * Política conservadora (fail closed):
+ * - usuario válido -> se devuelve, sin más comprobaciones;
+ * - `error` es un error de cliente inequívoco (`isClientAuthError`) ->
+ *   `UnauthorizedError` (401) — token ausente, esquema incorrecto, vacío,
+ *   malformado, alterado, expirado o de una sesión ya cerrada;
+ * - cualquier otro caso (error técnico real, error sin clasificar, o
+ *   ausencia total de usuario y de error) -> se relanza tal cual, nunca se
+ *   convierte en 401 — el catch-all de cada función lo mapea a 500 con un
+ *   mensaje público seguro, nunca con el mensaje técnico crudo.
  */
 export async function requireAuthenticatedUser(
   authHeaderValue: string | null | undefined,
-  verifyToken: (token: string) => Promise<MinimalUser | null>,
+  verifyToken: (token: string) => Promise<AuthCheckResult>,
 ): Promise<MinimalUser> {
   const token = extractBearerToken(authHeaderValue);
   if (!token) throw new UnauthorizedError();
 
-  let user: MinimalUser | null;
-  try {
-    user = await verifyToken(token);
-  } catch {
-    throw new UnauthorizedError();
-  }
-  if (!user) throw new UnauthorizedError();
-  return user;
+  const result = await verifyToken(token);
+
+  if (result.user) return result.user;
+
+  if (isClientAuthError(result.error)) throw new UnauthorizedError();
+
+  // Sin usuario y sin un error que auth-js clasifique inequívocamente como
+  // problema del cliente (p.ej. AuthRetryableFetchError por red o 5xx de
+  // Auth, AuthUnknownError, o ausencia total de error) -> fallo técnico
+  // real. Ante la ambigüedad se falla cerrado hacia 500, nunca hacia 401.
+  throw result.error ?? new Error("auth.getUser no devolvió usuario ni error clasificable.");
 }
 
 export type ResourceLookupOutcome = "owner" | "not_found" | "technical_error";
@@ -108,8 +177,27 @@ export function classifyOwnedResourceLookup(
   return "owner";
 }
 
+export type ResourceExistenceOutcome = "found" | "not_found" | "technical_error";
+
+/**
+ * Igual que `classifyOwnedResourceLookup`, pero sin comparar ownership —
+ * para recursos hijos ya acotados por una columna de la propia consulta
+ * (p.ej. `documents` filtrado por `analysis_id`, donde el ownership del
+ * `analysis_id` ya se validó antes). Distingue "no existe" (`PGRST116` o
+ * `.single()` sin filas) de un fallo técnico real de la consulta, que
+ * nunca debe convertirse en 404.
+ */
+export function classifyResourceLookup(
+  error: MinimalPostgrestError | null | undefined,
+  resource: unknown | null | undefined,
+): ResourceExistenceOutcome {
+  if (error && error.code !== POSTGREST_NO_ROWS_CODE) return "technical_error";
+  if (!resource) return "not_found";
+  return "found";
+}
+
 export interface AuthAwareErrorResponse {
-  status: 401 | 404 | 500;
+  status: 400 | 401 | 404 | 500;
   body: {
     success: false;
     error: { code: string; message: string };
@@ -123,9 +211,15 @@ const NOT_FOUND_BODY = { success: false as const, error: { code: "NOT_FOUND", me
  * Traduce cualquier error capturado en el handler de una Edge Function a
  * una respuesta HTTP coherente: `UnauthorizedError` -> 401,
  * `NotFoundError` -> 404 (mensaje genérico, no revela si el recurso
- * existe), cualquier otro error -> 500 con el código de fallback propio
- * de cada función (mismo comportamiento que tenían las 7 funciones
- * antes de esta corrección para los errores técnicos reales).
+ * existe), `BadRequestError` -> 400 con el código y mensaje públicos que
+ * define cada función, cualquier otro error -> 500.
+ *
+ * La rama 500 usa exclusivamente `fallback.message` — nunca
+ * `error.message` ni ningún otro dato del error real. Un error técnico
+ * real (fallo de base de datos, nombre de tabla, URL interna, stack
+ * trace, cabecera Authorization, etc.) solo debe quedar en los logs
+ * internos de cada función (vía `console.error`, antes de llamar a esta
+ * función), nunca en la respuesta al cliente.
  */
 export function mapErrorToResponse(
   error: unknown,
@@ -133,9 +227,12 @@ export function mapErrorToResponse(
 ): AuthAwareErrorResponse {
   if (error instanceof UnauthorizedError) return { status: 401, body: UNAUTHORIZED_BODY };
   if (error instanceof NotFoundError) return { status: 404, body: NOT_FOUND_BODY };
+  if (error instanceof BadRequestError) {
+    return { status: 400, body: { success: false, error: { code: error.code, message: error.publicMessage } } };
+  }
   return {
     status: 500,
-    body: { success: false, error: { code: fallback.code, message: error instanceof Error ? error.message : fallback.message } },
+    body: { success: false, error: { code: fallback.code, message: fallback.message } },
   };
 }
 

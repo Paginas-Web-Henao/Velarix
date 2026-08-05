@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
-import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
+import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -495,8 +495,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, secretKey);
     const anonClient = createClient(supabaseUrl, anonKey);
     const user = await requireAuthenticatedUser(authHeader, async (token) => {
-      const { data } = await anonClient.auth.getUser(token);
-      return data.user;
+      const { data, error } = await anonClient.auth.getUser(token);
+      return { user: data.user, error };
     });
 
     const { analysis_id, document_id } = await req.json();
@@ -507,8 +507,10 @@ serve(async (req) => {
     if (lookup === "not_found") throw new NotFoundError();
     if (lookup === "technical_error") throw analysisError;
 
-    const { data: document } = await supabase.from("documents").select("*").eq("id", document_id).eq("analysis_id", analysis_id).single();
-    if (!document) throw new Error("Document not found");
+    const { data: document, error: documentError } = await supabase.from("documents").select("*").eq("id", document_id).eq("analysis_id", analysis_id).single();
+    const documentLookup = classifyResourceLookup(documentError, document);
+    if (documentLookup === "not_found") throw new NotFoundError();
+    if (documentLookup === "technical_error") throw documentError;
 
     await supabase.from("analyses").update({ status: "parsing_en_curso" }).eq("id", analysis_id);
     await supabase.from("documents").update({ processing_status: "procesando" }).eq("id", document_id);
