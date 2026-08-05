@@ -257,3 +257,24 @@ Todos los datos creados en esta sesión fueron sintéticos, prefijo
 de cliente fue creado, leído ni modificado. No se tocó la cuenta del
 fundador ni su rol de administrador. No se inició el Bloque 1E ni se
 modificó lógica financiera o visual.
+
+## 12. Actualización posterior (2026-08-05) — corrección de códigos HTTP
+
+Una auditoría forense posterior a este reporte encontró que la matriz de
+pruebas de la sección 5 (arriba) **no registró el código HTTP
+observado**, solo un resultado ✅/❌ genérico — por eso no detectó que las
+7 funciones, aunque autenticaban correctamente, devolvían `500` (no
+`401`) ante autenticación ausente o inválida, y `500` (no `404`) ante un
+intento de acceder al análisis de otro usuario. La autenticación en sí
+nunca fue el problema (confirmado de nuevo en la corrección posterior);
+el problema era exclusivamente la clasificación del código de respuesta.
+
+Corrección aplicada y verificada en vivo — ver
+`docs/velarix/seguridad-credenciales/REPORTE-CORRECCION-RESPUESTAS-AUTH-EDGE-FUNCTIONS.md`
+para el detalle completo, la causa raíz, y la matriz de pruebas con
+código HTTP explícito. Estado tras la corrección: las 7 funciones de
+usuario responden `401` ante autenticación ausente o inválida y `404`
+seguro ante un recurso ajeno; las 12 Edge Functions permanecen `ACTIVE`
+con `verify_jwt=false`. Las JWT Signing Keys **todavía no fueron
+rotadas ni revocadas** — esa acción sigue siendo manual, fuera del
+alcance de la CLI y de ambos reportes.

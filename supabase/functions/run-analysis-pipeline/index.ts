@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { evaluateMapAccountsResult } from "../_shared/pipeline-guards.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
+import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse, shouldNotifyPipelineError } from "../_shared/user-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,24 +12,34 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Capturado una sola vez, tras leer el body con éxito — nunca se
+  // vuelve a leer ni clonar `req` en el catch (el body ya fue
+  // consumido por `req.json()` más abajo, y `req.clone()` después de
+  // eso lanza porque la Fetch API no permite clonar un body ya leído).
+  let capturedAnalysisId: string | null = null;
+
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const secretKey = resolveAdminSecretKey();
     const anonKey = resolvePublishableKey();
     const supabase = createClient(supabaseUrl, secretKey);
     const anonClient = createClient(supabaseUrl, anonKey);
-    const { data: { user } } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (!user) throw new Error("Unauthorized");
+    const user = await requireAuthenticatedUser(authHeader, async (token) => {
+      const { data } = await anonClient.auth.getUser(token);
+      return data.user;
+    });
 
     const { analysis_id } = await req.json();
     if (!analysis_id) throw new Error("analysis_id required");
+    capturedAnalysisId = analysis_id;
 
-    const { data: analysis } = await supabase
+    const { data: analysis, error: analysisError } = await supabase
       .from("analyses").select("*").eq("id", analysis_id).single();
-    if (!analysis || analysis.user_id !== user.id) throw new Error("Not found");
+    const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
+    if (lookup === "not_found") throw new NotFoundError();
+    if (lookup === "technical_error") throw analysisError;
 
     // Check for existing running pipeline (idempotency)
     const { data: existingLock } = await supabase
@@ -298,21 +309,25 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("pipeline error:", error);
-    // Notify user about technical error
-    const { analysis_id: aid } = await req.clone().json().catch(() => ({ analysis_id: null }));
-    if (aid) {
+    const mapped = mapErrorToResponse(error, { code: "PIPELINE_ERROR", message: "Error en el pipeline de análisis." });
+
+    // Solo notifica errores técnicos reales (500) con analysis_id
+    // capturado de forma segura — nunca por un 401 (fallo de
+    // autenticación) ni un 404 (recurso ajeno, para no notificar al
+    // dueño real por un intento de otro usuario).
+    if (shouldNotifyPipelineError(mapped, capturedAnalysisId)) {
       try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "apikey": resolveAdminSecretKey() },
-          body: JSON.stringify({ tipo: "error_analisis", analysis_id: aid, datos_extra: { mensaje_error: error instanceof Error ? error.message : "Error técnico inesperado." } }),
+          body: JSON.stringify({ tipo: "error_analisis", analysis_id: capturedAnalysisId, datos_extra: { mensaje_error: error instanceof Error ? error.message : "Error técnico inesperado." } }),
         }).catch(e => console.error("Notification error:", e));
       } catch (e) {
         console.error("Notification error:", e);
       }
     }
-    return new Response(JSON.stringify({ success: false, error: { code: "PIPELINE_ERROR", message: error instanceof Error ? error.message : "Error en el pipeline de análisis." } }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify(mapped.body), { status: mapped.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
 

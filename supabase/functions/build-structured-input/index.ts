@@ -4,6 +4,7 @@ import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financia
 import { computeTotalConversionFactor, normalizeCurrencyCode } from "../_shared/currency.ts";
 import { buildCalculationProvenance, type HomologationReference } from "../_shared/calculation-provenance.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
+import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -80,21 +81,24 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const secretKey = resolveAdminSecretKey();
     const anonKey = resolvePublishableKey();
     const supabase = createClient(supabaseUrl, secretKey);
     const anonClient = createClient(supabaseUrl, anonKey);
-    const { data: { user } } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (!user) throw new Error("Unauthorized");
+    const user = await requireAuthenticatedUser(authHeader, async (token) => {
+      const { data } = await anonClient.auth.getUser(token);
+      return data.user;
+    });
 
     const { analysis_id } = await req.json();
     if (!analysis_id) throw new Error("analysis_id required");
 
-    const { data: analysis } = await supabase.from("analyses").select("*").eq("id", analysis_id).single();
-    if (!analysis || analysis.user_id !== user.id) throw new Error("Not found");
+    const { data: analysis, error: analysisError } = await supabase.from("analyses").select("*").eq("id", analysis_id).single();
+    const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
+    if (lookup === "not_found") throw new NotFoundError();
+    if (lookup === "technical_error") throw analysisError;
 
     // PROBLEMA 5: Flexible status — never block, just log
     const estadosPermitidos = [
@@ -284,6 +288,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("build-structured-input error:", error);
-    return new Response(JSON.stringify({ success: false, error: { code: "BUILD_ERROR", message: error instanceof Error ? error.message : "Error al construir el input estructurado." } }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const mapped = mapErrorToResponse(error, { code: "BUILD_ERROR", message: "Error al construir el input estructurado." });
+    return new Response(JSON.stringify(mapped.body), { status: mapped.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

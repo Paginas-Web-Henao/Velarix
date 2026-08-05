@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
+import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,6 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || Deno.env.get("VITE_SUPABASE_URL")!;
     const secretKey = resolveAdminSecretKey();
@@ -22,8 +22,10 @@ serve(async (req) => {
 
     // Verify user using publishable key
     const anonClient = createClient(supabaseUrl, anonKey);
-    const { data: { user }, error: authError } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (authError || !user) throw new Error("Unauthorized");
+    const user = await requireAuthenticatedUser(authHeader, async (token) => {
+      const { data } = await anonClient.auth.getUser(token);
+      return data.user;
+    });
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
@@ -37,9 +39,9 @@ serve(async (req) => {
     // Verify analysis belongs to user
     const { data: analysis, error: analysisError } = await supabase
       .from("analyses").select("id, user_id, status").eq("id", analysisId).single();
-    if (analysisError || !analysis || analysis.user_id !== user.id) {
-      return new Response(JSON.stringify({ success: false, error: { code: "NOT_FOUND", message: "Análisis no encontrado o no autorizado." } }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
+    if (lookup === "not_found") throw new NotFoundError();
+    if (lookup === "technical_error") throw analysisError;
 
     // Validate file size (10MB)
     if (file.size > 10485760) {
@@ -103,6 +105,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("upload-document error:", error);
-    return new Response(JSON.stringify({ success: false, error: { code: "UPLOAD_ERROR", message: error instanceof Error ? error.message : "Error al cargar el documento." } }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const mapped = mapErrorToResponse(error, { code: "UPLOAD_ERROR", message: "Error al cargar el documento." });
+    return new Response(JSON.stringify(mapped.body), { status: mapped.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

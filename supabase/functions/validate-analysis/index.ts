@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { sumAccountValue, hasAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
+import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -132,21 +133,24 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const secretKey = resolveAdminSecretKey();
     const anonKey = resolvePublishableKey();
     const supabase = createClient(supabaseUrl, secretKey);
     const anonClient = createClient(supabaseUrl, anonKey);
-    const { data: { user } } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (!user) throw new Error("Unauthorized");
+    const user = await requireAuthenticatedUser(authHeader, async (token) => {
+      const { data } = await anonClient.auth.getUser(token);
+      return data.user;
+    });
 
     const { analysis_id } = await req.json();
     if (!analysis_id) throw new Error("analysis_id required");
 
-    const { data: analysis } = await supabase.from("analyses").select("*").eq("id", analysis_id).single();
-    if (!analysis || analysis.user_id !== user.id) throw new Error("Not found");
+    const { data: analysis, error: analysisError } = await supabase.from("analyses").select("*").eq("id", analysis_id).single();
+    const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
+    if (lookup === "not_found") throw new NotFoundError();
+    if (lookup === "technical_error") throw analysisError;
 
     const { data: accounts } = await supabase.from("account_homologations").select("*").eq("analysis_id", analysis_id);
     if (!accounts || accounts.length === 0) {
@@ -213,6 +217,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("validate-analysis error:", error);
-    return new Response(JSON.stringify({ success: false, error: { code: "VALIDATION_ERROR", message: error instanceof Error ? error.message : "Error en la validación." } }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const mapped = mapErrorToResponse(error, { code: "VALIDATION_ERROR", message: "Error en la validación." });
+    return new Response(JSON.stringify(mapped.body), { status: mapped.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
