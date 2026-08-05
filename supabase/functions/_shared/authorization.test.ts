@@ -21,7 +21,7 @@ const OWNER_ID = "11111111-1111-1111-1111-111111111111";
 const OTHER_USER_ID = "22222222-2222-2222-2222-222222222222";
 const ANALYST_ID = "33333333-3333-3333-3333-333333333333";
 const ADMIN_ID = "44444444-4444-4444-4444-444444444444";
-const SERVICE_ROLE_KEY = "test-service-role-secret";
+const SECRET_KEY = "test-secret-key-default";
 
 const owner: AuthenticatedActor = { userId: OWNER_ID, role: "user" };
 const otherUser: AuthenticatedActor = { userId: OTHER_USER_ID, role: "user" };
@@ -185,19 +185,24 @@ describe("canChangeRole (BL-10) — escenario 6", () => {
   });
 });
 
-describe("isInternalServiceCall — detección de invocación interna real", () => {
-  it("9 (soporte). coincide exactamente con la service role key real", () => {
-    expect(isInternalServiceCall(`Bearer ${SERVICE_ROLE_KEY}`, SERVICE_ROLE_KEY)).toBe(true);
+describe("isInternalServiceCall — detección de invocación interna real (header apikey, Bloque 1D corrección 2026-07-30)", () => {
+  it("9 (soporte). coincide exactamente con la secret key real enviada en apikey (sin prefijo Bearer)", () => {
+    expect(isInternalServiceCall(SECRET_KEY, SECRET_KEY)).toBe(true);
   });
 
-  it("no acepta un campo público simulando 'internal' — solo el secreto real cuenta", () => {
-    expect(isInternalServiceCall("Bearer internal-true", SERVICE_ROLE_KEY)).toBe(false);
-    expect(isInternalServiceCall(`Bearer ${SERVICE_ROLE_KEY}suffix`, SERVICE_ROLE_KEY)).toBe(false);
+  it("6. una secret key correcta enviada como Authorization Bearer (no apikey) NUNCA cuenta como interna — las secret keys no son JWT y no llevan el prefijo 'Bearer '", () => {
+    expect(isInternalServiceCall(`Bearer ${SECRET_KEY}`, SECRET_KEY)).toBe(false);
+  });
+
+  it("7. no acepta un campo público simulando 'internal' ni otra key distinta — solo el secreto real exacto cuenta", () => {
+    expect(isInternalServiceCall("internal-true", SECRET_KEY)).toBe(false);
+    expect(isInternalServiceCall(`${SECRET_KEY}suffix`, SECRET_KEY)).toBe(false);
+    expect(isInternalServiceCall("otra-key-cualquiera", SECRET_KEY)).toBe(false);
   });
 
   it("header ausente o secreto ausente: false, nunca true por omisión", () => {
-    expect(isInternalServiceCall(null, SERVICE_ROLE_KEY)).toBe(false);
-    expect(isInternalServiceCall(`Bearer ${SERVICE_ROLE_KEY}`, undefined)).toBe(false);
+    expect(isInternalServiceCall(null, SECRET_KEY)).toBe(false);
+    expect(isInternalServiceCall(SECRET_KEY, undefined)).toBe(false);
     expect(isInternalServiceCall(undefined, undefined)).toBe(false);
   });
 });

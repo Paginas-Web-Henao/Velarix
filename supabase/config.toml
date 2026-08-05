@@ -1,1 +1,16 @@
 project_id = "inujmyxdqbdnzbxxeoyh"
+
+# Bloque 1D — corrección de autenticación mixta (2026-07-30).
+#
+# La puerta de entrada de Supabase (verify_jwt) todavía no reconoce el
+# formato de las secret keys nuevas (sb_secret_...) — solo entiende JWT
+# (legacy anon/service_role). Estas dos funciones deben aceptar tanto un
+# JWT real de usuario (Authorization) como la secret key `default`
+# (apikey) para llamadas de servicio interno, así que verifican la
+# autenticación ellas mismas (ver `_shared/authorization.ts`,
+# `isInternalServiceCall`) — nunca quedan públicas ni usan `auth: none`.
+[functions.ejecutar-calculo]
+verify_jwt = false
+
+[functions.continuar-tras-revision]
+verify_jwt = false

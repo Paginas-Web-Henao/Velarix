@@ -546,30 +546,38 @@ indefinidamente hasta lograr esa aprobación — no se fuerza el cierre.
 > improvisó ninguna vía alternativa. BL-10 sigue **sin efecto real**
 > hasta que se aplique manualmente.
 >
-> **1D-OPS: parcial, no cerrado (2026-07-23, última corrección
-> 2026-07-30).** Con el proyecto Supabase de desarrollo autenticado y
-> vinculado, se aplicó la cadena completa de 9 migraciones (proyecto
-> remoto vacío, sin esquema previo) — BL-10 tiene efecto real en la base
-> remota, verificado con 15 pruebas reales de SQL/RPC/RLS + 14 pruebas
-> HTTP autenticadas. `ejecutar-calculo` y `continuar-tras-revision`
-> desplegadas (`ACTIVE`, `verify_jwt: true`).
+> **1D-OPS: CERRADO (2026-07-23, corrección de autenticación mixta y
+> administrador real completada 2026-08-05).** Con el proyecto Supabase
+> de desarrollo autenticado y vinculado, se aplicó la cadena completa de
+> 9 migraciones — BL-10 tiene efecto real en la base remota, verificado
+> con 15 pruebas de SQL/RPC/RLS. `ejecutar-calculo` y
+> `continuar-tras-revision` están `ACTIVE`, con autenticación mixta
+> implementada explícitamente en el código (usuario real vía JWT, o
+> servicio interno vía la secret key `default` en el header `apikey` —
+> nunca en `Authorization`, porque no es un JWT) y `verify_jwt: false`
+> justificado (la puerta de entrada de Supabase no reconoce el formato
+> de secret key nuevo). 10 escenarios de autenticación + las reglas de
+> negocio ya conocidas (ownership, roles, idempotencia, auditoría) se
+> reverificaron por HTTP real, todos correctos.
 >
 > **Incidente de credencial (2026-07-30)**: la legacy `service_role` key
 > quedó expuesta en un output durante una sesión de operaciones. Se trató
-> como comprometida: ambas funciones se migraron para leer la nueva
-> secret key (`SUPABASE_SECRET_KEYS`, key `default`) en vez de
-> `SUPABASE_SERVICE_ROLE_KEY`, se redesplegaron, y se reverificaron con
-> pruebas mínimas — todas pasaron. La legacy key sigue activa en Supabase
-> hasta que se revoque manualmente desde el dashboard (acción humana
-> pendiente, no ejecutable por código).
+> como comprometida: ambas funciones migradas a la nueva secret key
+> (`SUPABASE_SECRET_KEYS`) y, después, también a la nueva publishable key
+> (`SUPABASE_PUBLISHABLE_KEYS`) para el cliente que valida el JWT de
+> usuario — ningún componente de estas dos funciones depende ya de
+> `SUPABASE_SERVICE_ROLE_KEY` ni `SUPABASE_ANON_KEY`. La legacy
+> `service_role` sigue activa en Supabase hasta que se revoque
+> manualmente desde el dashboard (acción humana pendiente — otras 10
+> Edge Functions fuera del alcance de 1D todavía dependen de ella, así
+> que revocarla hoy las rompería).
 >
-> **Bloqueante que persiste**: no existe ningún administrador real — al
-> intentar promover la cuenta del fundador se encontró que el proyecto
-> Supabase realmente vinculado no tiene **ningún** usuario registrado
-> (`auth.users` vacío), lo que sugiere que la cuenta pudo haberse creado
-> en un proyecto distinto (ver la confusión de Project Ref documentada en
-> `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`). No se promovió ni
-> se creó ninguna cuenta. 1D no puede cerrarse hasta resolver esto. Ver
+> **Administrador real configurado (2026-08-05)**: se identificó una
+> única cuenta real inequívoca del fundador en `auth.users` (el proyecto
+> vinculado correcto ya tenía esa cuenta) y se promovió a `role='admin'`
+> mediante el bootstrap protegido, sin tocar su contraseña. Verificado:
+> no puede autoescalarse vía la RPC, sí puede operar sobre otros
+> usuarios, y el bootstrap quedó auditado. Ver
 > `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md` para el detalle
 > completo.
 

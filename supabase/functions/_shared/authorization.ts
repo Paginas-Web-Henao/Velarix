@@ -16,12 +16,18 @@
 //   relación de asignación análisis↔analista, así que cualquier usuario
 //   con role="analyst" está autorizado para cualquier análisis.
 // - "admin": acciones privilegiadas, sujeto a auditoría.
-// - Invocación interna: verificada comparando el `Authorization` header
-//   contra la secret key administrativa real (`_shared/admin-key.ts`,
-//   ver `isInternalServiceCall`) — nunca un campo público como
-//   `{internal:true}`. `isInternalServiceCall` es agnóstica de cuál key
-//   se le pase; la migración de `SUPABASE_SERVICE_ROLE_KEY` a
-//   `SUPABASE_SECRET_KEYS` (Bloque 1D, 2026-07-30) no le cambia nada.
+// - Invocación interna: verificada comparando el header `apikey` (nunca
+//   `Authorization`) contra la secret key administrativa real
+//   (`_shared/admin-key.ts`, ver `isInternalServiceCall`) — nunca un
+//   campo público como `{internal:true}`. Corrección de autenticación
+//   mixta (Bloque 1D, 2026-07-30): las secret keys nuevas
+//   (`sb_secret_...`) NO son JWT — Supabase exige enviarlas por
+//   `apikey`, nunca como `Authorization: Bearer`, así que
+//   `isInternalServiceCall` dejó de leer `Authorization` (eso ahora es
+//   exclusivamente para el JWT real de un usuario). Estas dos Edge
+//   Functions corren con `verify_jwt = false` (la puerta de entrada de
+//   Supabase no reconoce el formato de secret key nuevo) y validan el
+//   JWT de usuario ellas mismas cuando la llamada no es interna.
 
 export type ActorRole = "user" | "analyst" | "admin";
 
@@ -47,15 +53,26 @@ const GENERIC_UNAUTHORIZED_MESSAGE = "No autorizado.";
 const GENERIC_NO_SESSION_MESSAGE = "No autenticado.";
 
 /**
- * Detecta una invocación interna real comparando el `Authorization`
- * header contra el valor real de la service role key — nunca confiando
- * en un campo enviado por el cliente. Función pura: recibe el secreto
- * como parámetro, no lo lee de `Deno.env` (eso es responsabilidad de la
- * Edge Function que la invoca).
+ * Detecta una invocación interna real comparando el header `apikey`
+ * (nunca `Authorization`) contra el valor real de la secret key
+ * administrativa — nunca confiando en un campo enviado por el cliente
+ * en el body (`internal: true`, `user_id`, etc.). Función pura: recibe
+ * el secreto y el header como parámetros, no lee `Deno.env` ni
+ * `Request` directamente (eso es responsabilidad de la Edge Function
+ * que la invoca).
+ *
+ * Corrección de autenticación mixta (Bloque 1D, 2026-07-30): antes
+ * comparaba contra `Authorization: Bearer <key>`, válido para la legacy
+ * `service_role` (un JWT). Las secret keys nuevas (`sb_secret_...`) no
+ * son JWT — enviarlas en `Authorization` haría que Supabase intente
+ * parsearlas como JWT y las rechace con "Invalid JWT" antes de llegar
+ * aquí. El protocolo correcto es enviarlas en `apikey`, igual que la
+ * publishable key en una llamada de usuario — la diferencia es cuál de
+ * las dos keys es.
  */
-export function isInternalServiceCall(authHeader: string | null | undefined, serviceRoleKey: string | undefined): boolean {
-  if (!authHeader || !serviceRoleKey) return false;
-  return authHeader === `Bearer ${serviceRoleKey}`;
+export function isInternalServiceCall(apiKeyHeader: string | null | undefined, secretKey: string | undefined): boolean {
+  if (!apiKeyHeader || !secretKey) return false;
+  return apiKeyHeader === secretKey;
 }
 
 export interface CalculationAuthorizationInput {

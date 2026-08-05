@@ -1,199 +1,205 @@
 # Reporte de activación — Bloque 1D-OPS
 
-Fecha de activación inicial: 2026-07-23. Corrección de credenciales y
-administrador real: 2026-07-30. Proyecto destino real (Supabase,
-enmascarado): `esaf…rzqh`, nombrado **"Velarix"** en el dashboard.
-Entorno de desarrollo, autorizado explícitamente por no contener datos
-reales de clientes — todos los registros creados en cada sesión de este
-bloque fueron sintéticos, prefijo `1D_TEST_`, y se eliminaron al
-terminar.
+Fecha de activación inicial: 2026-07-23. Corrección de credenciales:
+2026-07-30. Corrección final de autenticación mixta + administrador
+real: 2026-08-05. Proyecto destino real (Supabase, enmascarado):
+`esaf…rzqh`, nombrado **"Velarix"** en el dashboard. Entorno de
+desarrollo, autorizado explícitamente por no contener datos reales de
+clientes — todos los registros creados en cada sesión de este bloque
+fueron sintéticos, prefijo `1D_TEST_`, y se eliminaron al terminar.
 
-## Estado final: **1D parcial — no cerrado**
+## Estado final: **1D CERRADO**
 
 | Condición | Resultado |
 |---|---|
 | Migración aplicada | ✅ Sí |
-| Funciones desplegadas con credencial segura | ✅ Sí — `ejecutar-calculo` y `continuar-tras-revision`, `ACTIVE`, `verify_jwt: true`, migradas a la nueva secret key |
-| Primer admin real configurado | ❌ No — no existe ninguna cuenta en `auth.users` del proyecto vinculado (sección 6) |
-| Pruebas críticas reales pasaron | ✅ Sí — SQL/RPC/RLS (15, sesión anterior) + HTTP (14, sesión anterior) + verificación mínima post-rotación (esta sesión) |
+| Funciones desplegadas con autenticación correcta | ✅ Sí — `ejecutar-calculo` y `continuar-tras-revision`, `ACTIVE`, autenticación mixta propia, `verify_jwt: false` (justificado, ver sección 1) |
+| Primer admin real configurado | ✅ Sí — cuenta real del fundador, promovida por bootstrap protegido |
+| Pruebas críticas reales pasaron | ✅ Sí — SQL/RPC/RLS, HTTP con usuario real, autenticación mixta (10 escenarios), auditoría |
 
-**1D no se cierra en esta sesión** — la única condición pendiente es el
-administrador real, y no se pudo resolver porque el proyecto vinculado
-no tiene ningún usuario todavía (ver sección 6, incluye la hipótesis más
-probable de por qué).
+## 1. Modelo de autenticación final
 
-## 0. Incidente de credencial (2026-07-30)
+Las dos funciones aceptan exactamente dos modos, verificados **dentro
+del código de cada función** (no en la puerta de entrada de Supabase):
 
-Durante la sesión de cierre anterior, un comando de consulta de API keys
-imprimió la legacy `service_role` key completa en un output de consola
-que quedó visible en la transcripción de esa sesión. Se trata esa key
-como **comprometida**.
+- **Usuario real**: `apikey: <publishable key>` + `Authorization: Bearer
+  <JWT del usuario>`. El JWT se valida contra Supabase Auth
+  (`auth.getUser`) — si no resuelve a un usuario real, no hay sesión.
+- **Servicio interno**: `apikey: <secret key "default">`, sin
+  `Authorization` (o cualquier valor en `Authorization` es ignorado si
+  `apikey` ya coincide con la secret key real).
 
-Acciones tomadas en esta sesión:
+**Por qué `verify_jwt = false` en estas dos funciones** (`supabase/config.toml`):
+la puerta de entrada de Supabase con `verify_jwt = true` solo entiende
+JWT (legacy `anon`/`service_role`), no el formato de las secret keys
+nuevas (`sb_secret_...`) — con `verify_jwt = true` una llamada de
+servicio interno enviando la secret key por `apikey` sería rechazada
+antes de llegar al código. Por eso ambas funciones desactivan la
+verificación de la puerta de entrada y **implementan su propia
+verificación explícita** para los dos modos — no quedan públicas, no
+usan `auth: none`, y el JWT del usuario se sigue validando
+criptográficamente contra Supabase Auth en cada llamada.
 
-- `ejecutar-calculo`, `continuar-tras-revision` y cualquier helper
-  compartido que ellas usan fueron migrados para dejar de leer
-  `SUPABASE_SERVICE_ROLE_KEY` — ver sección 1.
-- No se volvió a imprimir esa key en ningún momento de esta sesión, ni
-  se usó para ninguna operación nueva.
-- **Acción manual pendiente, no ejecutable desde aquí**: revocar/rotar
-  la legacy `service_role` key desde el dashboard de Supabase
-  (Project Settings → API Keys). Este reporte NO desactiva esa key —
-  solo deja de usarla desde el código. La desactivación real requiere
-  una acción humana en el dashboard (ver sección 9).
+**Nota sobre `@supabase/server`**: se investigó `withSupabase`/
+`createSupabaseContext` (`npm:@supabase/server`) como lo sugería la
+instrucción original. La documentación oficial confirma que existe,
+pero no se pudo verificar con certeza la sintaxis exacta del modo
+combinado con una secret key nombrada (`"secret:default"` vs. `"secret"`
+simple), y una fuente indicaba que `verify_jwt` debía permanecer `true`
+para ese paquete — contradicho por la guía de migración de claves, que
+es explícita: *"the platform's built-in verify_jwt check only
+understands the legacy JWT-based keys, so set verify_jwt = false for
+these functions and authorize the request in your own code"*. Ante esa
+contradicción y por ser una dependencia nueva no usada antes en este
+repositorio, se optó por la alternativa explícitamente autorizada: una
+implementación manual equivalente, auditable, sin dependencias nuevas —
+consistente con el resto de `_shared/*.ts` en este proyecto.
 
-## 1. Funciones migradas a la nueva secret key
+`isInternalServiceCall` (`_shared/authorization.ts`) se adaptó: antes
+comparaba `Authorization` contra la key administrativa; ahora compara el
+header `apikey` — nunca `Authorization`, porque las secret keys no son
+JWT. Ninguna otra regla de autorización (roles, ownership, idempotencia)
+cambió.
 
-Nuevo módulo puro `supabase/functions/_shared/admin-key.ts`
-(`resolveAdminSecretKey()`): lee `SUPABASE_SECRET_KEYS` (JSON que
-Supabase inyecta en el runtime de la Edge Function), extrae la key
-`default`, y lanza un error técnico genérico y seguro (sin exponer
-ningún valor) si falta o es inválida. No imprime ni registra el valor en
-ningún caso.
-
-`ejecutar-calculo/index.ts` y `continuar-tras-revision/index.ts` ahora
-llaman `resolveAdminSecretKey()` en vez de leer
-`Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")` — en los dos lugares de cada
-archivo donde antes se leía esa variable (incluido el cliente de
-recuperación del bloque `catch` de `ejecutar-calculo`). `isInternalServiceCall`
-(`_shared/authorization.ts`) no cambió — es agnóstica de qué key se le
-pase, así que la migración no altera ninguna regla de autorización.
-
-**Confirmado: `SUPABASE_SERVICE_ROLE_KEY` ya no aparece en ningún lugar
-del código de estas dos funciones ni de sus helpers compartidos**
-(verificado por búsqueda en el árbol de archivos desplegado).
+Ambas funciones también dejaron de leer `SUPABASE_ANON_KEY`/
+`SUPABASE_PUBLISHABLE_KEY` (variables legacy singulares) para el cliente
+que verifica el JWT de usuario — ahora usan `resolvePublishableKey()`
+(`_shared/admin-key.ts`), que lee la publishable key `default` desde
+`SUPABASE_PUBLISHABLE_KEYS` (JSON), el equivalente no-administrativo de
+`SUPABASE_SECRET_KEYS`. Verificado empíricamente en producción tras el
+despliegue.
 
 ## 2. Estado de las funciones
 
-`ejecutar-calculo` y `continuar-tras-revision` redesplegadas
-(`--use-api`, sin Docker, sin `--no-verify-jwt`). Verificado con
-`functions list`: ambas `status: "ACTIVE"`, `verify_jwt: true`,
-`version: 2` (confirma que sí se redesplegaron con el código migrado).
+`ejecutar-calculo` y `continuar-tras-revision`: `status: "ACTIVE"`,
+`verify_jwt: false` (justificado arriba), `version: 4` tras dos
+redespliegues de esta sesión (auth mixta explícita, luego migración de
+la publishable key).
 
-## 3. Publishable key del frontend — corrección
+## 3. Pruebas de autenticación (10 escenarios exigidos + conservación de reglas de negocio)
 
-**Corrección sobre el reporte anterior**: no es correcto afirmar que
-`sb_publishable_...` es incompatible de forma permanente con este
-proyecto. La prueba que llevó a esa conclusión estaba mezclada con un
-error de construcción de headers en `curl` (la expansión
-`${token:+...}` con comillas embebidas partía mal el header
-`Authorization`). Lo único verificado con certeza es que la key legacy
-tipo JWT (`anon`) funciona hoy contra el gateway de Functions de este
-proyecto. `.env` conserva esa key legacy funcional — no se tocó en esta
-sesión. La migración completa a `sb_publishable_...` (con una prueba
-limpia, sin ese error) queda registrada como tarea de **Bloque 1E**, no
-de este cierre. En ningún caso se envía una publishable key como
-`Authorization: Bearer` — el `Authorization` de una petición autenticada
-siempre lleva el JWT de sesión del usuario real; la publishable/anon key
-va en el header `apikey`.
+Ejecutadas contra ambas funciones desplegadas, con 3 usuarios Auth
+sintéticos temporales reales (`1D_TEST_OWNER3/OUTSIDER3/ANALYST3`,
+contraseña aleatoria vía Admin API, eliminados al terminar):
 
-`verify_jwt` no se tocó en esta sesión (sigue `true` en ambas
-funciones).
+| # | Prueba | Resultado |
+|---|---|---|
+| 1 | Sin `Authorization` y sin `apikey` | ✅ `401 "No autenticado."` (verificado en el código de la función, no en la puerta de entrada — `verify_jwt=false`) |
+| 2 | Solo publishable key en `apikey`, sin JWT | ✅ `401 "No autenticado."` |
+| 3 | Publishable key + JWT válido (propietario, luego analista) | ✅ `200`, permitido según rol |
+| 4 | Publishable key + JWT inválido | ✅ `401 "No autenticado."` |
+| 5 | Secret key `default` únicamente en `apikey`, sin `Authorization` | ✅ `200`, llamada interna permitida (ambas funciones) |
+| 6 | Secret key enviada como `Authorization: Bearer` | ✅ Rechazada — con `apikey` de otro tipo presente, el gateway de Supabase la rechaza primero (`401 "Conflicting API keys"`); enviada sola en `Authorization` sin `apikey`, el código propio la rechaza igual (`401 "No autenticado."`, porque no es un JWT válido) |
+| 7 | Otra key incorrecta en `apikey` | ✅ `401 "No autenticado."` |
+| 8 | Body con `internal: true` | ✅ Sin efecto — el código nunca lee ese campo |
+| 9 | Body con `user_id` falsificado (token de usuario ajeno) | ✅ Sin efecto — mismo rechazo `404` genérico que sin falsificar nada |
+| 10 | Rechazos no revelan si un análisis ajeno existe | ✅ Mismo mensaje `404 "Análisis no encontrado."` para "no existe" y "existe pero no es tuyo" |
 
-## 4. Verificación mínima post-rotación (esta sesión)
+Reglas de negocio conservadas, reverificadas tras el cambio de
+autenticación:
 
-Con las funciones ya redesplegadas con la nueva secret key, se repitió
-una verificación mínima (no las 14 pruebas completas de la sesión
-anterior) con 4 usuarios sintéticos temporales
-(`1D_TEST_OWNER2/OUTSIDER2/ANALYST2/ADMIN2`, creados vía Admin API con
-la nueva secret key, contraseña aleatoria, eliminados al terminar):
+- Propietario ejecuta su propio análisis — permitido.
+- Ajeno — rechazado (`404` genérico).
+- Propietario intenta continuar su propia revisión — rechazado (`403
+  "No autorizado."`, autoaprobación).
+- Analista, revisión ya aprobada — permitido (`200`).
+- Segundo intento sobre la misma revisión procesada — `409 "Esta
+  revisión ya fue procesada."` (idempotencia intacta).
+- `audit_events`: 16 eventos reales de esta sesión revisados, 0 con
+  patrón de token/secreto.
 
-| Prueba | Resultado |
-|---|---|
-| `ejecutar-calculo`: propietario sobre análisis propio | ✅ `200`, cálculo real |
-| `ejecutar-calculo`: usuario ajeno | ✅ `404` genérico |
-| `ejecutar-calculo`: analista | ✅ `200` |
-| `ejecutar-calculo`: administrador | ✅ `200` |
-| `continuar-tras-revision`: propietario (autoaprobación) | ✅ `403 "No autorizado."` |
-| `continuar-tras-revision`: analista, revisión aprobada | ✅ `200`, `validacion_aprobada` |
-| `continuar-tras-revision`: segundo intento (idempotencia) | ✅ `409 "Esta revisión ya fue procesada."` |
-| `audit_events` de ambas funciones en esta sesión (7 eventos) | ✅ 0 con patrón de token/secreto |
+## 4. Frontend migrado a publishable key
 
-Confirma que la migración de credencial no rompió ninguna regla de
-autorización, RLS ni la idempotencia ya verificadas en la sesión
-anterior.
+`.env` (ignorado por git) actualizado: `VITE_SUPABASE_URL` al proyecto
+real, `VITE_SUPABASE_PUBLISHABLE_KEY` a la nueva `sb_publishable_...`
+(reemplazando la legacy `anon` tipo JWT). `VITE_SUPABASE_PROJECT_ID` sin
+tocar (el código no lo usa). La publishable key nunca se envía en
+`Authorization` — solo en `apikey`; `Authorization` siempre lleva el JWT
+real de la sesión del usuario.
 
-## 5. Administrador real — NO configurado
+**Corrección sobre un hallazgo anterior**: se había reportado que
+`sb_publishable_...` era rechazada por la puerta de entrada de Edge
+Functions de este proyecto. Verificado ahora que **sí funciona
+correctamente** — el rechazo anterior ocurría con `verify_jwt = true`
+(la puerta de entrada validaba la key con lógica que no reconocía el
+formato nuevo); con `verify_jwt = false` y la key correctamente enviada
+en `apikey`, la llamada funciona sin problema. Confirmado con una
+invocación real: sesión de usuario auténtica + `apikey` publishable +
+`Authorization` con el JWT real → `200`.
 
-**Bloqueado, sin promover ninguna cuenta.** Se inspeccionó `auth.users`
-del proyecto vinculado (`esaf…rzqh`) de forma enmascarada:
+## 5. Fundador configurado como administrador
 
-```
-select count(*) from auth.users;  →  0
-```
+Se inspeccionó `auth.users` de forma enmascarada: exactamente **una**
+cuenta no `.local`, creada por el fundador antes de esta sesión,
+inequívocamente distinguible de las cuentas de prueba (`.local`,
+`1d_test*`). Se promovió mediante el mecanismo protegido de bootstrap
+(`SET LOCAL app.role_change_authorized = 'true'` + `UPDATE profiles SET
+role='admin'`, dentro de una transacción explícita) — **sin tocar su
+contraseña**.
 
-**No existe ninguna cuenta** en el proyecto Supabase realmente vinculado
-por la CLI — ni la del fundador ni ninguna otra. Por tanto no había
-ninguna cuenta que inspeccionar ni promover, y no se creó ninguna
-cuenta sintética permanente en su lugar.
+Verificado:
 
-**Hipótesis más probable, no confirmada**: este mismo repositorio tuvo
-una confusión documentada de Project Ref (`docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`,
-historial de commits — dos identificadores distintos convivían en
-`supabase/config.toml`/`.env` vs. el vínculo real de la CLI). Es posible
-que la cuenta del fundador se haya creado manualmente en el proyecto
-Supabase **equivocado** (el antiguo, `inuj…eoyh`, que ya no existe en
-esta cuenta de Supabase) en vez del proyecto real `esaf…rzqh`.
+- `profiles.role = 'admin'` para esa cuenta.
+- Evento `bootstrap_administrador_fundador` insertado en `audit_events`.
+- La cuenta **no puede** cambiar su propio rol vía
+  `admin_set_user_role` — `SELF_ROLE_CHANGE_BLOCKED` (simulado con su
+  identidad real vía `request.jwt.claims`, sin necesitar ni conocer su
+  contraseña).
+- La cuenta **sí puede** ejecutar una operación administrativa válida
+  sobre otro usuario (sintético) — `ROLE_UPDATED` (simulación de
+  solo-lectura, revertida con `rollback`, sin dejar cambios persistentes
+  fuera de la promoción real).
 
-**Dato que falta para continuar**: confirmar en qué proyecto de Supabase
-(revisando la URL del dashboard al momento de crear la cuenta) se creó
-realmente el usuario del fundador. Si fue en `esaf…rzqh` y aun así no
-aparece, puede haberse perdido o no haberse guardado — habría que
-recrearlo ahí. Si se creó en otro proyecto, ese proyecto no es el que
-usa este repositorio hoy.
+No se creó ninguna cuenta sintética permanente como sustituto.
 
-## 6. Limpieza de esta sesión
+## 6. Limpieza
 
-Creados y eliminados en esta sesión: 4 usuarios Auth sintéticos
-(`1D_TEST_OWNER2/OUTSIDER2/ANALYST2/ADMIN2`), 2 análisis, 1 revisión
-manual, 5 homologaciones. Verificado tras la limpieza: `0` perfiles con
-`company='1D_TEST_'`, `0` análisis, `0` revisiones.
+Creados y eliminados en esta sesión: 3 usuarios Auth sintéticos, 3
+análisis, 2 revisiones manuales, homologaciones asociadas. Verificado
+tras la limpieza: `0` perfiles con `company='1D_TEST_'`, `0` análisis,
+`0` revisiones, exactamente `1` administrador (el fundador).
 
-Todos los archivos temporales (la nueva secret key, 4 contraseñas
-aleatorias, 4 tokens de sesión) vivieron con permisos `600` fuera del
+Todos los archivos temporales (secret key, publishable key, 3
+contraseñas, 3 tokens de sesión) vivieron con permisos `600` fuera del
 repositorio y se eliminaron al terminar; ninguno se imprimió en esta
-respuesta ni en ningún archivo del repositorio.
+respuesta ni se escribió en el repositorio.
 
 ## 7. Validaciones locales
 
 `npm test -- --run`, `npx tsc --build --noEmit`, `npm run build`, `npm
-run lint` — resultados en la respuesta final. Cambios de código de esta
-sesión: `_shared/admin-key.ts` (nuevo), `ejecutar-calculo/index.ts` y
-`continuar-tras-revision/index.ts` (migración de credencial), un
-comentario en `_shared/authorization.ts` — ninguno afecta fórmulas
-financieras, RLS, RPC ni migraciones.
+run lint` — resultados en la respuesta final.
 
-## 8. Rollback disponible
+## 8. Componentes que todavía dependen de claves legacy (fuera de alcance de 1D)
+
+Las siguientes Edge Functions **no** son parte de 1D y siguen sin migrar
+(leen `SUPABASE_SERVICE_ROLE_KEY`/`SUPABASE_ANON_KEY` directamente):
+`parse-document`, `build-structured-input`, `upload-document`,
+`generate-narrative`, `map-accounts`, `validate-analysis`,
+`run-analysis-pipeline`, `check-data-freshness`, `enviar-notificacion`,
+`update-snapshots`. Migrarlas queda fuera del alcance de este bloque —
+no se tocaron.
+
+## 9. Acción manual pendiente (fuera del alcance de este reporte)
+
+**Desactivar/rotar la legacy `service_role` key** desde el dashboard de
+Supabase (Project Settings → API Keys, proyecto `esaf…rzqh`). El código
+de `ejecutar-calculo`/`continuar-tras-revision` ya no la usa, pero sigue
+existiendo y siendo válida hasta que alguien con acceso al dashboard la
+revoque manualmente — no ejecutable desde la CLI ni desde este reporte.
+Las 10 funciones listadas en la sección 8 sí siguen dependiendo de ella
+operativamente, así que revocarla hoy las rompería — revocar solo
+después de migrar esas funciones (fuera de alcance de 1D).
+
+## 10. Rollback disponible
 
 `supabase/rollback/` documenta el rollback de la migración
 `20260723090000_bloque_1d_bl10_role_protection.sql`. No se ejecutó
 ningún rollback en esta sesión.
 
-## 9. Acción manual pendiente (fuera del alcance de este reporte)
-
-**Desactivar/rotar la legacy `service_role` key** desde el dashboard de
-Supabase (Project Settings → API Keys, proyecto `esaf…rzqh`) — el código
-ya no la usa, pero la key en sí sigue existiendo y siendo válida hasta
-que alguien con acceso al dashboard la revoque manualmente. Esto no se
-puede hacer desde la CLI ni desde este reporte.
-
-## 10. Confirmación de entorno mock
+## 11. Confirmación de entorno mock
 
 Todos los datos usados en todas las sesiones de este bloque fueron
 sintéticos, con prefijo `1D_TEST_` y correos de dominio `.local` —
-ningún dato real de cliente fue creado, leído ni modificado.
-
-## 11. Limitaciones reales restantes
-
-- **No existe ningún administrador configurado** — bloqueante antes de
-  1E o de cualquier piloto (sección 5).
-- La legacy `service_role` key sigue activa en Supabase hasta que se
-  revoque manualmente (sección 9).
-- La migración completa del frontend a `sb_publishable_...` queda para
-  1E (sección 3) — hoy usa la key legacy, que funciona pero no es el
-  formato recomendado a futuro.
-- `supabase/config.toml` conserva un `project_id` desactualizado
-  (`inuj…eoyh`) sin efecto funcional — el vínculo real lo gestiona
-  `supabase/.temp/` (`supabase link`), no ese archivo.
-- Ningún otro entorno (staging/producción) tiene esta migración
-  aplicada.
+ningún dato real de cliente fue creado, leído ni modificado. La única
+cuenta real involucrada es la del fundador, y solo se le cambió
+`profiles.role` (nunca su contraseña ni ningún otro dato).

@@ -45,21 +45,23 @@ duplicar el mismo defecto en varias filas). Referencia cruzada a
 > asignación entre múltiples analistas (parte de `BL-09`) sigue en Fase 2,
 > sin tocar.
 
-> **Actualizado 2026-07-30 (Bloque 1D-OPS — parcial, no cerrado)**:
-> `BL-10` queda **aplicado y verificado** en el proyecto Supabase de
-> desarrollo (vacío, sin datos reales) — la brecha de auto-escalamiento
-> ya no existe en ese entorno. `ejecutar-calculo` y
-> `continuar-tras-revision` quedaron **desplegadas** (`ACTIVE`,
-> `verify_jwt: true`), ahora usando la nueva secret key
-> (`SUPABASE_SECRET_KEYS`) tras un incidente donde la legacy
-> `service_role` quedó expuesta en un output de consola y se trató como
-> comprometida — el código ya no la usa, pero sigue activa en Supabase
-> hasta revocarla manualmente desde el dashboard. 15 pruebas SQL/RPC/RLS
-> + 14 pruebas HTTP + verificación mínima post-rotación pasaron. **1D
-> sigue sin cerrarse**: al intentar configurar el primer administrador
-> real se encontró que el proyecto vinculado no tiene ningún usuario en
-> `auth.users` — posible confusión de proyecto (ver reporte). No se
-> promovió ni se creó ninguna cuenta. Ver
+> **Actualizado 2026-08-05 (Bloque 1D-OPS — CERRADO)**: `BL-10` queda
+> **aplicado y verificado** en el proyecto Supabase de desarrollo (vacío,
+> sin datos reales) — la brecha de auto-escalamiento ya no existe.
+> `ejecutar-calculo` y `continuar-tras-revision` desplegadas (`ACTIVE`),
+> con autenticación mixta implementada explícitamente en el código
+> (`verify_jwt: false`, justificado — la puerta de entrada de Supabase no
+> reconoce el formato de secret key nuevo) y migradas por completo a
+> `SUPABASE_SECRET_KEYS`/`SUPABASE_PUBLISHABLE_KEYS` tras el incidente de
+> exposición de la legacy `service_role`. 15 pruebas SQL/RPC/RLS + 10
+> escenarios de autenticación + reglas de negocio (ownership, roles,
+> idempotencia) reverificadas por HTTP real. Primer administrador real
+> (cuenta del fundador) identificado sin ambigüedad y promovido mediante
+> bootstrap protegido, sin tocar su contraseña — verificado que no puede
+> autoescalarse y sí puede operar sobre otros usuarios. **1D queda
+> cerrado.** Pendiente (fuera de alcance de 1D): revocar manualmente la
+> legacy `service_role` una vez se migren las otras 10 Edge Functions que
+> todavía dependen de ella. Ver
 > `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`.
 
 > **Actualizado 2026-07-23 (Bloque 1B-M + 1C-Prep)**: 12 diferencias
@@ -107,7 +109,7 @@ duplicar el mismo defecto en varias filas). Referencia cruzada a
 | BL-07 | Verificar ownership en `ejecutar-calculo` — **[CORREGIDO EN 1D-P0]** | Agregar `auth.getUser` + comparación `analysis.user_id === user.id`, igual que las demás funciones | Seguridad | Bloqueante | P0 | Fase 1D | Ninguna (independiente de 1A/1B/1C como bloque; coordinar en secuencia con 1A sobre el mismo archivo) | `auditoria/05`, `R-06` | Invocación directa con `analysis_id` ajeno y clave anon devuelve 403/404, no datos | Ninguna adicional (prueba de penetración simple) |
 | BL-08 | Autorizar `continuar-tras-revision` (no solo autenticar) — **[CORREGIDO EN 1D-P0]** | **Corrección de alcance (D-07)**: no basta con verificar ownership — el propietario del análisis suele ser el cliente, y el cliente nunca debe poder aprobar/continuar su propia revisión. Debe verificarse que el llamante es analista autorizado, admin, o invocación interna legítima | Seguridad | Bloqueante | P0 | Fase 1D | Modelo de actores definido dentro del propio Bloque 1D | `auditoria/05`, `R-07` | Las 10 pruebas mínimas de 1D pasan, incluida "cliente propietario no puede aprobar su propio análisis" | Ninguna adicional |
 | BL-09 | Impedir autoaprobación (recorte P0) + sistema completo de rol (Fase 2) — **[RECORTE P0 CORREGIDO EN 1D-P0; sistema completo sigue en Fase 2]** | Recorte mínimo en 1D: un cliente no puede aprobar/bloquear su propia revisión. Sistema completo (permisos por asignación entre múltiples analistas) en Fase 2 | Seguridad / Negocio | Bloqueante | P0 (recorte) / P1 (sistema completo) | **Recorte P0 en Fase 1D; sistema completo en Fase 2** | Recorte: ninguna. Sistema completo: al menos una segunda cuenta `analyst` real (dependencia de negocio) | `auditoria/05`, `auditoria/07`, `R-08` | Recorte: un cliente no puede autoaprobar. Sistema completo: permisos por asignación funcionando entre 2+ analistas | Fundador (define el modelo de rol exacto) |
-| BL-10 | Cerrar `profiles` UPDATE contra auto-escalamiento de `role` — **[APLICADA Y VERIFICADA EN 1D-OPS; BLOQUE 1D SIGUE SIN CERRAR POR FALTA DE ADMIN REAL]** | Agregar `WITH CHECK` que excluya `role`, o mover `role` a tabla separada gestionada solo por service role. Corrección de finalización (2026-07-23): se eliminó del trigger un `INSERT` de auditoría que un `RAISE EXCEPTION` posterior habría revertido igualmente (no persistía); `admin_set_user_role` ahora devuelve `jsonb` estructurado en vez de lanzar excepción, para que sus rechazos sí se auditen. Rollback creado en `supabase/rollback/`. **Activación (1D-OPS)**: migración aplicada al proyecto Supabase de desarrollo (vacío, sin datos reales) mediante `supabase db push --linked`; verificada con 15 pruebas reales de SQL/RPC/RLS y 14 pruebas HTTP autenticadas contra `ejecutar-calculo`/`continuar-tras-revision` ya desplegadas. **Corrección de credenciales (2026-07-30)**: legacy `service_role` expuesta y retirada del código (migrado a `SUPABASE_SECRET_KEYS`), redesplegado y reverificado — ver `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md` | Seguridad | Alta — **P0, no P1** (el control de rol de 1D no es válido mientras exista esta brecha) | **P0** | **Fase 1D** (movido desde Fase 2 — D-07) | Ninguna (puede resolverse antes o junto con BL-09) | `auditoria/05`, `R-09` | Un usuario no puede cambiar su propio `role` vía `UPDATE` directo — **verificado en Postgres real y por HTTP real (proyecto de desarrollo)** | Ninguna adicional |
+| BL-10 | Cerrar `profiles` UPDATE contra auto-escalamiento de `role` — **[CERRADO EN 1D-OPS, 2026-08-05]** | Agregar `WITH CHECK` que excluya `role`, o mover `role` a tabla separada gestionada solo por service role. Corrección de finalización (2026-07-23): se eliminó del trigger un `INSERT` de auditoría que un `RAISE EXCEPTION` posterior habría revertido igualmente (no persistía); `admin_set_user_role` ahora devuelve `jsonb` estructurado en vez de lanzar excepción, para que sus rechazos sí se auditen. Rollback creado en `supabase/rollback/`. **Activación (1D-OPS)**: migración aplicada al proyecto Supabase de desarrollo (vacío, sin datos reales); verificada con 15 pruebas reales de SQL/RPC/RLS y HTTP autenticado contra `ejecutar-calculo`/`continuar-tras-revision` ya desplegadas. **Corrección de credenciales y autenticación mixta (2026-07-30 → 2026-08-05)**: legacy `service_role`/`anon` expuestas/retiradas del código (migrado a `SUPABASE_SECRET_KEYS`/`SUPABASE_PUBLISHABLE_KEYS`), autenticación mixta explícita implementada (`verify_jwt: false` justificado), y primer administrador real (fundador) configurado por bootstrap protegido — ver `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md` | Seguridad | Alta — **P0, no P1** (el control de rol de 1D no es válido mientras exista esta brecha) | **P0** | **Fase 1D — CERRADA** (movido desde Fase 2 — D-07) | Ninguna (puede resolverse antes o junto con BL-09) | `auditoria/05`, `R-09` | Un usuario no puede cambiar su propio `role` vía `UPDATE` directo — **verificado en Postgres real y por HTTP real (proyecto de desarrollo)** | Ninguna adicional |
 | BL-11 | Autenticar `update-snapshots` y `enviar-notificacion` | Restringir a invocación por service role/cron, o agregar verificación mínima | Seguridad | Media | P1/P2 | Fase 2 | Ninguna | `auditoria/05`, `R-10` | Invocación directa sin credenciales de servicio es rechazada | Ninguna adicional |
 | BL-12 | Minimizar datos enviados a Anthropic | Evaluar qué campos son necesarios vs. contenido completo/nombre de empresa | Privacidad | Media | P1/P2 | Fase 2 | Revisión legal (§12.3, §12.4 del negocio) | `auditoria/05` §5, `R-11` | Documento de política de datos a IA aprobado por abogado externo, código ajustado en consecuencia | Abogado externo |
 | BL-13 | Implementar eliminación real de datos | Borrado real de filas derivadas + `storage.remove()` de documentos originales, no solo soft-delete | Cumplimiento | Bloqueante | P1 | Fase 2 | Decisión legal sobre alcance de "eliminación completa" | `auditoria/05` §8, `R-12` | Una solicitud de eliminación borra documentos de Storage y filas derivadas, con registro en `audit_events` | Abogado externo |

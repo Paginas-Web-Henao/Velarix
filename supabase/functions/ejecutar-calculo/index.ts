@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { canExecuteCalculation, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
-import { resolveAdminSecretKey } from "../_shared/admin-key.ts";
+import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { runCanonicalFinancialEngine, type CanonicalStructuredInput } from "../_shared/canonical-financial-engine.ts";
 import { computeInputFingerprint } from "../_shared/calculation-fingerprint.ts";
 import { buildCalculationVersionInfo } from "../_shared/calculation-versioning.ts";
@@ -30,11 +30,20 @@ serve(async (req) => {
   const startTime = Date.now();
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const secretKey = resolveAdminSecretKey();
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || secretKey;
+  const anonKey = resolvePublishableKey();
   const supabase = createClient(supabaseUrl, secretKey);
 
   try {
     const authHeader = req.headers.get("Authorization");
+    // Corrección de autenticación mixta (Bloque 1D, 2026-07-30):
+    // `verify_jwt = false` en esta función (ver supabase/config.toml) —
+    // la puerta de entrada de Supabase no reconoce el formato de la
+    // secret key nueva, así que la función valida ella misma ambos
+    // modos. Una llamada interna real envía la secret key en `apikey`
+    // (nunca en `Authorization`, porque no es un JWT); una llamada de
+    // usuario envía la publishable key en `apikey` y el JWT real en
+    // `Authorization`.
+    const apiKeyHeader = req.headers.get("apikey");
     const { analysis_id } = await req.json();
     if (!analysis_id) throw new Error("analysis_id required");
 
@@ -43,8 +52,9 @@ serve(async (req) => {
     // BL-07: identidad real resuelta server-side. Nunca se confía en un
     // user_id enviado por el frontend — se deriva del JWT verificado
     // (auth.getUser) o de una invocación interna real (comparación
-    // contra la service role key, no un campo público como {internal:true}).
-    const isInternalCall = isInternalServiceCall(authHeader, secretKey);
+    // contra la secret key real vía `apikey`, no un campo público como
+    // {internal:true}).
+    const isInternalCall = isInternalServiceCall(apiKeyHeader, secretKey);
     let actor: AuthenticatedActor | null = null;
     if (!isInternalCall && authHeader) {
       const anonClient = createClient(supabaseUrl, anonKey);
