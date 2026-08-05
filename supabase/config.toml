@@ -18,15 +18,7 @@ verify_jwt = false
 # Saneamiento de claves legacy (2026-08-05). Diez funciones adicionales
 # migradas de SUPABASE_SERVICE_ROLE_KEY/SUPABASE_ANON_KEY a
 # SUPABASE_SECRET_KEYS.default / SUPABASE_PUBLISHABLE_KEYS.default
-# (`_shared/admin-key.ts`). verify_jwt se decidió función por función,
-# no de forma uniforme:
-#
-# - Las siguientes SOLO reciben un JWT real de usuario en `Authorization`
-#   (nunca una secret key ahí) — la puerta de entrada de Supabase sí
-#   reconoce ese formato, así que verify_jwt permanece en su valor por
-#   defecto `true` y no requieren sección propia: parse-document,
-#   map-accounts, validate-analysis, build-structured-input,
-#   generate-narrative, upload-document, run-analysis-pipeline.
+# (`_shared/admin-key.ts`).
 #
 # - Las siguientes son exclusivamente de invocación interna (nunca las
 #   llama el frontend): reciben la secret key `default` únicamente por
@@ -41,4 +33,45 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.check-data-freshness]
+verify_jwt = false
+
+# Preparación para rotación a JWT Signing Keys asimétricas (2026-08-05).
+# Las siguientes siete funciones SOLO reciben un JWT real de usuario en
+# `Authorization` (nunca una secret key ahí). Hasta ahora dependían de
+# verify_jwt = true (valor por defecto de la puerta de entrada) para el
+# pre-chequeo de formato del JWT. Se desactiva explícitamente aquí porque
+# la puerta de entrada de Supabase, con verify_jwt = true, valida el JWT
+# usando el secret HS256 legacy del proyecto — un mecanismo incompatible
+# con JWT Signing Keys asimétricas (RS256/ES256), que es el esquema hacia
+# el que este proyecto se prepara a migrar. La seguridad real de estas
+# siete funciones NUNCA dependió de ese pre-chequeo de la puerta de
+# entrada: cada una ya verifica la sesión explícitamente en su propio
+# código vía `anonClient.auth.getUser(token)` (mecanismo oficial de
+# Supabase Auth, compatible con cualquier esquema de firma de JWT que la
+# plataforma soporte, incluidas las Signing Keys asimétricas), usa
+# exclusivamente el `user.id` devuelto por esa verificación — nunca un
+# `user_id` del body — y ninguna acepta `internal: true` ni concede
+# acceso de usuario a partir de una secret key en `apikey`. Con
+# verify_jwt = false quedan protegidas únicamente por esa verificación
+# explícita — igual que las demás funciones de este archivo — y no
+# dependen en ningún punto de que la puerta de entrada valide el JWT:
+[functions.parse-document]
+verify_jwt = false
+
+[functions.map-accounts]
+verify_jwt = false
+
+[functions.validate-analysis]
+verify_jwt = false
+
+[functions.build-structured-input]
+verify_jwt = false
+
+[functions.generate-narrative]
+verify_jwt = false
+
+[functions.upload-document]
+verify_jwt = false
+
+[functions.run-analysis-pipeline]
 verify_jwt = false

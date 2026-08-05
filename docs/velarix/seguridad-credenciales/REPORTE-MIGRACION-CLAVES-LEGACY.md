@@ -337,6 +337,16 @@ operativamente de ella** — es la primera vez que se puede afirmar esto
 con una auditoría completa del repositorio. Sigue siendo una acción
 manual, fuera del alcance de la CLI y de este reporte.
 
+> **Actualización 2026-08-05 (posterior)**: el fundador desactivó
+> manualmente las claves legacy `anon`/`service_role`. Verificación
+> post-desactivación: 12/12 funciones `ACTIVE`, login de frontend y
+> llamadas de usuario/servicio interno con las nuevas keys funcionando
+> con normalidad. Sesión siguiente, separada: preparación de las 7
+> funciones de usuario para la rotación a **JWT Signing Keys
+> asimétricas** (`verify_jwt = false` explícito en las 7, autenticación
+> ya verificada en código de cada una) — ver
+> `docs/velarix/seguridad-credenciales/REPORTE-PREPARACION-JWT-SIGNING-KEYS.md`.
+
 ## 11. Confirmación de entorno mock
 
 Todos los datos creados en esta sesión fueron sintéticos, prefijo
