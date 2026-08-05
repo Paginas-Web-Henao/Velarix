@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { canExecuteCalculation, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
+import { resolveAdminSecretKey } from "../_shared/admin-key.ts";
 import { runCanonicalFinancialEngine, type CanonicalStructuredInput } from "../_shared/canonical-financial-engine.ts";
 import { computeInputFingerprint } from "../_shared/calculation-fingerprint.ts";
 import { buildCalculationVersionInfo } from "../_shared/calculation-versioning.ts";
@@ -28,9 +29,9 @@ serve(async (req) => {
 
   const startTime = Date.now();
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || serviceRoleKey;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const secretKey = resolveAdminSecretKey();
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || secretKey;
+  const supabase = createClient(supabaseUrl, secretKey);
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -43,7 +44,7 @@ serve(async (req) => {
     // user_id enviado por el frontend — se deriva del JWT verificado
     // (auth.getUser) o de una invocación interna real (comparación
     // contra la service role key, no un campo público como {internal:true}).
-    const isInternalCall = isInternalServiceCall(authHeader, serviceRoleKey);
+    const isInternalCall = isInternalServiceCall(authHeader, secretKey);
     let actor: AuthenticatedActor | null = null;
     if (!isInternalCall && authHeader) {
       const anonClient = createClient(supabaseUrl, anonKey);
@@ -179,7 +180,7 @@ serve(async (req) => {
     try {
       const { analysis_id: aid } = await req.clone().json().catch(() => ({ analysis_id: null }));
       if (aid) {
-        const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        const supabase = createClient(Deno.env.get("SUPABASE_URL")!, resolveAdminSecretKey());
         await supabase.from("analyses").update({ status: "error_tecnico" }).eq("id", aid);
         await supabase.from("analysis_jobs").upsert({
           analysis_id: aid,

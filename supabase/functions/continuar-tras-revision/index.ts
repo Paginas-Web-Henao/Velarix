@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
 import { canContinueAfterReview, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
+import { resolveAdminSecretKey } from "../_shared/admin-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,9 +16,9 @@ serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || serviceRoleKey;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const secretKey = resolveAdminSecretKey();
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || secretKey;
+  const supabase = createClient(supabaseUrl, secretKey);
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -34,7 +35,7 @@ serve(async (req) => {
     // propietario del análisis no puede aprobar/continuar su propia
     // revisión. Se requiere analista, admin, o invocación interna real
     // (nunca un campo público como {internal:true}).
-    const isInternalCall = isInternalServiceCall(authHeader, serviceRoleKey);
+    const isInternalCall = isInternalServiceCall(authHeader, secretKey);
     let actor: AuthenticatedActor | null = null;
     if (!isInternalCall && authHeader) {
       const anonClient = createClient(supabaseUrl, anonKey);

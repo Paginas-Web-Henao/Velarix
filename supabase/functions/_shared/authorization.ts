@@ -17,8 +17,11 @@
 //   con role="analyst" está autorizado para cualquier análisis.
 // - "admin": acciones privilegiadas, sujeto a auditoría.
 // - Invocación interna: verificada comparando el `Authorization` header
-//   contra el valor real de `SUPABASE_SERVICE_ROLE_KEY` (ver
-//   `isInternalServiceCall`) — nunca un campo público como `{internal:true}`.
+//   contra la secret key administrativa real (`_shared/admin-key.ts`,
+//   ver `isInternalServiceCall`) — nunca un campo público como
+//   `{internal:true}`. `isInternalServiceCall` es agnóstica de cuál key
+//   se le pase; la migración de `SUPABASE_SERVICE_ROLE_KEY` a
+//   `SUPABASE_SECRET_KEYS` (Bloque 1D, 2026-07-30) no le cambia nada.
 
 export type ActorRole = "user" | "analyst" | "admin";
 
