@@ -27,7 +27,8 @@ planeación, no de ejecución.
 ## Etapa 1 — Versión validada inicial (siguiente hito)
 
 `📊 Validación financiera` — condición de entrada a esta etapa: revisor
-financiero externo identificado y las 5 decisiones C revisadas (ver
+financiero externo identificado y las 7 decisiones con componentes
+sustantivos revisadas (1, 2, 3, 4, 5, 6, 8 — ver
 `PLAN-VALIDACION-REVISOR-FINANCIERO.md`).
 
 - Los 8 supuestos canónicos pasan de `approved: false` a `approved: true`
@@ -65,8 +66,13 @@ justifica el costo y riesgo").
 `⏸️ Diferido` — condición de entrada: Etapa 2 completa, casos reales
 suficientes que demuestren la necesidad.
 
-- Horizonte del DCF variable (3-10 años) según madurez/etapa/reinversión
-  de la empresa (Decisión 4, opción B).
+- Horizonte del DCF variable y metodológicamente justificado según
+  madurez/etapa/reinversión de la empresa (Decisión 4, opción B). El
+  fundador citó 5, 7 y 10 años como ejemplos posibles, no como un rango
+  aprobado — el horizonte final y sus reglas de selección quedan
+  pendientes de la validación del revisor financiero externo (pregunta 4
+  de `PLAN-VALIDACION-REVISOR-FINANCIERO.md`), no de una cifra fijada
+  aquí.
 - g terminal dinámico, atado a fuente macro en vivo (Decisión 3).
 - Escenarios dinámicos calibrados con volatilidad histórica real del
   sector/empresa, no multiplicadores fijos (Decisión 8).

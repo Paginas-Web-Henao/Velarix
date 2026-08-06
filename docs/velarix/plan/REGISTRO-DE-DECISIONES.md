@@ -381,28 +381,32 @@ confunda con una validación metodológica — exactamente el riesgo que
 ### Consecuencias
 
 - El Bloque 1B-metodología **no queda cerrado** por esta decisión — las
-  5 decisiones clasificadas "enviar a revisor" (1, 2, 3 parcial, 5, 6, 8)
-  siguen pendientes de un revisor financiero externo identificado, que
-  todavía no existe.
+  7 decisiones con componentes metodológicos sustantivos, clasificadas
+  "enviar a revisor" (1, 2, 3, 4, 5, 6, 8), siguen pendientes de un
+  revisor financiero externo identificado, que todavía no existe. La
+  Decisión 7 no requiere elegir entre alternativas, pero sí requiere
+  confirmación/formalización del mismo revisor.
 - El Bloque 1C **no queda cerrado**.
 - El Bloque 1E **sigue bloqueado**, sin cambios respecto a lo que ya
   determinaba `MATRIZ-DE-DEPENDENCIAS.md`.
-- `R-19` (`plan/MATRIZ-DE-RIESGOS.md`) queda parcialmente mitigado: el
-  riesgo de que el cliente crea que su ajuste de supuestos tiene efecto
-  real ya no existe en la interfaz (Decisión 9 implementada); la
-  pregunta de fondo (si esos supuestos deberían ser ajustables alguna
-  vez, para quién, y bajo qué control) permanece abierta como decisión
-  de arquitectura futura.
+- `R-19` (`plan/MATRIZ-DE-RIESGOS.md`) mantiene severidad **Alta, sin
+  cambios**: solo se mitigó su capa de interfaz (el cliente ya no puede
+  creer que su ajuste de supuestos tiene efecto real — Decisión 9
+  implementada). El riesgo metodológico de fondo — los 8 supuestos
+  siguen `approved: false`, sin validación de un revisor financiero
+  externo, y se usan en el 100% de los análisis — no se mitigó y no
+  cambia de severidad por esta consolidación.
 
 ### Condiciones para reconsiderar
 
-Si un revisor financiero externo, al revisar cualquiera de las 5
-decisiones enviadas a revisión, determina que el comportamiento
-provisional actual es inaceptable incluso para desarrollo con datos
-sintéticos, se documenta como `D-09`, no se improvisa sobre esta
-decisión.
+Si un revisor financiero externo, al revisar cualquiera de las 7
+decisiones enviadas a revisión (1, 2, 3, 4, 5, 6, 8), determina que el
+comportamiento provisional actual es inaceptable incluso para desarrollo
+con datos sintéticos, se documenta como `D-09`, no se improvisa sobre
+esta decisión.
 
 - **Quién debe aprobar**: el fundador ya aprobó esta consolidación (este
-  registro es la confirmación). Las 5 decisiones enviadas a revisor
+  registro es la confirmación). Las 7 decisiones con componentes
+  sustantivos enviadas a revisor, más la formalización de la Decisión 7,
   requieren, adicionalmente, la aprobación de un revisor financiero
   externo antes de convertirse en metodología oficial.

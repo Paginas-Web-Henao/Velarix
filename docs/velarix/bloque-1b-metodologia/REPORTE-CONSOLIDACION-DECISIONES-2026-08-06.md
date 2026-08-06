@@ -39,6 +39,22 @@ como desde un botón "Demo" dentro del dashboard autenticado
 (`Dashboard.tsx`) — en ningún caso toca el pipeline del servidor ni
 documentos reales de un cliente.
 
+**Alcance verificado de la Decisión 10A** (re-confirmado con `grep`
+después de la creación del commit): el campo manual de ingresos que
+c6619d5 protegió existe únicamente en `DemoInputsForm.tsx` — el mismo
+demo/estimador de arriba. `NewAnalysisStepper.tsx` no tiene ningún campo
+manual de ingresos; los datos financieros del flujo profesional llegan
+exclusivamente vía documentos parseados por el servidor. El motor
+servidor (`_shared/canonical-financial-engine.ts:183`) ya rechazaba
+`revenue === 0` antes de esta sesión (`if (revenue === 0) throw new
+Error("Revenue es 0 — no se puede calcular valoración.");`) — confirmado
+directamente en el código, no asumido. `runAnalysis` (motor cliente)
+tiene exactamente 2 llamadores reales: `DemoDashboard.tsx` (ya protegido
+por 10A) y `src/pages/Dashboard.tsx::handleDownloadPDF` (regenera el PDF
+desde `input_payload` ya persistido, no desde entrada manual). La
+Decisión 10B (defensa dentro de `runAnalysis` mismo) sigue diferida hasta
+revisar ambos llamadores.
+
 ## Archivos leídos
 
 `Negocio_Velarix_v4.1.md`, `NEGOCIO_V4_VELARIX.md`, `Negocio.md`,
@@ -120,24 +136,33 @@ final para el detalle completo, comandos y resultados exactos.
 
 ## Limitaciones
 
-- No se implementó ninguna corrección de las 5 decisiones que requieren
-  revisor financiero externo — ninguna fórmula de WACC, beta, estructura
-  de capital, g terminal, patrimonio negativo, escenarios, impuestos o
-  normalización fue tocada, exactamente como exigía el alcance.
+- No se implementó ninguna corrección de las 7 decisiones con
+  componentes sustantivos pendientes de revisor financiero externo (1,
+  2, 3, 4, 5, 6, 8) — ninguna fórmula de WACC, beta, estructura de
+  capital, g terminal, horizonte del DCF, patrimonio negativo,
+  escenarios, impuestos o normalización fue tocada, exactamente como
+  exigía el alcance.
 - No se implementó la Decisión 10B (defensa `revenue = 0` dentro del
   motor cliente `runAnalysis`) — diferida explícitamente, requiere
   revisar todos sus llamadores primero (`Dashboard.tsx`,
   `DemoDashboard.tsx`).
 - No se implementó la función de revisión fiscal asistida — diferida,
   requiere revisor financiero/tributario y revisión legal previa.
-- El formulario de la Decisión 9 sigue exponiendo `equityWeight`/
-  `debtWeight` como editable — pertenece a la Decisión 2 (estructura de
-  capital), no autorizada para tocar en esta sesión.
+- `DemoInputsForm.tsx` sigue exponiendo `equityWeight` como editable
+  (`debtWeight` se deriva de él) — pertenece a la Decisión 2 (estructura
+  de capital), no autorizada para tocar en esta sesión. **La Decisión 2
+  no debe considerarse completamente implementada**: su política de
+  producto está confirmada y se cumple sin excepción en el flujo
+  profesional real (`NewAnalysisStepper.tsx` no expone estos campos), pero
+  el demo/estimador (`DemoInputsForm.tsx:169-181`) todavía contradice esa
+  política y queda como deuda documentada, no resuelta por `c6619d5`.
 
 ## Asuntos enviados a revisor
 
-Las 5 decisiones (1, 2, 3, 5, 6, 8 con matices — ver desglose exacto en
-`PLAN-VALIDACION-REVISOR-FINANCIERO.md`) y los casos dorados definitivos.
+Las 7 decisiones con componentes metodológicos sustantivos (1, 2, 3, 4,
+5, 6, 8 — ver desglose exacto en `PLAN-VALIDACION-REVISOR-FINANCIERO.md`),
+más la formalización de la Decisión 7 (no requiere elegir alternativa,
+sí confirmación del revisor), y los casos dorados definitivos.
 El paquete completo para esa revisión ya existía
 (`PAQUETE-REVISION-FINANCIERA.md`) y ahora tiene un proceso explícito de
 validación (`PLAN-VALIDACION-REVISOR-FINANCIERO.md`).

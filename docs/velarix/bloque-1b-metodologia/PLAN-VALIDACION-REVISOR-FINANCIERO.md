@@ -53,7 +53,9 @@ revisión — la prepara.
 
 ## Decisiones que debe aprobar
 
-Las 5 decisiones clasificadas "Enviar a revisor" en `REPORTE-CONSOLIDACION-DECISIONES-2026-08-06.md`
+Las **7 decisiones con componentes metodológicos sustantivos** pendientes
+de revisión externa — Decisiones 1, 2, 3, 4, 5, 6 y 8 — clasificadas
+"Enviar a revisor" en `REPORTE-CONSOLIDACION-DECISIONES-2026-08-06.md`
 §6.C: fuentes y reglas del WACC (Decisión 1), estructura de capital
 objetivo (Decisión 2), crecimiento perpetuo (Decisión 3), selección
 futura de horizonte (Decisión 4), impuestos y conciliación (Decisión 5),
@@ -61,7 +63,12 @@ normalización financiera (Decisión 5), patrimonio negativo y
 `total_assets` (Decisión 6), efecto sobre beta y WACC (Decisión 6),
 escenarios dinámicos (Decisión 8), umbrales de materialidad (Decisión 5),
 y los casos dorados definitivos (Decisiones 1-8 en conjunto, sección 3
-del paquete).
+del paquete). **Adicionalmente**, la Decisión 7 no requiere elegir entre
+alternativas, pero sí requiere confirmación/formalización metodológica
+del revisor (ver pregunta 7 de la tabla anterior) — no cuenta entre las 7
+sustantivas, pero tampoco queda fuera del alcance de la revisión. Las
+Decisiones 9 y 10 no requieren decisión financiera externa — ya
+implementadas como política de producto.
 
 ## Entregables esperados
 
@@ -88,8 +95,9 @@ antes de considerarse aplicado.
 
 ## Puntos que el revisor puede rechazar
 
-Cualquiera de las 5 decisiones C completas, cualquiera de los 3 casos
-dorados individualmente, o la metodología completa. Un rechazo no cierra
+Cualquiera de las 7 decisiones con componentes sustantivos (1, 2, 3, 4,
+5, 6, 8) completas, la formalización de la Decisión 7, cualquiera de los
+3 casos dorados individualmente, o la metodología completa. Un rechazo no cierra
 el Bloque 1B-metodología ni el Bloque 1C — regresa el ítem rechazado a
 `📊 Validación financiera` con la observación del revisor registrada.
 
@@ -112,8 +120,10 @@ el Bloque 1B-metodología ni el Bloque 1C — regresa el ítem rechazado a
   decisiones 2, 3, 4, 8 (mantener el comportamiento actual como
   provisional) quedan confirmadas por el fundador — ya lo están, en este
   documento y en `DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`.
-- Las 5 decisiones C tienen, como mínimo, una postura inicial documentada
-  del revisor (no necesariamente definitiva) sobre cada una.
+- Las 7 decisiones con componentes sustantivos (1, 2, 3, 4, 5, 6, 8)
+  tienen, como mínimo, una postura inicial documentada del revisor (no
+  necesariamente definitiva) sobre cada una; la Decisión 7 tiene su
+  formalización confirmada por el revisor.
 - `BL-17` (consolidación de constantes macro/sectoriales) permanece
   parcialmente pendiente — no es condición de cierre de 1B-metodología
   per `plan/BACKLOG-CLASIFICADO.md`, sigue como deuda documentada.

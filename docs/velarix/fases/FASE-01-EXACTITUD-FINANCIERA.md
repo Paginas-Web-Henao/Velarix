@@ -288,9 +288,11 @@ igual.
 > sesión (Decisión 9: se retiraron del formulario del cliente los
 > controles de los 7 supuestos canónicos que el servidor siempre
 > ignoraba; Decisión 10A: el formulario ya bloquea `revenue <= 0`), sin
-> tocar ninguna fórmula financiera. Las 5 decisiones que requieren un
-> revisor financiero externo (`1`, `2`, `3`, `5`, `6`, `8` con matices —
-> ver `PLAN-VALIDACION-REVISOR-FINANCIERO.md`) siguen sin resolverse:
+> tocar ninguna fórmula financiera. Las 7 decisiones con componentes
+> metodológicos sustantivos que requieren un revisor financiero externo
+> (`1`, `2`, `3`, `4`, `5`, `6`, `8` — ver
+> `PLAN-VALIDACION-REVISOR-FINANCIERO.md`), más la formalización de la
+> Decisión 7, siguen sin resolverse:
 > **el Bloque 1B-metodología sigue sin cerrarse formalmente**, y por
 > tanto tampoco cierra el Bloque 1B completo.
 > **Corrección de cierre técnico (2026-07-23)**: la 4ª corrección original
