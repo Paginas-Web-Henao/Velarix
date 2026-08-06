@@ -336,3 +336,73 @@ como D-08, no se improvisa sobre esta decisión.
 
 - **Quién debe aprobar**: el fundador ya aprobó este refinamiento (este
   registro es la confirmación).
+
+## D-08 — Consolidación de las 10 decisiones metodológicas de 1B-M: respuesta del fundador
+
+- **Fecha**: 2026-08-06
+- **Tipo**: registro de las respuestas del fundador a
+  `DECISIONES-FINANCIERAS-PENDIENTES.md`, más dos implementaciones de
+  producto de bajo riesgo expresamente autorizadas. `✅ Confirmado` por
+  el fundador (Nicolás) — este mismo registro es la confirmación.
+
+### Contexto
+
+Las 10 decisiones metodológicas del Bloque 1B-M llevaban abiertas desde
+el cierre técnico del 2026-07-23. El fundador las revisó y respondió
+todas. Se consolidaron formalmente en
+`docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`.
+
+### Decisión
+
+- Decisiones 1, 2 (política de producto), 3 (dirección futura), 4
+  (mantener 5 años), 5, 6 (política de interpretación), 8 (mantener
+  configuración actual): confirmadas como política de producto o
+  comportamiento provisional — la metodología financiera subyacente de
+  cada una permanece `📊 Validación financiera`, sin cambios de código.
+- Decisión 7 (utilidad neta vs. NOPAT): confirmada, solo requiere
+  formalización documental — sin cambio de código.
+- Decisión 9 (retirar controles de supuestos ajustables del cliente) y
+  Decisión 10A (bloquear `revenue <= 0` en el formulario): confirmadas
+  **e implementadas** en esta misma sesión —
+  `src/components/demo/DemoInputsForm.tsx`,
+  `src/components/demo/DemoInputsForm.test.tsx`.
+- Decisión 10B (defensa `revenue = 0` dentro del motor cliente) y la
+  función de revisión fiscal asistida (relacionada con la Decisión 5):
+  diferidas explícitamente — ver
+  `docs/velarix/bloque-1b-metodologia/ROADMAP-METODOLOGIA-DINAMICA.md`.
+
+### Razones
+
+Separar con precisión "el fundador ya respondió" de "un revisor
+financiero externo ya aprobó" evita que una respuesta de producto se
+confunda con una validación metodológica — exactamente el riesgo que
+`Negocio_Velarix_v4.1.md` §9.4 busca prevenir.
+
+### Consecuencias
+
+- El Bloque 1B-metodología **no queda cerrado** por esta decisión — las
+  5 decisiones clasificadas "enviar a revisor" (1, 2, 3 parcial, 5, 6, 8)
+  siguen pendientes de un revisor financiero externo identificado, que
+  todavía no existe.
+- El Bloque 1C **no queda cerrado**.
+- El Bloque 1E **sigue bloqueado**, sin cambios respecto a lo que ya
+  determinaba `MATRIZ-DE-DEPENDENCIAS.md`.
+- `R-19` (`plan/MATRIZ-DE-RIESGOS.md`) queda parcialmente mitigado: el
+  riesgo de que el cliente crea que su ajuste de supuestos tiene efecto
+  real ya no existe en la interfaz (Decisión 9 implementada); la
+  pregunta de fondo (si esos supuestos deberían ser ajustables alguna
+  vez, para quién, y bajo qué control) permanece abierta como decisión
+  de arquitectura futura.
+
+### Condiciones para reconsiderar
+
+Si un revisor financiero externo, al revisar cualquiera de las 5
+decisiones enviadas a revisión, determina que el comportamiento
+provisional actual es inaceptable incluso para desarrollo con datos
+sintéticos, se documenta como `D-09`, no se improvisa sobre esta
+decisión.
+
+- **Quién debe aprobar**: el fundador ya aprobó esta consolidación (este
+  registro es la confirmación). Las 5 decisiones enviadas a revisor
+  requieren, adicionalmente, la aprobación de un revisor financiero
+  externo antes de convertirse en metodología oficial.

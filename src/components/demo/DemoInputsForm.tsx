@@ -1,4 +1,4 @@
-import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { SECTOR_KEYS, SECTOR_BENCHMARKS, DEFAULT_INPUTS, type FinancialInputs } from "@/lib/financial-engine";
 import { RotateCcw } from "lucide-react";
 
@@ -8,9 +8,26 @@ interface Props {
   onRun: () => void;
 }
 
+// Decisión 10A (docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md):
+// el formulario debe impedir ejecutar el análisis con ingresos <= 0, con un
+// mensaje asociado al campo — nunca solo deshabilitando el botón en silencio.
+const REVENUE_ERROR = "Los ingresos deben ser mayores que cero para ejecutar el análisis.";
+
 const DemoInputsForm = ({ inputs, setInputs, onRun }: Props) => {
+  const [revenueError, setRevenueError] = useState<string | null>(null);
+
+  const validateRevenue = (value: number): boolean => {
+    if (!(value > 0)) {
+      setRevenueError(REVENUE_ERROR);
+      return false;
+    }
+    setRevenueError(null);
+    return true;
+  };
+
   const update = (field: keyof FinancialInputs, value: string | number) => {
     setInputs((prev) => ({ ...prev, [field]: value }));
+    if (field === "revenue") validateRevenue(Number(value));
   };
 
   useEffect(() => {
@@ -22,6 +39,12 @@ const DemoInputsForm = ({ inputs, setInputs, onRun }: Props) => {
 
   const handleReset = () => {
     setInputs({ ...DEFAULT_INPUTS });
+    setRevenueError(null);
+  };
+
+  const handleRunClick = () => {
+    if (!validateRevenue(inputs.revenue)) return;
+    onRun();
   };
 
   const numField = (label: string, field: keyof FinancialInputs, hint?: string) => (
@@ -97,7 +120,25 @@ const DemoInputsForm = ({ inputs, setInputs, onRun }: Props) => {
       <div className="metallic-border rounded bg-velarix-bg-tertiary p-5">
         <h3 className="font-display text-sm font-semibold text-foreground mb-4">Datos históricos (Año base)</h3>
         <div className="grid grid-cols-2 gap-4">
-          {numField("Ingresos actuales (USD)", "revenue")}
+          <div>
+            <label htmlFor="demo-revenue" className="font-body text-xs text-muted-foreground block mb-1">Ingresos actuales (USD)</label>
+            <input
+              id="demo-revenue"
+              type="number"
+              value={inputs.revenue}
+              onChange={(e) => update("revenue", Number(e.target.value))}
+              aria-invalid={revenueError ? "true" : "false"}
+              aria-describedby={revenueError ? "demo-revenue-error" : undefined}
+              className={`w-full bg-background metallic-border rounded px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50 ${
+                revenueError ? "border-red-500" : ""
+              }`}
+            />
+            {revenueError && (
+              <p id="demo-revenue-error" role="alert" className="font-body text-[10px] text-red-500 mt-1">
+                {revenueError}
+              </p>
+            )}
+          </div>
           {numField("Costo de ventas (USD)", "costOfSales")}
           {numField("Gastos operativos / SG&A (USD)", "opex")}
           {numField("Depreciación y amortización (USD)", "depreciation")}
@@ -114,10 +155,6 @@ const DemoInputsForm = ({ inputs, setInputs, onRun }: Props) => {
         <div className="grid grid-cols-2 gap-4">
           {numField("Tasa de crecimiento proyectado (%)", "growth")}
           {numField("Margen EBITDA (%)", "ebitdaMargin")}
-          {numField("CAPEX (% ingresos)", "capexPct")}
-          {numField("Δ Capital de trabajo (% ingresos)", "wcPct")}
-          {numField("Tasa de impuestos (%)", "taxRate")}
-          {numField("Crecimiento terminal g (%)", "terminalGrowth")}
           {numField("Días de caja operativa mínima", "diasMinCaja")}
         </div>
       </div>
@@ -126,9 +163,6 @@ const DemoInputsForm = ({ inputs, setInputs, onRun }: Props) => {
       <div className="metallic-border rounded bg-velarix-bg-tertiary p-5">
         <h3 className="font-display text-sm font-semibold text-foreground mb-4">Supuestos de mercado</h3>
         <div className="grid grid-cols-2 gap-4">
-          {numField("Tasa libre de riesgo (Rf) (%)", "riskFreeRate", "Ref: US Treasury 10Y")}
-          {numField("Prima de riesgo (ERP) (%)", "erp", "Ref: Damodaran — emergentes")}
-          {numField("Costo de deuda pre-tax (%)", "costOfDebt")}
           <div>
             <label className="font-body text-xs text-muted-foreground block mb-1">Peso equity / deuda (%)</label>
             <div className="flex gap-2">
@@ -158,7 +192,7 @@ const DemoInputsForm = ({ inputs, setInputs, onRun }: Props) => {
 
       <div className="flex gap-3">
         <button
-          onClick={onRun}
+          onClick={handleRunClick}
           className="flex-1 font-body text-sm px-8 py-3 rounded bg-primary text-primary-foreground hover:brightness-110 transition-all shadow-lg shadow-primary/25 active:scale-[0.97]"
         >
           Ejecutar análisis completo

@@ -1,5 +1,23 @@
 # Decisiones financieras pendientes — Bloque 1B-M
 
+> **Actualizado 2026-08-06**: el fundador (Nicolás) ya respondió las 10
+> decisiones de este documento. Sus respuestas quedan consolidadas en
+> `DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md` — **no reemplaza
+> este análisis técnico original**, que se conserva íntegro abajo como
+> evidencia de las alternativas consideradas y la recomendación técnica
+> de cada una.
+>
+> **Importante — distinguir dos capas**: que el fundador haya respondido
+> no significa que las 10 decisiones estén financieramente aprobadas.
+> Las decisiones 7 y 9 quedan confirmadas como política de producto/
+> formalización (7) y ya se implementaron (9, junto con 10A). Las
+> decisiones 1, 2, 3, 4, 5, 6, 8 y 10B mantienen su metodología
+> financiera en `📊 Validación financiera` — siguen requiriendo un
+> revisor financiero externo (`Negocio_Velarix_v4.1.md` §9.4) antes de
+> aprobarse. Ver `PLAN-VALIDACION-REVISOR-FINANCIERO.md` para el proceso
+> exacto de esa validación. **Este documento no queda cerrado por la
+> respuesta del fundador.**
+
 Máximo 10 decisiones, agrupadas por causa común. Ninguna se decidió
 silenciosamente en este bloque — cada una requiere aprobación explícita
 del fundador o de un revisor financiero externo

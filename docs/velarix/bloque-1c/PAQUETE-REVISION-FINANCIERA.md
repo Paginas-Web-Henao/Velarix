@@ -1,5 +1,14 @@
 # Paquete de revisión financiera — Bloque 1C-T
 
+> **Actualizado 2026-08-06**: el fundador ya respondió las 10 decisiones
+> metodológicas pendientes — ver
+> `docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`
+> y el proceso exacto de validación en
+> `docs/velarix/bloque-1b-metodologia/PLAN-VALIDACION-REVISOR-FINANCIERO.md`.
+> Esto **no equivale a la aprobación del revisor financiero externo** —
+> la sección 6 de este documento sigue "sin resolución" hasta que ese
+> revisor la complete. Bloque 1C **sigue sin cerrarse**.
+
 ## 1. Propósito de la revisión
 
 Este documento reúne, en un solo lugar, lo que un revisor financiero

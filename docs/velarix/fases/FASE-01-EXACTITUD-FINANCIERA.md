@@ -281,6 +281,18 @@ igual.
 > parcial), y registró **10 decisiones metodológicas pendientes** de
 > aprobación del fundador/revisor externo en
 > `docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-PENDIENTES.md`.
+>
+> **Actualizado 2026-08-06**: el fundador respondió las 10 decisiones —
+> ver `docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`.
+> Dos cambios de producto de bajo riesgo quedaron implementados en esta
+> sesión (Decisión 9: se retiraron del formulario del cliente los
+> controles de los 7 supuestos canónicos que el servidor siempre
+> ignoraba; Decisión 10A: el formulario ya bloquea `revenue <= 0`), sin
+> tocar ninguna fórmula financiera. Las 5 decisiones que requieren un
+> revisor financiero externo (`1`, `2`, `3`, `5`, `6`, `8` con matices —
+> ver `PLAN-VALIDACION-REVISOR-FINANCIERO.md`) siguen sin resolverse:
+> **el Bloque 1B-metodología sigue sin cerrarse formalmente**, y por
+> tanto tampoco cierra el Bloque 1B completo.
 > **Corrección de cierre técnico (2026-07-23)**: la 4ª corrección original
 > (hacer que el servidor variara capex/wc% por escenario, igual que el
 > cliente) fue **revertida** — era una decisión metodológica aplicada sin

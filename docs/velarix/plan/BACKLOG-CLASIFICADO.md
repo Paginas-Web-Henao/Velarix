@@ -104,6 +104,25 @@ duplicar el mismo defecto en varias filas). Referencia cruzada a
 > canónico no se modificó — A/B/C sin cambios. Bloque 1C formal **sigue
 > sin cerrarse**: falta la aprobación del revisor financiero externo y la
 > conexión al PDF (exclusiva de 1E).
+
+> **Actualizado 2026-08-06 (respuesta del fundador a 1B-M + cierre parcial
+> de `R-19`)**: el fundador respondió las 10 decisiones metodológicas
+> pendientes — ver
+> `docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`.
+> Ningún `BL-XX` de esta tabla queda cerrado por esa respuesta (ninguno
+> de los 32 la referencia directamente como criterio de cierre). Efecto
+> indirecto real: la mitad de la superficie de `R-19`
+> (`plan/MATRIZ-DE-RIESGOS.md`) — el cliente veía controles de WACC/
+> CAPEX/impuestos que el servidor siempre ignoraba — se corrigió al
+> retirar esos controles de `src/components/demo/DemoInputsForm.tsx`
+> (Decisión 9). La pregunta de fondo de `R-19` (si el servidor debería
+> leer esos 7 supuestos del input alguna vez) permanece abierta, ahora
+> registrada como Etapa futura en
+> `docs/velarix/bloque-1b-metodologia/ROADMAP-METODOLOGIA-DINAMICA.md`.
+> También se implementó, en la misma sesión, el bloqueo de `revenue <= 0`
+> en ese mismo formulario (Decisión 10A) — no corresponde a ningún
+> `BL-XX` existente, es una corrección de UX de bajo riesgo, no un
+> hallazgo de la auditoría original.
 | ID | Título | Descripción | Categoría | Severidad | Prioridad | Fase | Dependencia | Evidencia | Criterio de aceptación | Revisión requerida |
 |---|---|---|---|---|---|---|---|---|---|---|
 | BL-01 | Motor de cálculo oficial: diseño (1A) y activación (1E) | **Decisión ya tomada y aprobada (`D-06`/`D-07`)**: el pipeline del servidor es canónico. El diseño del contrato y de la estrategia de transición se hace en 1A; la conexión real de PDF/narrativa y la activación controlada se hacen en 1E, solo tras cerrar 1B/1C/1D | Arquitectura | Crítica | P0 | **Fase 1A (diseño) → Fase 1E (activación)** | 1A: ninguna. 1E: Bloques 1B, 1C y 1D cerrados | `auditoria/04`, `auditoria/02`, `R-04`, `REGISTRO-DE-DECISIONES.md` D-06/D-07 | 1A: contrato y estrategia documentados. 1E: PDF y narrativa consumen `calculation_result`; motor cliente acotado a Estimador/visualización/previsualización; activación solo en entorno controlado | Fundador (ya aprobó la decisión); revisor financiero valida la implementación en 1C/1E |
