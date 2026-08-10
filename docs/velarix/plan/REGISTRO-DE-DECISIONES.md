@@ -484,3 +484,54 @@ esta decisión.
   registro es la confirmación). La implementación del Expediente de
   Valoración V1 requiere una autorización explícita y separada, aunque
   ya exista su especificación técnica.
+
+## D-10 — El Expediente se refina con evidencia de casos reales antes de implementarse
+
+- **Fecha**: 2026-08-10
+- **Tipo**: decisión metodológica, `✅ Confirmado` por el fundador. Este
+  registro es la confirmación.
+- **Contexto**: `EXPEDIENTE-DE-VALORACION-V1.md` es una especificación
+  escrita sin haberse contrastado todavía contra ningún caso real. El
+  fundador determinó que, antes de autorizar su implementación, debía
+  validarse con evidencia empírica manual (`BL-35`, estudio de casos
+  públicos).
+- **Decisión**: el Expediente se refina mediante evidencia de casos
+  reales **antes** de implementación, no después. El **Caso 01
+  (Tecnoglass)**, documentado en
+  `docs/velarix/casos/01-tecnoglass/CASO-01-TECNOGLASS-V0.md` y
+  contrastado en `REPORTE-CONTRASTE-EXPEDIENTE-V1.md` de la misma
+  carpeta, confirmó la necesidad de: separar clasificación contable de
+  interpretación económica; hacer explícita la clasificación epistémica
+  de cada afirmación (hecho/inferencia/hipótesis/desconocido/pregunta/
+  decisión/aprobado); permitir la coexistencia de valores reportado,
+  normalizado y proyectado; permitir descomposición económica de cuentas
+  agregadas; ampliar los campos de los supuestos del caso; tratar los
+  drivers de proyección como específicos de cada empresa, no como un
+  catálogo cerrado; y registrar relaciones/dependencias entre supuestos.
+  Estos ajustes ya quedaron incorporados, como especificación
+  conceptual, en `EXPEDIENTE-DE-VALORACION-V1.md` §5, §5.1, §6, §17, §20
+  y §21.
+- **Evidencia**: `docs/velarix/casos/01-tecnoglass/CASO-01-TECNOGLASS-V0.md`,
+  `docs/velarix/casos/01-tecnoglass/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
+- **Consecuencias**:
+  - No se autorizó ninguna implementación — el Expediente sigue siendo
+    especificación conceptual.
+  - No se calculó ninguna valoración de Tecnoglass, ni se fijó WACC, g u
+    horizonte para esa empresa.
+  - Ningún valor numérico ni driver específico de Tecnoglass se declaró
+    default o regla universal — ver la sección "Explícitamente no
+    confirmado" de `REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
+  - El checkpoint mínimo de `EXPEDIENTE-DE-VALORACION-V1.md` §0.1 **sigue
+    sin cumplirse** — requiere implementación funcionando sobre un caso,
+    no solo documentación manual. El Bloque 1E sigue sin iniciarse.
+  - Queda pendiente el **Caso 02** (empresa con economía distinta), sin
+    fecha, para confirmar o corregir los ajustes marcados
+    `REQUIERE CASO 02` en el reporte de contraste.
+  - No se modificó código, SQL, Supabase, Auth ni JWT Signing Keys.
+- **Condiciones para reconsiderar**: si el Caso 02 contradice
+  significativamente los ajustes confirmados por el Caso 01, se
+  documenta como `D-11`, no se improvisa sobre esta decisión.
+- **Quién debe aprobar**: el fundador ya aprobó este proceso (este
+  registro es la confirmación). Los ajustes marcados `REQUIERE EXPERTO`
+  en el reporte de contraste requieren, adicionalmente, criterio de un
+  revisor financiero externo antes de precisarse.

@@ -139,14 +139,44 @@ esquema existente al implementar.
 |---|---|
 | `valuation_files` (Expediente) | Contenedor raíz de un caso, 1:1 con un `analysis_id` existente |
 | `company_context` | Ficha cualitativa de la empresa (1:1 con el expediente) |
-| `account_notes` | Interpretación de una cuenta material (N por expediente) |
+| `account_notes` | Interpretación de una cuenta material (N por expediente). **Confirmado por Caso 01 (§21)**: debe distinguir explícitamente `clasificacion_contable` (dónde y cómo la reporta la empresa) de `interpretacion_economica` (driver real, fijo/variable/mixto, sensibilidad a volumen, sensibilidad a commodity/FX, mecanismo y lag de pass-through) — son campos distintos, uno no sustituye al otro |
+| `account_components` | **Nueva, confirmada por Caso 01 (§21)**: descomposición económica opcional de una cuenta agregada material cuando la fuente disponible no la desagrega (ej. Cost of Sales → materiales/labor/energía/logística) — N por `account_notes`, cada componente con su propio driver, participación estimada, fuente y estado epistémico (§5.1) |
 | `expedient_questions` | Preguntas generadas, vinculables a cuenta/documento/normalización/supuesto |
 | `expedient_answers` | Respuestas a una pregunta, con evidencia asociada |
 | `evidence_links` | Trazabilidad entre una decisión y su fuente (documento, página, respuesta, nota, fuente externa) |
-| `normalizations` | Ajustes propuestos/aprobados sobre un valor reportado, con historial completo |
-| `projection_hypotheses` | Hipótesis de proyección con driver, razonamiento, fórmula, responsable |
-| `case_assumptions` | Supuestos financieros del caso específico (puede referenciar `CANONICAL_METHODOLOGY` como punto de partida, sin heredar su valor automáticamente) |
+| `normalizations` | Ajustes propuestos/aprobados sobre un valor reportado, con historial completo. **Confirmado por Caso 01**: deben coexistir siempre tres capas de valor — reportado, normalizado y proyectado — ninguna sobrescribe a otra |
+| `projection_hypotheses` | Hipótesis de proyección con driver, razonamiento, fórmula, responsable. **Confirmado por Caso 01 (§21)**: `driver` es texto libre específico de la empresa (backlog, unidades×precio, clientes×ARPU, contratos, capacidad, etc.) — nunca un enum cerrado ni un catálogo universal (regla R7); una línea material (ej. ingresos) puede requerir una o varias hipótesis de driver, no una sola tasa de crecimiento genérica |
+| `case_assumptions` | Supuestos financieros del caso específico. **Campos ampliados, confirmados por Caso 01 (§21)**: nombre, valor, unidad, categoría, driver, tipo de información, método de determinación, fuente, fecha, razonamiento, contexto específico de la empresa, estado epistémico (§5.1), nivel de certeza, materialidad, sensibilidad, responsable, estado, aprobación. Puede referenciar `CANONICAL_METHODOLOGY` como punto de partida, sin heredar su valor automáticamente |
+| `assumption_relations` | **Nueva, confirmada por Caso 01 (§21)**: relación/dependencia explícita entre dos `case_assumptions` y/o `projection_hypotheses` (ej. "CAPEX de expansión restringe la capacidad que limita a ingresos"), con tipo de relación y razonamiento — para que cambiar un supuesto no ignore lo que depende de él |
+| `coherence_flags` | **Nueva, confirmada por Caso 01, conceptual únicamente (§21, §20)**: señal generada (por regla o por IA-asistida, nunca decisoria) cuando dos elementos del expediente resultan inconsistentes entre sí (ej. ingreso proyectado que excede la capacidad declarada, normalización sin evidencia, supuesto material sin sensibilidad) — el sistema señala, nunca decide ni corrige automáticamente |
 | `expedient_approvals` | Registro de aprobaciones (quién, qué, cuándo, sobre qué versión) |
+
+## 5.1 Clasificación epistémica (transversal, confirmada por Caso 01 — §21)
+
+Todo campo material de `company_context`, `account_notes` (incluidos sus
+`account_components`), `expedient_questions`, `projection_hypotheses` y
+`case_assumptions` debe poder declarar su estado de conocimiento, con uno
+de estos valores — nunca implícito, nunca por defecto silencioso:
+
+- `hecho_documentado` — verificado contra una fuente (documento, reporte
+  público, dato del cliente).
+- `inferencia_razonable` — se deduce de hechos documentados, pero no es,
+  en sí, un hecho verificado.
+- `hipotesis` — supuesto de trabajo, todavía sin evidencia suficiente.
+- `desconocido` — declarado explícitamente como no disponible. **No se
+  rellena con un valor por defecto** — un campo puede quedar
+  `desconocido` sin bloquear el resto del expediente (ver criterio de
+  aceptación nuevo en §17).
+- `pregunta_a_gerencia` — pendiente de respuesta del cliente/empresa.
+- `decision_del_analista` — Nicolás decidió un tratamiento, documentado y
+  trazable, sin que constituya todavía una aprobación experta.
+- `aprobado_por_experto` — validado por el revisor financiero externo.
+
+Esta clasificación es la que usó `docs/velarix/casos/01-tecnoglass/CASO-01-TECNOGLASS-V0.md`
+§16 para separar hechos, inferencias y desconocidos del caso Tecnoglass —
+se incorpora aquí porque ese ejercicio demostró que sin esta distinción
+explícita el expediente no puede diferenciar "lo sabemos" de "lo estamos
+asumiendo".
 
 ## 6. Relaciones principales
 
@@ -170,6 +200,17 @@ esquema existente al implementar.
   el historial completo, no se sobrescribe).
 - `case_assumptions.valuation_file_id` → `valuation_files.id` — N:1 (un
   supuesto por nombre y versión, historial conservado).
+- `account_components.account_note_id` → `account_notes.id` — N:1
+  (**nueva, Caso 01**: componentes económicos de una cuenta agregada).
+- `assumption_relations` — **nueva, Caso 01**: relación N:N entre dos
+  `case_assumptions` y/o `projection_hypotheses` (autorreferencial entre
+  ambas entidades), con `tipo_relacion` (ej. `depende_de`,
+  `restringe_a`, `debe_ser_consistente_con`) y razonamiento.
+- `coherence_flags` — **nueva, Caso 01, conceptual**: referencia a dos o
+  más elementos del expediente (cuentas, hipótesis, supuestos,
+  normalizaciones) que resultan inconsistentes entre sí, más una
+  descripción de la incoherencia detectada — sin relación de aprobación,
+  porque no decide nada.
 - `expedient_approvals.valuation_file_id` → `valuation_files.id` — N:1
   (puede haber una aprobación parcial de hipótesis y otra del expediente
   completo).
@@ -332,6 +373,13 @@ completar la implementación total del expediente (`Negocio_Velarix_v4.2.md`
       vinculada.
 - [ ] El motor de cálculo existente sigue funcionando exactamente igual
       que antes — el expediente no lo interviene todavía (§13).
+- [ ] **(Confirmado por Caso 01, §21)** Un campo material puede quedar
+      marcado explícitamente `desconocido` (§5.1) sin bloquear el resto
+      del expediente — no existe ningún relleno automático por defecto.
+- [ ] **(Confirmado por Caso 01, §21)** Para al menos una cuenta, pueden
+      coexistir su valor reportado, su valor normalizado (si aplica) y
+      al menos una hipótesis de proyección que lo use — sin que ninguna
+      capa sobrescriba a otra.
 
 ## 18. Pruebas necesarias
 
@@ -389,3 +437,59 @@ que modifiquen los mismos archivos").
   a esta misma implementación.
 - Reactivación del Bloque 1E — bloqueada hasta superar el checkpoint
   mínimo de §0.1, no hasta completar este documento entero.
+- **Implementación de `coherence_flags`** (§5, §6) — queda como concepto
+  confirmado por Caso 01, no como autorización de implementación.
+  Requiere al menos el Caso 02 (para confirmar qué patrones de
+  incoherencia se repiten, no solo los observados en Tecnoglass) y
+  criterio de un experto financiero antes de precisar su diseño.
+
+---
+
+## 21. Ajustes confirmados por el Caso 01 (Tecnoglass) — 2026-08-10
+
+**Estado: especificación conceptual sujeta a validación adicional con
+Caso 02; no autorización de implementación.** Detalle completo del caso
+y del contraste: `docs/velarix/casos/01-tecnoglass/CASO-01-TECNOGLASS-V0.md`
+y `docs/velarix/casos/01-tecnoglass/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
+
+El estudio manual del Caso Público 01 (Tecnoglass) confirmó ocho
+necesidades que este documento no representaba con suficiente precisión
+antes de esta actualización, y que ahora quedan incorporadas en §5, §5.1,
+§6, §17 y §20:
+
+1. **Clasificación epistémica explícita por campo** (§5.1) — sin ella, el
+   expediente no puede distinguir un hecho de una hipótesis.
+2. **Tres capas de valor coexistentes** (reportado / normalizado /
+   proyectado) para cuentas y supuestos — ninguna sobrescribe a otra.
+3. **Separación explícita entre clasificación contable e interpretación
+   económica** de una cuenta (`account_notes`) — confirmado por el caso
+   de tarifas registradas fuera de Cost of Sales en Tecnoglass.
+4. **Descomposición económica opcional de cuentas agregadas**
+   (`account_components`) — confirmado por la falta de desagregación
+   pública del Cost of Sales de Tecnoglass.
+5. **Campos ampliados de `case_assumptions`** (categoría, driver, tipo de
+   información, método de determinación, nivel de certeza, materialidad,
+   sensibilidad) — confirmado por la tabla de variables aportada por el
+   fundador, con la regla explícita de que ningún valor de esa tabla es
+   un default universal.
+6. **Drivers de proyección específicos de empresa, no un catálogo
+   cerrado** (`projection_hypotheses.driver` como texto libre) —
+   confirmado por el rol central del backlog en Tecnoglass, que no se
+   generaliza como requisito universal.
+7. **Relaciones/dependencias explícitas entre supuestos**
+   (`assumption_relations`) — confirmado por ejemplos concretos
+   (CAPEX→capacidad→ingresos, backlog→working capital, g→reinversión).
+8. **Detección de incoherencias sin decisión automática**
+   (`coherence_flags`, conceptual, no implementado) — confirmado por
+   patrones identificados en el caso (ej. ingreso que excedería la
+   capacidad declarada, normalización sin evidencia).
+
+**Explícitamente no confirmado por este caso** (queda fuera, sin
+agregarse a la especificación): ningún valor numérico de Tecnoglass
+(márgenes, tasas, múltiplos) se incorporó como default, benchmark ni
+referencia metodológica de Velarix. Ningún driver específico de
+Tecnoglass (backlog, capacidad manufacturera) se declaró requisito
+universal para otras empresas. No se definió todavía el umbral de
+materialidad que activa `account_components`, ni el diseño final de
+`coherence_flags` — ambos requieren más casos y/o criterio experto antes
+de precisarse (ver `REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
