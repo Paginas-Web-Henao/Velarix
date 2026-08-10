@@ -6,17 +6,17 @@ implementación de ningún cambio al Expediente. El reporte de contraste
 (`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma carpeta) tampoco
 constituye autorización de implementación; cualquier implementación
 requiere autorización explícita y separada del fundador.
-**Fuente de los datos:** material de trabajo aportado directamente por el
-fundador, compilado a partir de información pública de Organización
-Terpel. **No se hizo scraping, descarga automatizada, ni re-verificación
-independiente de estas cifras en esta sesión.** A diferencia del Caso 01
-(Tecnoglass), este documento **no reproduce cifras financieras
-específicas de Terpel** — el material de trabajo de esta ejecución
-describió la economía de la empresa en términos cualitativos
-(segmentos, mecanismos, tipos de partida), sin magnitudes numéricas
-concretas. Este documento no completa esa ausencia con cifras estimadas,
-inferidas ni de referencia externa — donde falta una cifra, queda
-`DESCONOCIDO` de forma explícita.
+**Fuente de trabajo:** síntesis analítica proporcionada a esta ejecución,
+elaborada previamente a partir de información pública de Organización
+Terpel. Esta ejecución documental no realizó una verificación
+independiente adicional de las fuentes originales, ni hizo scraping ni
+descarga automatizada. A diferencia del Caso 01 (Tecnoglass), este
+documento **no reproduce cifras financieras específicas de Terpel** — la
+síntesis recibida por esta ejecución describió la economía de la empresa
+en términos cualitativos (segmentos, mecanismos, tipos de partida), sin
+magnitudes numéricas concretas. Este documento no completa esa ausencia
+con cifras estimadas, inferidas ni de referencia externa — donde falta
+una cifra, queda `DESCONOCIDO` de forma explícita.
 
 ---
 
@@ -61,8 +61,9 @@ universales**.
 
 ## 3. Qué sabemos de la empresa (nivel cualitativo)
 
-`HECHO DOCUMENTADO` (según compilación del fundador; sin re-verificación
-independiente en esta sesión), a nivel estructural — sin cifras:
+`HECHO DOCUMENTADO` (según la síntesis analítica recibida por esta
+ejecución, sin verificación independiente adicional de las fuentes
+originales), a nivel estructural — sin cifras:
 
 - Terpel opera múltiples negocios económicamente distintos bajo una
   misma organización, entre ellos: EDS (estaciones de servicio),
