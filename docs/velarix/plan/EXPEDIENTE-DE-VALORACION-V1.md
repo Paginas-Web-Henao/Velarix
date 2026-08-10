@@ -10,6 +10,57 @@ Este documento especifica **qué** construir y **cómo** se relaciona con
 lo que ya existe. No contiene código, no define esquemas SQL finales, y
 no asume ninguna decisión de UI todavía no tomada.
 
+> **Precisión 2026-08-10 (mismo día, tras corrección del fundador)**: la
+> implementación de este documento **no** es condición para que Velarix
+> avance. El **estudio manual de casos públicos** (Biblioteca A — ver
+> `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md` y
+> `BL-35` en `BACKLOG-CLASIFICADO.md`) está **activo desde ahora**,
+> **antes** de implementar nada de este documento, y sirve precisamente
+> para validarlo y corregirlo con evidencia real. Ver §0 abajo.
+
+## 0. Paso previo obligatorio: validar esta especificación con casos reales
+
+`✅ Activo desde 2026-08-10` — no requiere autorización adicional, no
+requiere revisor financiero externo, no requiere ningún bloque técnico.
+
+Antes de implementar cualquier paso de este documento, se estudia
+manualmente al menos un caso con información financiera pública, para
+comprobar que esta especificación representa lo que un caso real
+necesita — y corregirla si no. Secuencia:
+
+1. **Caso público 01 — Tecnoglass** (análisis manual, sin scraping ni
+   automatización, dentro del repositorio).
+2. Documentar, para ese caso: contexto de la empresa, cuentas relevantes,
+   ambigüedades, información faltante, preguntas que se le harían a
+   gerencia, posibles normalizaciones, hipótesis de proyección, supuestos
+   que necesitan juicio, y dudas financieras reales.
+3. Contrastar ese análisis contra las entidades y el workflow de este
+   documento (§4–§6).
+4. Modificar esta especificación si el caso demuestra que faltan o sobran
+   conceptos.
+5. Solo entonces autorizar e implementar el primer checkpoint mínimo
+   (§0.1) del Expediente.
+6. Repetir con casos de complejidad creciente.
+7. Llevar al profesor o a un futuro revisor las dudas financieras reales
+   que hayan surgido de esos casos — no pedirle que diseñe el Expediente
+   desde cero.
+
+Esta tarea de estudio manual **no calcula una valoración** del caso
+público, **no descarga datos** de forma automatizada y **no hace web
+scraping** — es lectura y documentación manual de información ya pública.
+
+### 0.1 Qué cuenta como "checkpoint mínimo" (para la condición de entrada de 1E)
+
+`fases/FASE-01-EXACTITUD-FINANCIERA.md` y `plan/MATRIZ-DE-DEPENDENCIAS.md`
+condicionan la reactivación del Bloque 1E a este checkpoint, no a la
+implementación completa de este documento. El checkpoint mínimo se
+considera alcanzado cuando: existe al menos un caso (público o real) con
+su contexto de empresa documentado, al menos una cuenta material
+interpretada con su ambigüedad y tratamiento, y evidencia de que esa
+interpretación pudo registrarse **antes** de cualquier cálculo — es
+decir, los Pasos 1 y 2 de §19 funcionando sobre un caso concreto, no los
+6 pasos completos.
+
 ---
 
 ## 1. Objetivo
@@ -253,9 +304,9 @@ almacenamiento de archivos.
 Fuera de alcance de V1: incluir el contenido del expediente en el PDF o
 en la narrativa generada. Ese trabajo depende de que el Bloque 1E
 (conexión de narrativa/PDF al resultado canónico) se reactive, lo cual a
-su vez depende de que exista una primera versión operativa del
-expediente (`Negocio_Velarix_v4.2.md` §18) — es un paso posterior, no de
-esta especificación.
+su vez depende de superar el checkpoint mínimo descrito en §0.1 — no de
+completar la implementación total del expediente (`Negocio_Velarix_v4.2.md`
+§18) — es un paso posterior, no de esta especificación.
 
 ## 17. Criterios de aceptación del MVP
 
@@ -328,7 +379,13 @@ que modifiquen los mismos archivos").
   se registran vía Nicolás en V1).
 - Cualquier automatización de IA que apruebe o decida sin intervención
   humana (§14).
-- Biblioteca de casos de valoración con empresas públicas — iniciativa
-  relacionada pero separada, registrada en
-  `docs/velarix/plan/BACKLOG-CLASIFICADO.md`.
-- Reactivación del Bloque 1E.
+- **Biblioteca automatizada de casos (B)** — ingestión automática,
+  interfaz de biblioteca, scraping, procesamiento masivo, búsqueda
+  automatizada, entrenamiento con casos. Iniciativa relacionada pero
+  separada y diferida, registrada como `BL-34` en
+  `docs/velarix/plan/BACKLOG-CLASIFICADO.md`. **No confundir con** el
+  estudio manual de casos públicos (Biblioteca A, §0 de este documento,
+  `BL-35`), que sí está activo y es, de hecho, el paso previo obligatorio
+  a esta misma implementación.
+- Reactivación del Bloque 1E — bloqueada hasta superar el checkpoint
+  mínimo de §0.1, no hasta completar este documento entero.

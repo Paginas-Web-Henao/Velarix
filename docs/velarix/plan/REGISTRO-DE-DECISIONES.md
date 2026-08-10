@@ -418,7 +418,7 @@ esta decisión.
   fundador (Nicolás). Este registro es la confirmación. Detalle completo:
   `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`.
 - **Contexto**: tras revisar Velarix con un profesor con experiencia
-  financiera (reunión 2026-08-06), el fundador determinó que una
+  financiera (reunión **2026-08-10**), el fundador determinó que una
   metodología prácticamente uniforme por sector, aplicada sobre estados
   financieros, deja demasiado contexto empresarial sin resolver. Dos
   empresas del mismo sector, incluso con el mismo propietario, pueden
@@ -442,24 +442,40 @@ esta decisión.
   siguiente bloque técnico).
 - **Consecuencias**:
   - Ningún bloque ya cerrado (1A, 1B-P0, 1D) ni parcialmente avanzado
-    (1B-metodología, 1C) se reabre ni cambia de estado por esta decisión.
-  - El Bloque 1E gana una condición de entrada adicional: además de 1B,
-    1C y 1D cerrados, ahora requiere una primera versión operativa del
-    Expediente de Valoración V1 — ver notas de actualización en
+    (1B-metodología, 1C) se reabre ni cambia de estado por esta decisión
+    — **1D ya está cerrado y no es un pendiente actual**; los pendientes
+    reales de 1B y 1C siguen siendo metodológicos (revisor financiero
+    externo).
+  - El Bloque 1E gana una condición de entrada adicional: además de 1B y
+    1C cerrados, ahora requiere un **checkpoint mínimo operativo y
+    validado** del Expediente de Valoración V1 — no su implementación
+    completa — ver notas de actualización en
     `fases/FASE-01-EXACTITUD-FINANCIERA.md` y `MATRIZ-DE-DEPENDENCIAS.md`.
-  - Se registra una nueva iniciativa diferida, "Biblioteca de casos de
-    valoración" (`BL-34`, `BACKLOG-CLASIFICADO.md`), condicionada al MVP
-    del Expediente.
+  - Se distinguen dos iniciativas bajo "Biblioteca de casos de
+    valoración": **(A) estudio manual de casos públicos** (primer caso
+    Tecnoglass, `BL-35`) — **activo desde ahora**, sin depender del
+    Expediente implementado ni de un revisor financiero externo, y que
+    sirve para diseñar y validar la especificación del Expediente antes
+    de construirla; y **(B) biblioteca automatizada** (`BL-34`,
+    `BACKLOG-CLASIFICADO.md`) — esa sí permanece diferida.
+  - Se precisa que el revisor/experto financiero externo no bloquea todo
+    avance de Velarix — bloquea específicamente aprobación metodológica
+    formal, decisiones financieras materiales, cierre de gates que
+    requieren validación externa, y primeros entregables profesionales;
+    no bloquea estudiar casos, construir hipótesis, ni diseñar/implementar
+    infraestructura que no codifique una decisión financiera no aprobada.
   - No se modificó ningún código, fórmula, motor, Edge Function,
     migración, ni configuración de Supabase/Auth/JWT Signing Keys como
     parte de esta decisión — es una reorientación documental y de
     negocio, no una implementación.
   - El kit de materiales preparado específicamente para la reunión del
-    2026-08-06 (`docs/velarix/reunion-profesor-2026-08-06/`) se retiró
-    del repositorio en esta misma sesión, por autorización expresa del
+    **2026-08-10** (bajo el nombre histórico, incorrecto en su fecha,
+    `docs/velarix/reunion-profesor-2026-08-06/`) se retiró del
+    repositorio en esta misma sesión, por autorización expresa del
     fundador — cumplió su propósito puntual y no es un documento
     autoritativo; se verificó su contenido y ausencia de referencias
-    cruzadas antes de eliminarlo.
+    cruzadas antes de eliminarlo. Ese nombre de carpeta no debe
+    recrearse.
 - **Condiciones para reconsiderar**: si al implementar el Expediente de
   Valoración V1 se determina que el modelo especificado es
   significativamente distinto al necesario en la práctica, se documenta

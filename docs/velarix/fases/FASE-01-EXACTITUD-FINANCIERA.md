@@ -6,20 +6,27 @@
 > corrige aquí la secuencia interna antes de cualquier autorización
 > adicional. La secuencia pasa de 4 a **5 bloques**: 1A, 1B, 1C, 1D, 1E.
 
-> **Actualizado 2026-08-10 (reorientación boutique expert-led, `D-09`)**:
-> el fundador reorientó a Velarix como boutique de valoración expert-led
-> — ver `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`
-> y `Negocio_Velarix_v4.2.md`. Esto **no cambia el estado ya alcanzado**
-> por 1A, 1B-P0, 1C-Prep/1C-T ni 1D (siguen exactamente como se
-> describen abajo) y **no reabre ninguno de esos bloques**. Lo que
-> cambia: **1E gana una condición de entrada adicional** — además de
-> requerir 1B, 1C y 1D cerrados, ahora también requiere una primera
-> versión operativa del **Expediente de Valoración**
-> (`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`, especificado, no
-> implementado). Conectar narrativa y PDF a un motor que todavía no
-> captura el contexto específico de cada empresa repetiría el problema
-> que motivó la reorientación. Ningún otro bloque de esta fase cambia de
-> condición de entrada por esta actualización.
+> **Actualizado 2026-08-10 (reorientación boutique expert-led, `D-09`;
+> precisada el mismo día tras corrección del fundador)**: el fundador
+> reorientó a Velarix como boutique de valoración expert-led, en una
+> conversación con un profesor de finanzas — ver
+> `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md` y
+> `Negocio_Velarix_v4.2.md`. Esto **no cambia el estado ya alcanzado** por
+> 1A, 1B-P0, 1C-Prep/1C-T ni 1D (siguen exactamente como se describen
+> abajo) y **no reabre ninguno de esos bloques** — en particular, **1D ya
+> está cerrado y no es un pendiente actual**; los pendientes reales de 1B
+> y 1C siguen siendo metodológicos (revisor financiero externo, sin
+> cambios por esta reorientación). Lo que cambia: **1E gana una condición
+> de entrada adicional**, expresada con precisión — no "completar todo el
+> Expediente de Valoración", sino: *"debe existir un checkpoint mínimo
+> operativo y validado del Expediente de Valoración, suficiente para
+> demostrar sobre al menos un caso que el contexto específico de la
+> empresa puede representarse antes del cálculo"* (ver
+> `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`, especificado, no
+> implementado). La implementación completa del Expediente puede
+> continuar incrementalmente después de ese checkpoint. Ningún otro
+> bloque de esta fase cambia de condición de entrada por esta
+> actualización.
 
 ## Estado
 
@@ -793,11 +800,15 @@ pueda servirse/validarse en un punto verificable del servidor).
 
 - [ ] Bloque 1B cerrado (bugs financieros corregidos).
 - [ ] Bloque 1C cerrado (casos dorados aprobados por el revisor externo).
-- [ ] Bloque 1D cerrado (seguridad P0 del flujo probada).
-- [ ] **(Agregado 2026-08-10, `D-09`)** Expediente de Valoración V1 con
-      una primera versión operativa (ver
-      `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`) — no basta con
-      la especificación, se requiere implementación funcionando.
+- [x] Bloque 1D cerrado (seguridad P0 del flujo probada) — **ya cumplida**
+      (1D-OPS, 2026-08-05), no es un pendiente actual.
+- [ ] **(Agregado 2026-08-10, `D-09`, precisado el mismo día)** Checkpoint
+      mínimo operativo y validado del Expediente de Valoración (ver
+      `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`) — evidencia,
+      sobre al menos un caso, de que el contexto específico de una
+      empresa puede representarse antes del cálculo. **No** se exige la
+      implementación completa del Expediente; esta puede continuar
+      incrementalmente después de superar este checkpoint.
 
 ### Archivos o componentes potencialmente afectados
 

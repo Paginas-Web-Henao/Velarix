@@ -589,7 +589,8 @@ metodológica defendible, no de esta reorientación de negocio.
 
 ## 9.7 Rol del experto financiero
 
-`✅ Confirmado` — **nueva sección en v4.2**
+`✅ Confirmado` — **nueva sección en v4.2, precisada 2026-08-10 (mismo
+día, tras corrección del fundador)**
 
 El experto no diseña Velarix desde cero — Velarix debe avanzar
 independientemente. El experto se utiliza para revisar casos concretos,
@@ -598,10 +599,27 @@ materiales, y ayudar a convertir casos reales en mejores reglas
 metodológicas. El ciclo esperado es:
 
 ```
-VELARIX PROPONE Y DOCUMENTA → EXPERTO CRITICA → VELARIX APRENDE → REGLA MEJORA
+VELARIX ESTUDIA → NICOLÁS PROPONE → VELARIX DOCUMENTA
+→ EXPERTO CRITICA CASOS/DECISIONES REALES → VELARIX CORRIGE
+→ EL SISTEMA APRENDE
 ```
 
-No: `EXPERTO DISEÑA TODO → VELARIX ESPERA`.
+No: `VELARIX ESPERA AL EXPERTO PARA SABER QUÉ CONSTRUIR`.
+
+**Precisión sobre qué bloquea y qué no.** El revisor/experto financiero
+externo **es bloqueante** para: la aprobación metodológica formal cuando
+corresponda; decisiones financieras materiales que Nicolás no pueda
+defender suficientemente por su cuenta; el cierre formal de los gates que
+expresamente requieren validación externa (`Negocio_Velarix_v4.2.md`
+§9.4, §17); y los primeros entregables profesionales cuando aplique.
+**No es bloqueante** para: estudiar casos públicos (§13.3.1); construir
+hipótesis; analizar cuentas; diseñar preguntas; diseñar o refinar el
+Expediente de Valoración; implementar infraestructura que no codifique
+una decisión financiera todavía no aprobada; ni, en general, avanzar en
+Velarix. Nicolás conoce finanzas y desarrolla las hipótesis iniciales; el
+profesor y futuros expertos se usan para cuestionar y mejorar decisiones
+que surjan de casos concretos — el profesor específicamente no es
+responsable de diseñar todo Velarix.
 
 ## 9.8 IA — nuevo papel
 
@@ -723,20 +741,36 @@ las decisiones de seguridad ya cerradas (Bloque 1D).
 
 Sin cambios respecto a v4.1 — ver `Negocio_Velarix_v4.1.md` §13.3.
 
-## 13.3.1 Biblioteca de casos de valoración (nueva línea de trabajo — diferida)
+## 13.3.1 Biblioteca de casos de valoración (nueva línea de trabajo)
 
-`⏸️ Diferido` — **nueva subsección en v4.2**
+**Nueva subsección en v4.2, precisada 2026-08-10 (mismo día, tras
+corrección del fundador)** — distingue dos actividades que se venían
+mezclando bajo un mismo nombre:
 
-Se registra como nueva línea de trabajo metodológica una futura
-"Biblioteca de casos de valoración": usar empresas con información
-pública para probar el workflow del Expediente de Valoración, practicar
-normalización, identificar preguntas, descubrir excepciones, comparar
-tratamientos, mejorar reglas y preparar dudas concretas para expertos.
-No se usará para concluir que empresas del mismo sector deben valorarse
-igual — sería exactamente la premisa que esta reorientación descarta. No
-se implementa todavía ingestión automática de estos casos; queda
-registrada como iniciativa en `docs/velarix/plan/BACKLOG-CLASIFICADO.md`
-y `docs/velarix/plan/ROADMAP.md`.
+**(A) Estudio manual de casos públicos** — `✅ Activo desde 2026-08-10`.
+Analizar manualmente empresas con información financiera pública (primer
+caso: Tecnoglass) para comprender empresa/cuentas, detectar
+ambigüedades, formular preguntas, proponer normalizaciones e hipótesis, y
+usar esa evidencia para diseñar y validar el Expediente de Valoración
+**antes** de implementarlo. No requiere interfaz, tablas, ingestión
+automática, scraping, Edge Functions, IA conectada, motor modificado, ni
+un revisor financiero externo identificado — puede avanzar ya, dentro del
+repositorio, de forma manual. No se usará para concluir que empresas del
+mismo sector deben valorarse igual — sería exactamente la premisa que
+esta reorientación descarta. Ver
+`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md` §0 y `BL-35` en
+`docs/velarix/plan/BACKLOG-CLASIFICADO.md`.
+
+**(B) Biblioteca automatizada de casos** — `⏸️ Diferido`. Ingestión
+automática, interfaz de biblioteca, scraping, procesamiento masivo,
+búsqueda automatizada, almacenamiento especializado y entrenamiento con
+casos. Esto sí permanece diferido, sin fecha — no se implementa todavía.
+Ver `BL-34` en `docs/velarix/plan/BACKLOG-CLASIFICADO.md` y
+`docs/velarix/plan/ROADMAP.md`.
+
+**(A) no depende de (B)** ni de la implementación del Expediente de
+Valoración V1 — al contrario, (A) es el insumo que valida la
+especificación de ese expediente antes de construirlo.
 
 ## 13.4 Registro manual inicial
 
@@ -785,12 +819,15 @@ solo la cadena documento→cifra ya exigida.
 Las Fases 0 a 8 descritas en `Negocio_Velarix_v4.1.md` §18 permanecen
 vigentes sin cambios de fondo. **v4.2 agrega** que, dentro de la Fase 1
 (exactitud financiera), el **Bloque 1E (integración y activación)** no
-se reactiva hasta que exista una primera versión operativa del
-**Expediente de Valoración** (ver §9.5 y
-`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`) — conectar
-narrativa y PDF a un motor que sigue sin capturar el contexto específico
-de cada empresa repetiría exactamente el problema que esta reorientación
-busca corregir. El detalle de qué queda reordenado dentro de la Fase 1 se
+se reactiva hasta superar un **checkpoint mínimo operativo y validado**
+del **Expediente de Valoración** — no su implementación completa (ver
+§9.5 y `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md` §0.1): debe
+existir evidencia, sobre al menos un caso, de que el contexto específico
+de una empresa puede representarse antes del cálculo. Conectar narrativa
+y PDF a un motor sin ninguna evidencia de eso repetiría exactamente el
+problema que esta reorientación busca corregir; el resto del Expediente
+puede seguir construyéndose de forma incremental después de ese
+checkpoint. El detalle de qué queda reordenado dentro de la Fase 1 se
 documenta en `docs/velarix/fases/FASE-01-EXACTITUD-FINANCIERA.md` y
 `docs/velarix/plan/MATRIZ-DE-DEPENDENCIAS.md`, no se repite aquí.
 
@@ -870,8 +907,13 @@ Claude Code debe detenerse cuando:
   metodología (v4.2).
 - La IA es asistente de análisis, nunca valuadora ni aprobadora de
   decisiones materiales (v4.2).
-- El Bloque 1E no se reactiva sin una primera versión operativa del
-  Expediente de Valoración (v4.2).
+- El Bloque 1E no se reactiva sin superar un checkpoint mínimo operativo
+  y validado del Expediente de Valoración — no su implementación
+  completa (v4.2, precisado 2026-08-10).
+- El estudio manual de casos públicos (Biblioteca A, primer caso
+  Tecnoglass) está activo desde ahora, sin depender del Expediente
+  implementado ni de un revisor financiero externo (v4.2, precisado
+  2026-08-10).
 
 ---
 
@@ -918,12 +960,15 @@ válida, pendiente de integrarse al Expediente de Valoración.
 `🚨 No listo para venta profesional`
 
 Puede prepararse para pilotos después de resolver exactitud, revisión
-externa, seguridad mínima, y una primera versión operativa del
-Expediente de Valoración.
+externa, seguridad mínima, y superar el checkpoint mínimo del Expediente
+de Valoración (no su implementación completa).
 
 ## Siguiente paso
 
-Implementar el **Expediente de Valoración V1** según la especificación de
-`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`, sin reabrir el debate
-de modelo de negocio que ya quedó resuelto en esta versión y en
+Continuar el **estudio manual de casos públicos** (Biblioteca A —
+`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md` §0, primer caso
+Tecnoglass), activo desde ahora sin autorización adicional, para validar
+y refinar la especificación del **Expediente de Valoración V1** antes de
+autorizar su implementación — sin reabrir el debate de modelo de negocio
+que ya quedó resuelto en esta versión y en
 `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`.

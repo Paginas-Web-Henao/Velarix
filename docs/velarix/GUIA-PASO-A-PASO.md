@@ -9,17 +9,19 @@ que tengas el panorama completo sin tener que leer 20 archivos.
 Es un documento vivo: lo iremos completando a medida que me des más
 información (precios, decisiones legales, etc.).
 
-> **Actualización 2026-08-10 — reorientación expert-led (`D-09`)**:
+> **Actualización 2026-08-10 — reorientación expert-led (`D-09`),
+> precisada el mismo día tras corrección del fundador**: en una
+> conversación con un profesor de finanzas el **2026-08-10**,
 > reorientaste a Velarix como boutique de valoración expert-led — cada
 > empresa se entiende individualmente antes de valorarla, en vez de
 > aplicar una metodología uniforme por sector. La fuente de negocio
 > vigente pasó de `Negocio_Velarix_v4.1.md` a `Negocio_Velarix_v4.2.md`.
-> Esto agrega un paso nuevo entre el Paso 4 y el Paso 5 de abajo: antes de
-> el Bloque 1E, ahora hace falta una primera versión operativa del
-> **Expediente de Valoración** (ver
-> `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`, especificado, no
-> implementado). El resto de esta guía (Pasos 1 a 4 y 6 en adelante) sigue
-> vigente sin cambios. Detalle completo de la reorientación:
+> Esto agrega dos pasos nuevos: un **estudio manual de casos públicos**
+> (primer caso: Tecnoglass) que **ya está activo, sin depender de ningún
+> revisor ni bloque técnico** (ver nuevo Paso 3.5), y un checkpoint
+> mínimo del Expediente antes del Bloque 1E — no su implementación
+> completa (ver Paso 4.5 y Paso 5, actualizados). El resto de esta guía
+> sigue vigente sin cambios. Detalle completo de la reorientación:
 > `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`.
 
 ---
@@ -48,8 +50,8 @@ Fuente completa: `Negocio_Velarix_v4.2.md` (documento maestro de negocio).
 | 1B-P0 | Corregir bugs financieros (suma de cuentas, moneda, etc.) | ✅ Cerrado |
 | 1B-M | Poner de acuerdo la metodología entre el motor del cliente y el del servidor | ✅ Cerrado técnicamente — quedan **10 decisiones de metodología** que solo tú o un revisor financiero pueden aprobar |
 | 1C (casos dorados + trazabilidad) | Probar el motor con casos de ejemplo, y poder rastrear de dónde salió cada cifra | ✅ Cerrado técnicamente — los casos son **provisionales**, falta que un revisor financiero externo los apruebe |
-| 1D (seguridad) | Que nadie pueda ver datos ajenos ni auto-asignarse un rol de administrador | 🟡 **Parcial** — ya está activo y probado en la base de datos de desarrollo; falta desplegar 2 funciones (bloqueado por un permiso de tu cuenta de Supabase, ver abajo) |
-| 1E (conectar todo de verdad) | Que el PDF y el informe final usen el motor ya corregido, no el que corre en el navegador | ⛔ No iniciado — depende de cerrar 1B, 1C y 1D primero |
+| 1D (seguridad) | Que nadie pueda ver datos ajenos ni auto-asignarse un rol de administrador | ✅ **Cerrado** (2026-08-05) — desplegado y probado en la base de datos de desarrollo; ya no es un pendiente |
+| 1E (conectar todo de verdad) | Que el PDF y el informe final usen el motor ya corregido, no el que corre en el navegador | ⛔ No iniciado — depende de cerrar 1B y 1C (1D ya está cerrado), más un checkpoint mínimo del Expediente de Valoración (ver Paso 4.5) |
 | Fase 2 en adelante | Seguridad completa, pilotos, ventas, primer cliente, repetibilidad, automatización | ⛔ No iniciado |
 
 **Del lado de negocio** (lo que no es código, y nadie más que tú puede resolver):
@@ -73,24 +75,16 @@ La regla de oro (ya la venimos siguiendo): **no se salta de fase**. Cada fase
 tiene que cerrarse antes de abrir la siguiente. Esto es intencional — evita
 que construyamos sobre algo que todavía no sabemos si está bien.
 
-### Paso 1 — Terminar de activar la seguridad (Bloque 1D)
+### Paso 1 — Activar la seguridad (Bloque 1D) — ✅ completado (2026-08-05)
 
-**Quién lo hace:** tú, en el dashboard de Supabase (no es código).
+**Quién lo hizo:** tú, en el dashboard de Supabase.
 
-Al desplegar las Edge Functions me encontré con un error de permisos: tu
-cuenta/token conectado a Supabase no tiene privilegios para desplegar
-funciones ni ver las llaves del proyecto (aunque sí puede modificar la base
-de datos, por eso las migraciones sí funcionaron).
+El permiso de tu cuenta se resolvió, ambas Edge Functions
+(`ejecutar-calculo`, `continuar-tras-revision`) quedaron desplegadas y
+verificadas, y **1D está cerrado — ya no es un pendiente**. Se deja este
+paso documentado por historial, no como pendiente activo.
 
-**Qué tienes que revisar tú:**
-1. Entra a supabase.com/dashboard → tu proyecto → configuración de
-   organización/miembros.
-2. Confirma que tu cuenta tenga el rol **Owner** o **Administrator** del
-   proyecto (no un rol limitado tipo "Developer" con permisos recortados).
-3. Avísame cuando lo confirmes, y retomamos el despliegue de
-   `ejecutar-calculo` y `continuar-tras-revision`.
-
-Detalle completo de lo que ya se probó: `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`.
+Detalle completo: `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`.
 
 ### Paso 2 — Cerrar las 10 decisiones de metodología financiera pendientes
 
@@ -109,10 +103,36 @@ Lista completa: `docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-PENDI
 
 **Quién lo hace:** tú (no es código).
 
-Esto **bloquea** varias cosas: la aprobación de los casos dorados (Paso 4),
-el poder cobrar cualquier servicio con datos reales (sección 17 del
-documento de negocio), y el inicio de los pilotos (Fase 3). Es la pieza de
-negocio más urgente ahora mismo, junto con el Paso 1.
+**Precisión importante (2026-08-10):** el revisor **no bloquea todo el
+avance de Velarix** — bloquea específicamente: la aprobación formal de
+los casos dorados (Paso 4), cobrar cualquier servicio con datos reales
+(sección 17 del documento de negocio), y el inicio de los pilotos
+(Fase 3). **No bloquea**: estudiar casos públicos (Paso 3.5), construir
+hipótesis, analizar cuentas, diseñar preguntas, ni diseñar o refinar el
+Expediente de Valoración — todo eso puede avanzar ya, sin esperar al
+revisor. Sigue siendo la pieza de negocio más urgente para lo que sí
+bloquea, junto con validar el precio real.
+
+### Paso 3.5 (nuevo, 2026-08-10) — Estudiar casos públicos para diseñar el Expediente
+
+**Quién lo hace:** tú (y Claude Code para documentar), **ya, sin esperar
+al revisor ni a ningún bloque técnico**.
+
+Antes de implementar el Expediente de Valoración, conviene analizar
+manualmente empresas con información financiera pública para descubrir
+qué necesita representar de verdad. Primer caso previsto: **Tecnoglass**.
+Para cada caso se documenta: contexto de la empresa, cuentas relevantes,
+ambigüedades, información faltante, preguntas que le harías a gerencia,
+posibles normalizaciones, hipótesis de proyección, supuestos que
+requieren juicio, y dudas financieras reales. Ese análisis se contrasta
+contra `EXPEDIENTE-DE-VALORACION-V1.md` y, si el caso demuestra que faltan
+o sobran conceptos, se ajusta la especificación **antes** de implementar
+nada. Las dudas reales que surjan de estos casos son justamente lo que le
+llevas al profesor — no le pides que diseñe Velarix desde cero.
+
+Modelo: `Velarix estudia → Nicolás propone → Velarix documenta → experto
+critica casos/decisiones reales → Velarix corrige → el sistema aprende`.
+No al revés (esperar al experto para saber qué construir).
 
 ### Paso 4 — Aprobación formal de los casos dorados (cierre real de Bloque 1C)
 
@@ -126,26 +146,28 @@ diga "esto está bien" o "esto hay que ajustarlo".
 Documento a revisar: `docs/velarix/bloque-1c/PAQUETE-REVISION-FINANCIERA.md`
 (hecho específicamente para que un revisor externo lo lea y firme).
 
-### Paso 4.5 (nuevo, 2026-08-10) — Expediente de Valoración V1
+### Paso 4.5 (nuevo, 2026-08-10) — Primer checkpoint del Expediente de Valoración V1
 
-**Quién lo hace:** Claude Code, con tu autorización explícita, y con tu
-participación (y la del revisor) llenándolo caso por caso.
+**Quién lo hace:** Claude Code, con tu autorización explícita, después de
+que el Paso 3.5 haya dado suficiente evidencia sobre al menos un caso.
 
-Antes de conectar el motor al PDF/narrativa (Paso 5), necesitas un lugar
-donde quede registrada la comprensión de cada empresa específica: su
-contexto, sus cuentas ambiguas, las preguntas que le hiciste al cliente,
-las respuestas, los ajustes que aprobaste y por qué. Eso es el
-"Expediente de Valoración" — ya está especificado, no implementado. Es la
-pieza central de la reorientación expert-led: evita que dos empresas del
-mismo sector reciban la misma metodología sin que nadie haya revisado si
-eso tiene sentido para cada una.
+No hace falta implementar el Expediente completo antes de seguir — hace
+falta un **checkpoint mínimo operativo y validado**: suficiente para
+demostrar, sobre al menos un caso real o público, que el contexto
+específico de una empresa (su historia, sus cuentas ambiguas, las
+preguntas que generó, las normalizaciones propuestas) puede representarse
+antes del cálculo. El resto del Expediente (Pasos 2 a 6 de su
+especificación técnica) puede seguir construyéndose de forma incremental
+después de este checkpoint, en paralelo con el resto de la ruta.
 
 Especificación completa: `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`.
 
 ### Paso 5 — Bloque 1E: conectar todo de verdad
 
-**Quién lo hace:** Claude Code, una vez cerrados 1B, 1C, 1D **y** el
-Expediente de Valoración V1 (Paso 4.5) tenga al menos su MVP funcionando.
+**Quién lo hace:** Claude Code, una vez cerrados 1B y 1C (**1D ya está
+cerrado**, no es un pendiente) **y** superado el checkpoint mínimo del
+Expediente de Valoración (Paso 4.5) — no se exige su implementación
+completa.
 
 Hoy el PDF que descarga un cliente se recalcula en el navegador, sin pasar
 por el motor del servidor (el que ya corregimos) ni por la narrativa
@@ -200,7 +222,7 @@ como cobros automáticos, asignación de casos entre varios analistas, etc.
 Esta es la lista que más te conviene mirar seguido, porque son las que
 frenan el avance aunque el código esté listo:
 
-- [ ] Confirmar permisos de tu cuenta en Supabase (Paso 1).
+- [x] Confirmar permisos de tu cuenta en Supabase (Paso 1) — completado 2026-08-05.
 - [ ] Conseguir un revisor financiero externo (Paso 3).
 - [ ] Aprobar (o mandar a ajustar) las 10 decisiones de metodología (Paso 2).
 - [ ] Definir forma legal/tributaria del negocio.
@@ -212,10 +234,11 @@ frenan el avance aunque el código esté listo:
 
 ## 4. Próximo paso recomendado ahora mismo
 
-**El Paso 1** (revisar tus permisos en Supabase) es el más rápido de
-resolver y desbloquea seguir con el Bloque 1D. En paralelo, el **Paso 3**
+**El Paso 3.5** (estudiar el primer caso público, Tecnoglass) puede
+avanzar ya mismo, sin depender de nadie más. En paralelo, el **Paso 3**
 (conseguir revisor financiero) es el que más tiempo humano toma, así que
-conviene empezar a moverlo ya, aunque no sea código.
+conviene empezar a moverlo ya, aunque no sea código. El Paso 1 ya está
+completado (2026-08-05).
 
 ---
 

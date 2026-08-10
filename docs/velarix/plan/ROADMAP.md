@@ -5,16 +5,21 @@ nota de actualización abajo). Sin fechas inventadas — solo estados y
 dependencias. Ver `fases/FASE-XX-*.md` para el detalle ejecutable de cada
 una.
 
-> **Actualizado 2026-08-10 (`D-09`, reorientación boutique expert-led)**:
+> **Actualizado 2026-08-10 (`D-09`, reorientación boutique expert-led;
+> precisada el mismo día tras corrección del fundador)**:
 > `Negocio_Velarix_v4.1.md` fue reemplazado por `Negocio_Velarix_v4.2.md`
 > como fuente de verdad de negocio (ver
-> `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`).
+> `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`, que
+> documenta la reunión del fundador con el profesor el **2026-08-10**).
 > El bloque 1E de la Fase 1 gana una condición de entrada adicional (ver
-> fila 1E abajo), y se registran dos iniciativas nuevas: **Expediente de
-> Valoración V1** (especificado, no implementado —
-> `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`) y **Biblioteca de
-> casos de valoración** (diferida). Ninguna fase ya cerrada o en curso
-> cambia de estado por esta actualización.
+> fila 1E abajo) — un **checkpoint mínimo operativo** del Expediente, no
+> su implementación completa. Se registran dos líneas de trabajo nuevas y
+> distintas: **(A) estudio manual de casos públicos** — activo desde
+> ahora, sin dependencias técnicas, primer caso Tecnoglass — y **(B)
+> biblioteca automatizada de casos** — diferida, sin relación de bloqueo
+> con (A). Ver `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`.
+> Ninguna fase ya cerrada o en curso cambia de estado por esta
+> actualización.
 
 | Fase | Objetivo | Estado | Depende de |
 |---|---|---|---|
@@ -24,9 +29,10 @@ una.
 | ↳ 1B — Correcciones financieras | Corregir bugs (BL-02 a BL-06, BL-17, ROE/ROA) usando las pruebas de 1A | bloqueada | 1A completo |
 | ↳ 1C — Casos dorados, trazabilidad y revisión externa | Probar y trazar el resultado ya corregido; aprobación del revisor financiero externo | bloqueada | 1B completo |
 | ↳ 1D — Seguridad P0 del flujo | 2 huecos de autenticación + autorización privilegiada (no solo ownership) + `BL-10` (auto-escalamiento de rol) | pendiente, **secuencial internamente, coordinado con 1A en archivos compartidos** | Autorización de inicio |
-| ↳ 1E — Integración y activación controlada | Conectar PDF/narrativa al resultado canónico; activar solo en entorno controlado | bloqueada | 1B, 1C **y** 1D cerrados, **más una primera versión operativa del Expediente de Valoración V1 (`D-09`, 2026-08-10)** |
-| Expediente de Valoración V1 (nuevo, `D-09`) | Representar comprensión de empresa/cuentas/preguntas/evidencia/normalizaciones/hipótesis/supuestos antes de calcular | especificado, no autorizado para implementar | Autorización explícita y separada del fundador |
-| Biblioteca de casos de valoración (nuevo, diferido, `D-09`) | Practicar el workflow del expediente con empresas de información pública | diferida | Expediente de Valoración V1 (mínimo MVP) |
+| ↳ 1E — Integración y activación controlada | Conectar PDF/narrativa al resultado canónico; activar solo en entorno controlado | bloqueada | 1B y 1C cerrados (**1D ya está cerrado**, no es pendiente), **más un checkpoint mínimo operativo y validado del Expediente de Valoración (`D-09`, no su implementación completa)** |
+| Estudio manual de casos públicos — Biblioteca (A) (nuevo, `D-09`, activo) | Analizar empresas con información financiera pública (primer caso: Tecnoglass) para diseñar y validar el Expediente antes de implementarlo | **en curso desde 2026-08-10** | Ninguna — no requiere revisor, ni Expediente implementado, ni ningún bloque técnico |
+| Expediente de Valoración V1 — implementación (nuevo, `D-09`) | Representar comprensión de empresa/cuentas/preguntas/evidencia/normalizaciones/hipótesis/supuestos antes de calcular | especificado, no autorizado para implementar | Autorización explícita y separada del fundador; se beneficia del estudio manual de casos (fila anterior), sin depender estrictamente de él |
+| Biblioteca automatizada de casos (B) (nuevo, diferido, `D-09`) | Ingestión automática, interfaz, scraping, procesamiento masivo de casos públicos | diferida | Decisión de producto — sin fecha ni bloqueo técnico fijado |
 | Fase 2 — Seguridad y cumplimiento mínimo | Poder recibir información real de forma responsable | bloqueada | Fase 1 completa (1A–1E) — ya no parcialmente independiente: el control de acceso urgente ya vive en 1D |
 | Fase 3 — Pilotos controlados | Validar metodología, operación, tiempo y experiencia | bloqueada | Fase 1 + Fase 2 completas, revisor financiero externo identificado |
 | Fase 4 — Preparación comercial | Poder vender con claridad y control | bloqueada | Fase 3 completa (mínimo 2 pilotos) |

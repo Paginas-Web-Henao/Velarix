@@ -11,9 +11,12 @@
 ## 1. Contexto
 
 Después de revisar Velarix con un profesor con experiencia financiera
-(reunión del 2026-08-06, ver el kit de reunión ya retirado — sección 9 de
-este documento), el fundador tomó una decisión estructural sobre el
-producto y el modelo de negocio.
+(reunión del **2026-08-10**, ver el kit de reunión ya retirado — sección
+9 de este documento; el kit se había preparado bajo el nombre de carpeta
+`docs/velarix/reunion-profesor-2026-08-06/`, una fecha incorrecta en el
+nombre histórico de esa carpeta — la reunión real ocurrió el 2026-08-10),
+el fundador tomó una decisión estructural sobre el producto y el modelo
+de negocio.
 
 Hasta esta fecha, la arquitectura conceptual de Velarix se aproximaba a:
 
@@ -142,15 +145,34 @@ hipótesis, corrige errores conceptuales, aprueba decisiones materiales, y
 ayuda a convertir casos reales en mejores reglas metodológicas:
 
 ```
-VELARIX PROPONE Y DOCUMENTA → EXPERTO CRITICA → VELARIX APRENDE → REGLA MEJORA
+VELARIX ESTUDIA → NICOLÁS PROPONE → VELARIX DOCUMENTA
+→ EXPERTO CRITICA CASOS/DECISIONES REALES → VELARIX CORRIGE
+→ EL SISTEMA APRENDE
 ```
 
-No: `EXPERTO DISEÑA TODO → VELARIX ESPERA`. Este ciclo es, en parte, el
-resultado directo de la conversación que originó esta reorientación — el
-kit de materiales preparado específicamente para la reunión del
-2026-08-06 con el profesor
-(`docs/velarix/reunion-profesor-2026-08-06/`) se retiró del repositorio
-en esta misma sesión, por autorización expresa del fundador: cumplió su
+No: `VELARIX ESPERA AL EXPERTO PARA SABER QUÉ CONSTRUIR`. El profesor
+específicamente no es responsable de diseñar todo Velarix — Nicolás
+conoce finanzas y desarrolla las hipótesis iniciales; el profesor y
+futuros expertos se usan para cuestionar y mejorar decisiones que surjan
+de casos concretos.
+
+**Qué bloquea el experto y qué no.** Es bloqueante para: la aprobación
+metodológica formal cuando corresponda; decisiones financieras materiales
+que Nicolás no pueda defender suficientemente por su cuenta; el cierre
+formal de gates que expresamente requieren validación externa; y los
+primeros entregables profesionales cuando aplique. **No** es bloqueante
+para: estudiar casos públicos (§13.3.1 de `Negocio_Velarix_v4.2.md`),
+construir hipótesis, analizar cuentas, diseñar preguntas, diseñar o
+refinar el Expediente, implementar infraestructura que no codifique una
+decisión financiera no aprobada, ni avanzar en Velarix en general.
+
+Este ciclo es, en parte, el resultado directo de la conversación que
+originó esta reorientación — el kit de materiales preparado
+específicamente para la reunión del **2026-08-10** con el profesor (bajo
+el nombre histórico de carpeta
+`docs/velarix/reunion-profesor-2026-08-06/`, una fecha incorrecta en ese
+nombre — la reunión ocurrió el 2026-08-10) se retiró del repositorio en
+esta misma sesión, por autorización expresa del fundador: cumplió su
 propósito puntual (esa reunión) y no es un documento autoritativo de
 negocio ni de metodología — esos quedan consolidados aquí y en
 `Negocio_Velarix_v4.2.md`. Se verificó antes de eliminarlo que contenía
@@ -158,7 +180,7 @@ negocio ni de metodología — esos quedan consolidados aquí y en
 (presentación HTML, guion oral, resumen, hoja de notas, trazabilidad,
 instrucciones de apertura), sin ningún documento autoritativo ni trabajo
 de otra sesión, y que ningún otro documento del repositorio lo
-referenciaba.
+referenciaba. Ese nombre histórico de carpeta no debe recrearse.
 
 ## 10. Qué trabajo anterior se conserva
 
@@ -229,10 +251,14 @@ de esta reorientación (ver sección 13).
   (`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`) — especificado en
   esta misma sesión, **no implementado**.
 - El Bloque 1E (integración y activación del pipeline canónico) no se
-  reactiva hasta que exista una primera versión operativa del Expediente
-  de Valoración — conectar narrativa y PDF a un motor que todavía no
-  captura el contexto específico de cada empresa repetiría el problema
-  que esta reorientación busca corregir. Ver
+  reactiva hasta superar un **checkpoint mínimo operativo y validado**
+  del Expediente de Valoración — no su implementación completa: debe
+  existir evidencia, sobre al menos un caso, de que el contexto
+  específico de una empresa puede representarse antes del cálculo (ver
+  `EXPEDIENTE-DE-VALORACION-V1.md` §0.1). Conectar narrativa y PDF a un
+  motor sin esa evidencia repetiría el problema que esta reorientación
+  busca corregir; el resto del Expediente puede seguir construyéndose de
+  forma incremental después. Ver
   `docs/velarix/fases/FASE-01-EXACTITUD-FINANCIERA.md` y
   `docs/velarix/plan/MATRIZ-DE-DEPENDENCIAS.md` para la nota de
   reordenamiento agregada en esta sesión.
@@ -252,12 +278,18 @@ de esta reorientación (ver sección 13).
   (§5.3) se reencuadra para incluir explícitamente la construcción del
   Expediente de Valoración dentro de su alcance, sin cambiar su precio
   fijo ni su estructura de cobro.
-- La futura "Biblioteca de casos de valoración" (empresas con información
-  pública para practicar el workflow del expediente) se registra como
-  iniciativa diferida — no se usará para concluir que empresas del mismo
-  sector deben valorarse igual, sería la premisa exacta que se descarta
-  aquí. Ver `docs/velarix/plan/BACKLOG-CLASIFICADO.md` y
-  `docs/velarix/plan/ROADMAP.md`.
+- Se distinguen dos actividades bajo el nombre "Biblioteca de casos de
+  valoración", que no deben confundirse: **(A) estudio manual de casos
+  públicos** (primer caso: Tecnoglass) — **activo desde ahora**, sin
+  interfaz, tablas, ingestión automática, scraping, Edge Functions, IA
+  conectada ni motor modificado; sirve para diseñar y validar el
+  Expediente antes de implementarlo; y **(B) biblioteca automatizada de
+  casos** (ingestión automática, interfaz, scraping, procesamiento
+  masivo) — esa sí permanece diferida. Ninguna de las dos se usará para
+  concluir que empresas del mismo sector deben valorarse igual, sería la
+  premisa exacta que se descarta aquí. Ver
+  `docs/velarix/plan/BACKLOG-CLASIFICADO.md` (`BL-34` para B, `BL-35`
+  para A) y `docs/velarix/plan/ROADMAP.md`.
 
 ## 15. Riesgos
 
@@ -281,19 +313,28 @@ de esta reorientación (ver sección 13).
 
 ## 16. Próximos bloques
 
-1. **Expediente de Valoración V1** — especificación ya creada
-   (`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`), implementación
-   pendiente de autorización explícita y separada.
-2. **Biblioteca de casos de valoración** — registrada como iniciativa
-   diferida en backlog/roadmap, sin ingestión automática todavía.
-3. **Bloque 1E** — permanece bloqueado, ahora también por la condición de
-   entrada nueva (Expediente de Valoración V1 operativo), además de sus
-   condiciones previas (1B, 1C y 1D cerrados).
-4. **Revisor financiero externo** — sigue siendo la pieza de negocio más
-   urgente y bloqueante, sin cambios por esta reorientación; ahora su
-   trabajo se hace explícitamente dentro del ciclo "Velarix propone →
-   experto critica → Velarix aprende → regla mejora" (§9 de este
-   documento).
+1. **(A) Estudio manual de casos públicos** — **activo desde ahora**,
+   primer caso Tecnoglass; ver
+   `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md` §0. Insumo directo
+   para el punto 2.
+2. **Expediente de Valoración V1** — especificación ya creada
+   (`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`), a refinar con el
+   punto 1; implementación pendiente de autorización explícita y
+   separada.
+3. **(B) Biblioteca automatizada de casos de valoración** — registrada
+   como iniciativa diferida en backlog/roadmap (`BL-34`), sin ingestión
+   automática todavía. No confundir con el punto 1 (A), que ya está en
+   curso.
+4. **Bloque 1E** — permanece bloqueado por 1B y 1C sin cerrar
+   formalmente (**1D ya está cerrado**, no es un pendiente), más un
+   checkpoint mínimo operativo y validado del Expediente de Valoración
+   (no su implementación completa).
+5. **Revisor financiero externo** — sigue siendo bloqueante para lo que
+   específicamente bloquea (aprobación metodológica formal, decisiones
+   financieras materiales, cierre de gates que requieren validación
+   externa, primeros entregables profesionales) — no para el resto del
+   avance de Velarix, que puede continuar sin esperarlo (ver §9 de este
+   documento, precisión "qué bloquea y qué no").
 
 ---
 
@@ -315,3 +356,31 @@ de esta reorientación (ver sección 13).
   `docs/velarix/seguridad-credenciales/*`) no se reescribieron para
   simular que la premisa expert-led ya regía cuando se escribieron —
   siguen describiendo el estado real en el momento en que se generaron.
+
+## 18. Corrección de precisión (2026-08-10, mismo día)
+
+Tras una precisión posterior del fundador sobre esta misma reorientación,
+se corrigieron cuatro imprecisiones en este documento y en los demás
+afectados (`Negocio_Velarix_v4.2.md`, `EXPEDIENTE-DE-VALORACION-V1.md`,
+`ROADMAP.md`, `BACKLOG-CLASIFICADO.md`, `MATRIZ-DE-DEPENDENCIAS.md`,
+`fases/FASE-01-EXACTITUD-FINANCIERA.md`, `GUIA-PASO-A-PASO.md`,
+`plan/REGISTRO-DE-DECISIONES.md`):
+
+1. El estudio manual de casos públicos (Biblioteca A, primer caso
+   Tecnoglass) no debía quedar bloqueado hasta implementar el Expediente
+   V1 — está activo desde ahora, y se distinguió explícitamente de la
+   biblioteca automatizada (B), que sí permanece diferida.
+2. El revisor/experto financiero externo no bloquea todo avance de
+   Velarix — se precisó exactamente qué bloquea y qué no (§9).
+3. La fecha de la reunión con el profesor que originó esta reorientación
+   es **2026-08-10**, no 2026-08-06 (esa fecha corresponde al nombre
+   histórico, incorrecto, de la carpeta del kit ya retirada — no se
+   recrea).
+4. La condición de entrada nueva de 1E se expresó con precisión: un
+   checkpoint mínimo operativo y validado del Expediente, no su
+   implementación completa; y se aclaró que 1D ya está cerrado, no es un
+   pendiente actual.
+
+Esta corrección no revirtió el commit `c6c02a3`, no modificó código, no
+tocó Supabase/Auth/JWT Signing Keys, y no implementó el Expediente de
+Valoración V1.
