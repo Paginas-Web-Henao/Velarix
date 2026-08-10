@@ -9,16 +9,31 @@ que tengas el panorama completo sin tener que leer 20 archivos.
 Es un documento vivo: lo iremos completando a medida que me des más
 información (precios, decisiones legales, etc.).
 
+> **Actualización 2026-08-10 — reorientación expert-led (`D-09`)**:
+> reorientaste a Velarix como boutique de valoración expert-led — cada
+> empresa se entiende individualmente antes de valorarla, en vez de
+> aplicar una metodología uniforme por sector. La fuente de negocio
+> vigente pasó de `Negocio_Velarix_v4.1.md` a `Negocio_Velarix_v4.2.md`.
+> Esto agrega un paso nuevo entre el Paso 4 y el Paso 5 de abajo: antes de
+> el Bloque 1E, ahora hace falta una primera versión operativa del
+> **Expediente de Valoración** (ver
+> `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`, especificado, no
+> implementado). El resto de esta guía (Pasos 1 a 4 y 6 en adelante) sigue
+> vigente sin cambios. Detalle completo de la reorientación:
+> `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`.
+
 ---
 
 ## 0. Qué es Velarix, en una frase
 
-Una boutique de valoración financiera para PYMEs colombianas, apoyada en
-tecnología (no un SaaS de autoservicio). El motor calcula, pero **una persona
-siempre revisa antes de entregar nada** — eso es parte del producto, no un
-detalle técnico.
+Una boutique de valoración empresarial expert-led para PYMEs colombianas,
+apoyada en tecnología (no un SaaS de autoservicio ni un motor que decide la
+metodología por sector). Nicolás y expertos financieros comprenden cada
+empresa antes de calcular; el motor ejecuta lo ya interpretado y aprobado, y
+**una persona siempre revisa antes de entregar nada** — eso es parte del
+producto, no un detalle técnico.
 
-Fuente completa: `Negocio_Velarix_v4.1.md` (documento maestro de negocio).
+Fuente completa: `Negocio_Velarix_v4.2.md` (documento maestro de negocio).
 
 ---
 
@@ -111,9 +126,26 @@ diga "esto está bien" o "esto hay que ajustarlo".
 Documento a revisar: `docs/velarix/bloque-1c/PAQUETE-REVISION-FINANCIERA.md`
 (hecho específicamente para que un revisor externo lo lea y firme).
 
+### Paso 4.5 (nuevo, 2026-08-10) — Expediente de Valoración V1
+
+**Quién lo hace:** Claude Code, con tu autorización explícita, y con tu
+participación (y la del revisor) llenándolo caso por caso.
+
+Antes de conectar el motor al PDF/narrativa (Paso 5), necesitas un lugar
+donde quede registrada la comprensión de cada empresa específica: su
+contexto, sus cuentas ambiguas, las preguntas que le hiciste al cliente,
+las respuestas, los ajustes que aprobaste y por qué. Eso es el
+"Expediente de Valoración" — ya está especificado, no implementado. Es la
+pieza central de la reorientación expert-led: evita que dos empresas del
+mismo sector reciban la misma metodología sin que nadie haya revisado si
+eso tiene sentido para cada una.
+
+Especificación completa: `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`.
+
 ### Paso 5 — Bloque 1E: conectar todo de verdad
 
-**Quién lo hace:** Claude Code, una vez cerrados 1B, 1C y 1D.
+**Quién lo hace:** Claude Code, una vez cerrados 1B, 1C, 1D **y** el
+Expediente de Valoración V1 (Paso 4.5) tenga al menos su MVP funcionando.
 
 Hoy el PDF que descarga un cliente se recalcula en el navegador, sin pasar
 por el motor del servidor (el que ya corregimos) ni por la narrativa
@@ -194,4 +226,6 @@ conviene empezar a moverlo ya, aunque no sea código.
 - Todo lo pendiente de código, ordenado por prioridad: `docs/velarix/plan/BACKLOG-CLASIFICADO.md`
 - Riesgos abiertos: `docs/velarix/plan/MATRIZ-DE-RIESGOS.md`
 - Las 10 decisiones financieras pendientes: `docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-PENDIENTES.md`
-- El documento de negocio completo (precios, contratos, criterios para cobrar, etc.): `Negocio_Velarix_v4.1.md`
+- La reorientación expert-led y por qué se tomó: `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`
+- Especificación del Expediente de Valoración V1: `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`
+- El documento de negocio completo (precios, contratos, criterios para cobrar, etc.): `Negocio_Velarix_v4.2.md`

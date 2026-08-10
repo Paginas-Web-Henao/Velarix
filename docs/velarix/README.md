@@ -16,23 +16,39 @@ revisor financiero, legal o de seguridad humano.
 
 El documento maestro de negocio es:
 
-**`/Users/nicohenao/Documents/Velarix/velarix-code/Negocio_Velarix_v4.1.md`**
+**`/Users/nicohenao/Documents/Velarix/velarix-code/Negocio_Velarix_v4.2.md`**
 
 Toda decisión de producto, alcance, precio o prioridad se valida contra ese
 documento, no contra este. Si algo en `docs/velarix/` contradice
-`Negocio_Velarix_v4.1.md`, gana `Negocio_Velarix_v4.1.md` — se corrige la
+`Negocio_Velarix_v4.2.md`, gana `Negocio_Velarix_v4.2.md` — se corrige la
 documentación técnica, no la de negocio (regla de autoridad, §0 de ese
 documento).
 
+**Actualización 2026-08-10 — reorientación expert-led:** el fundador
+reorientó a Velarix como boutique de valoración expert-led (el sector no
+determina automáticamente la metodología; cada empresa se comprende
+individualmente vía un Expediente de Valoración antes de calcular). Esta
+reorientación reemplaza `Negocio_Velarix_v4.1.md` por
+`Negocio_Velarix_v4.2.md` como fuente de verdad vigente. v4.1 **no se
+elimina** — se conserva por historial. Ver
+`docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md` para
+el detalle completo de la decisión y
+`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md` para la especificación
+del siguiente bloque de producto. Cualquier documento de esta carpeta
+(`docs/velarix/`) redactado antes de esta fecha describe el estado del
+negocio bajo la premisa anterior (v4.1) — es un registro histórico válido
+de lo que se pensaba en ese momento, no se reescribe para simular que
+siempre se pensó así.
+
 **Nota de estado del repositorio (hallazgo, no decisión):** al momento de
-esta auditoría existen **tres** archivos de definición de negocio en la
-raíz del repo con contenido distinto: `Negocio.md` (v3, comprometido en el
-commit `ecb20a9 "V1.0"`, superado), `NEGOCIO_V4_VELARIX.md` (v4, superado
-por v4.1) y `Negocio_Velarix_v4.1.md` (v4.1, la versión que se usó como
-fuente de verdad para toda esta auditoría). No se movieron, renombraron ni
+la auditoría original existían **tres** archivos de definición de negocio
+en la raíz del repo con contenido distinto: `Negocio.md` (v3, comprometido
+en el commit `ecb20a9 "V1.0"`, superado), `NEGOCIO_V4_VELARIX.md` (v4,
+superado por v4.1) y `Negocio_Velarix_v4.1.md` (v4.1, superado ahora por
+v4.2 — ver actualización arriba). No se movieron, renombraron ni
 eliminaron estos archivos porque esa acción no estaba autorizada en el
-alcance de esta tarea. Se recomienda que el fundador consolide manualmente
-a un solo archivo cuando lo considere oportuno.
+alcance de esas tareas. Se recomienda que el fundador consolide
+manualmente cuando lo considere oportuno.
 
 ## Estado de la auditoría
 

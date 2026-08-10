@@ -410,3 +410,61 @@ esta decisión.
   sustantivos enviadas a revisor, más la formalización de la Decisión 7,
   requieren, adicionalmente, la aprobación de un revisor financiero
   externo antes de convertirse en metodología oficial.
+
+## D-09 — Reorientación de Velarix como boutique de valoración expert-led
+
+- **Fecha**: 2026-08-10
+- **Tipo**: decisión estructural de negocio, `✅ Confirmado` por el
+  fundador (Nicolás). Este registro es la confirmación. Detalle completo:
+  `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`.
+- **Contexto**: tras revisar Velarix con un profesor con experiencia
+  financiera (reunión 2026-08-06), el fundador determinó que una
+  metodología prácticamente uniforme por sector, aplicada sobre estados
+  financieros, deja demasiado contexto empresarial sin resolver. Dos
+  empresas del mismo sector, incluso con el mismo propietario, pueden
+  requerir interpretación contable, normalizaciones, drivers, horizonte,
+  estructura de capital, tratamiento tributario, método y supuestos de
+  estado estable distintos.
+- **Decisión**: Velarix se reorienta como boutique de valoración
+  expert-led. La plataforma es el sistema operativo interno de la
+  boutique, no un producto de autoservicio. El motor financiero
+  determinístico se conserva pero cambia de papel: deja de decidir la
+  metodología y pasa a ejecutar supuestos ya interpretados y aprobados
+  caso por caso, a través de un nuevo **Expediente de Valoración** (ver
+  `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`, especificado en
+  esta misma sesión, no implementado). `Negocio_Velarix_v4.1.md` queda
+  reemplazado como fuente de verdad vigente por `Negocio_Velarix_v4.2.md`
+  — v4.1 no se elimina, se conserva por historial.
+- **Evidencia**: `Negocio_Velarix_v4.2.md` (revisión dirigida de v4.1);
+  `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`
+  (contexto, razones y consecuencias completas);
+  `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md` (especificación del
+  siguiente bloque técnico).
+- **Consecuencias**:
+  - Ningún bloque ya cerrado (1A, 1B-P0, 1D) ni parcialmente avanzado
+    (1B-metodología, 1C) se reabre ni cambia de estado por esta decisión.
+  - El Bloque 1E gana una condición de entrada adicional: además de 1B,
+    1C y 1D cerrados, ahora requiere una primera versión operativa del
+    Expediente de Valoración V1 — ver notas de actualización en
+    `fases/FASE-01-EXACTITUD-FINANCIERA.md` y `MATRIZ-DE-DEPENDENCIAS.md`.
+  - Se registra una nueva iniciativa diferida, "Biblioteca de casos de
+    valoración" (`BL-34`, `BACKLOG-CLASIFICADO.md`), condicionada al MVP
+    del Expediente.
+  - No se modificó ningún código, fórmula, motor, Edge Function,
+    migración, ni configuración de Supabase/Auth/JWT Signing Keys como
+    parte de esta decisión — es una reorientación documental y de
+    negocio, no una implementación.
+  - El kit de materiales preparado específicamente para la reunión del
+    2026-08-06 (`docs/velarix/reunion-profesor-2026-08-06/`) se retiró
+    del repositorio en esta misma sesión, por autorización expresa del
+    fundador — cumplió su propósito puntual y no es un documento
+    autoritativo; se verificó su contenido y ausencia de referencias
+    cruzadas antes de eliminarlo.
+- **Condiciones para reconsiderar**: si al implementar el Expediente de
+  Valoración V1 se determina que el modelo especificado es
+  significativamente distinto al necesario en la práctica, se documenta
+  como `D-10`, no se improvisa sobre esta decisión.
+- **Quién debe aprobar**: el fundador ya aprobó esta reorientación (este
+  registro es la confirmación). La implementación del Expediente de
+  Valoración V1 requiere una autorización explícita y separada, aunque
+  ya exista su especificación técnica.

@@ -117,7 +117,18 @@ decisión" ahora depende de **implementarla** en la secuencia correcta:
 
 ## Dependencias del Bloque 1E (el más dependiente de toda la Fase 1)
 
+> **Actualizado 2026-08-10 (`D-09`, reorientación boutique expert-led)**:
+> 1E gana una condición de entrada adicional a las tres de abajo — una
+> primera versión operativa del **Expediente de Valoración**
+> (`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`). Ver
+> `docs/velarix/plan/REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10.md`. No
+> cambia el estado ya alcanzado de 1A/1B/1C/1D.
+
 - 1E depende de **1B, 1C y 1D cerrados** — no de "en progreso", cerrados.
+- **(Nueva, 2026-08-10)** 1E depende también de que exista una primera
+  versión operativa del Expediente de Valoración — conectar
+  narrativa/PDF a un motor sin contexto específico de cada empresa
+  repetiría el problema que motivó la reorientación de negocio.
 - La comparación servidor/cliente de 1E depende de las pruebas de
   caracterización escritas en 1A (`BL-27`) — si no existen o están
   incompletas, 1E no tiene con qué comparar.
@@ -161,7 +172,9 @@ decisión" ahora depende de **implementarla** en la secuencia correcta:
 | Bloque 1B-P0 (corrección de BL-02/03/04/05/06) | **Completado 2026-07-23** — ver `docs/velarix/bloque-1b/REPORTE-IMPLEMENTACION-1B-P0.md` |
 | Bloque 1B-metodología (BL-17, R-19, ROE/ROA, escenarios) | **Completado parcialmente 2026-07-23** (1B-M, cierre técnico el mismo día) — 12 diferencias clasificadas, 3 bugs corregidos (el cambio de escenarios se revirtió por ser una decisión metodológica no autorizada, no cuenta como corrección), 10 decisiones registradas como pendientes de aprobación, motor servidor canónico extraído y con regresiones numéricas reales. Ver `docs/velarix/bloque-1b-metodologia/REPORTE-RECONCILIACION-METODOLOGICA.md`. **Actualizado 2026-08-06**: el fundador ya respondió las 10 decisiones (`DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`) — 2 de ellas (9 y 10A) ya implementadas en código; 1 (7) confirmada, solo requiere formalización del revisor; las 7 restantes con componentes metodológicos sustantivos (1, 2, 3, 4, 5, 6, 8) siguen dependiendo de un revisor financiero externo (`PLAN-VALIDACION-REVISOR-FINANCIERO.md`), que todavía no ha sido identificado. **El bloque sigue sin cerrarse formalmente** |
 | Bloque 1C (casos dorados y trazabilidad) | Bloque 1B completo — **1C-Prep realizado 2026-07-23** (3 casos dorados técnicos provisionales, no formales) y **1C-T realizado 2026-07-23** (trazabilidad técnica parcial y versionado real, ver `docs/velarix/bloque-1c/REPORTE-IMPLEMENTACION-1C-TECNICO.md`), pero Bloque 1C como tal **sigue sin cerrarse**: `BL-15` queda parcial (falta `source_row_ids`, limitación de esquema documentada), `BL-32` queda con implementación parcial (falta versión de datos macro/sectoriales), y falta la aprobación formal del revisor financiero externo (`docs/velarix/bloque-1c/PAQUETE-REVISION-FINANCIERA.md` prepara esa revisión, no la sustituye) |
-| Bloque 1E (integración y activación) | Bloques 1B, 1C **y** 1D todos cerrados — **1D queda cerrado** (1D-OPS, 2026-08-05): migración aplicada, ambas Edge Functions desplegadas con autenticación mixta explícita y verificadas por HTTP real, ya migradas de la legacy `service_role`/`anon` a `SUPABASE_SECRET_KEYS`/`SUPABASE_PUBLISHABLE_KEYS`, y primer administrador real configurado (ver `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`). El inicio de 1E sigue siendo una decisión explícita del fundador, no se autodeclara aquí — no se ha iniciado en ninguna sesión hasta ahora |
+| Bloque 1E (integración y activación) | Bloques 1B, 1C **y** 1D todos cerrados — **1D queda cerrado** (1D-OPS, 2026-08-05): migración aplicada, ambas Edge Functions desplegadas con autenticación mixta explícita y verificadas por HTTP real, ya migradas de la legacy `service_role`/`anon` a `SUPABASE_SECRET_KEYS`/`SUPABASE_PUBLISHABLE_KEYS`, y primer administrador real configurado (ver `docs/velarix/bloque-1d/REPORTE-ACTIVACION-1D.md`). El inicio de 1E sigue siendo una decisión explícita del fundador, no se autodeclara aquí — no se ha iniciado en ninguna sesión hasta ahora. **Actualizado 2026-08-10 (`D-09`)**: además de 1B/1C/1D cerrados, ahora también requiere una primera versión operativa del Expediente de Valoración V1 (`docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`) |
+| Expediente de Valoración V1 (nuevo bloque, `D-09`, 2026-08-10) | Ninguna dependencia técnica previa — puede iniciarse en cualquier momento, pero **requiere autorización explícita y separada del fundador** (no autorizada en esta sesión, solo especificada). Ver `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md` |
+| Biblioteca de casos de valoración (iniciativa diferida, `D-09`) | Expediente de Valoración V1 con al menos su MVP funcionando — no tiene sentido practicar el workflow del expediente antes de que exista |
 | Conexión real de `generate-narrative` y del PDF al servidor | Bloque 1E — no antes, bajo ninguna circunstancia |
 | Automatización de cobro (Fase 5) | Precio validado + al menos un cliente pagado |
 | Retainers/time entries (Fase 7) | Repetibilidad demostrada (Fase 6) — diferido explícitamente por negocio |
