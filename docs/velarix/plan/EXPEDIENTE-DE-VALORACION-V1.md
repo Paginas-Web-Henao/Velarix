@@ -140,7 +140,7 @@ esquema existente al implementar.
 | `valuation_files` (Expediente) | Contenedor raíz de un caso, 1:1 con un `analysis_id` existente |
 | `company_context` | Ficha cualitativa de la empresa (1:1 con el expediente) |
 | `account_notes` | Interpretación de una cuenta material (N por expediente). **Confirmado por Caso 01 (§21)**: debe distinguir explícitamente `clasificacion_contable` (dónde y cómo la reporta la empresa) de `interpretacion_economica` (driver real, fijo/variable/mixto, sensibilidad a volumen, sensibilidad a commodity/FX, mecanismo y lag de pass-through) — son campos distintos, uno no sustituye al otro |
-| `account_components` | **Nueva, confirmada por Caso 01, refinada por Caso 02 (§21, §22)**: descomposición económica opcional de una partida o variable material cuando su comportamiento económico no puede explicarse como una sola cifra. La dimensión de descomposición **no se limita a subcuentas contables** (ej. Cost of Sales → materiales/labor/energía/logística en Tecnoglass) — puede ser también de negocio, de producto, de canal, de geografía o de contrato (ej. EDS/Industria/Aviación & Marinos/Lubricantes/Servicios Complementarios en Terpel). N por `account_notes`, cada componente con su propio driver, participación estimada, fuente y estado epistémico (§5.1) |
+| `account_components` | **Nueva, confirmada por Caso 01, refinada por Caso 02, reforzada por Caso 03 (§21, §22, §23)**: descomposición económica opcional de una partida o variable material cuando su comportamiento económico no puede explicarse como una sola cifra. La dimensión de descomposición **no se limita a subcuentas contables** (ej. Cost of Sales → materiales/labor/energía/logística en Tecnoglass) — puede ser también de negocio, de producto, de canal, de geografía o de contrato (ej. EDS/Industria/Aviación & Marinos/Lubricantes/Servicios Complementarios en Terpel; E&P/Transporte/Refinación/Gas-Transición/ISA en Ecopetrol). N por `account_notes`, cada componente con su propio driver, participación estimada, fuente y estado epistémico (§5.1). **Candidato registrado por Caso 03, no incorporado a esta formulación**: la misma necesidad puede aplicar también a cifras netas y a movimientos agregados (no solo a partidas/saldos) — ver §23, Candidato A |
 | `expedient_questions` | Preguntas generadas, vinculables a cuenta/documento/normalización/supuesto |
 | `expedient_answers` | Respuestas a una pregunta, con evidencia asociada |
 | `evidence_links` | Trazabilidad entre una decisión y su fuente (documento, página, respuesta, nota, fuente externa) |
@@ -178,29 +178,36 @@ se incorpora aquí porque ese ejercicio demostró que sin esta distinción
 explícita el expediente no puede diferenciar "lo sabemos" de "lo estamos
 asumiendo".
 
-## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02 — §22)
+## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Caso 03 — §22, §23)
 
 `docs/velarix/casos/02-terpel/CASO-02-TERPEL-V0.md` §11 mostró que, en
 una organización con múltiples negocios, países o contratos, un mismo
 supuesto puede no significar lo mismo en toda la empresa, y que una
 cifra puede haber sido determinada originalmente para un propósito
-distinto al de una valoración Velarix. Esto deja registradas dos
-necesidades conceptuales sobre `case_assumptions` (y potencialmente
-`projection_hypotheses`), **sin implementarlas ni diseñar su tipo,
-enum o estructura todavía**:
+distinto al de una valoración Velarix. `docs/velarix/casos/03-ecopetrol/CASO-03-ECOPETROL-V0.md`
+§13 y §17 (R6) reforzó esto con un mecanismo adicional: perímetro
+consolidado con intereses no controladores materiales (ISA, ≈51,4% de
+control). Esto deja registradas dos necesidades conceptuales sobre
+`case_assumptions` (y potencialmente `projection_hypotheses`), **sin
+implementarlas ni diseñar su tipo, enum o estructura todavía**:
 
 - **Alcance** (nombre tentativo `scope`): ¿a qué aplica exactamente este
   supuesto? — por ejemplo empresa completa, filial, país, segmento, UGE,
-  producto o contrato. Evidencia relativamente fuerte (Caso 02).
+  producto, contrato, o la porción atribuible después de intereses no
+  controladores. **Necesidad conceptual fuertemente respaldada por
+  múltiples casos** (Terpel + Ecopetrol) — sigue sin definirse tipo, enum
+  ni estructura.
 - **Propósito** (nombre tentativo `purpose`): ¿para qué fue originalmente
   determinado o utilizado este supuesto? — por ejemplo prueba de
   deterioro, presupuesto, planificación, covenant, valoración previa, o
-  presentación gerencial. Evidencia más débil que la de `scope` (Caso
-  02), pero justificada.
+  presentación gerencial. **Permanece como pregunta conceptual abierta,
+  con evidencia menor que `scope`** — el Caso 03 no aportó evidencia
+  directa nueva sobre el propósito original de una cifra específica.
 
 Ninguno de los dos nombres, tipos ni estructuras finales queda decidido
 por esta actualización — ver `docs/velarix/casos/02-terpel/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
-§2 (cambios #2 y #3).
+§2 (cambios #2 y #3) y `docs/velarix/casos/03-ecopetrol/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
+§3.
 
 ## 6. Relaciones principales
 
@@ -473,9 +480,20 @@ que modifiquen los mismos archivos").
   estructura a implementar. Requiere más casos y criterio experto.
 - **Cualquier estructura para comparabilidad/perímetro histórico**
   (adquisiciones, ventas, reclasificaciones, operaciones discontinuadas,
-  cambios de consolidación) — Caso 02 (§12, §22) registra esta necesidad
-  con evidencia insuficiente para diseñar solución; no se crea
-  `case_perimeter` ni ninguna tabla o schema.
+  cambios de consolidación) — Caso 02 (§12, §22) registró esta necesidad
+  con evidencia insuficiente para diseñar solución. **Caso 03 (§13, §23)**
+  cambia el estado a `PROBLEMA DEMOSTRADO; EVIDENCIA INSUFICIENTE PARA
+  DISEÑAR UNA SOLUCIÓN GENERAL` (evidencia directa: ISA consolidada al
+  100% con ≈51,4% de control económico, intereses no controladores
+  materiales) — **sigue sin crearse `case_perimeter` ni ninguna tabla o
+  schema**, porque el problema demostrado no equivale a una solución de
+  diseño disponible.
+- **Candidatos registrados por Caso 03, sin arquitectura ni campos**
+  (§23): neteo de movimientos económicamente distintos (Candidato A),
+  ciclo de vida económico de un activo o variable (Candidato B,
+  **no se crea `economic_lifecycle`**), y atribución temporal/corte de
+  conocimiento (Candidato C, **no se crea `economic_period`**). Los tres
+  requieren más casos y, después, criterio experto antes de precisarse.
 
 ---
 
@@ -603,3 +621,108 @@ comparabilidad/perímetro histórico; no se resolvió si el plazo con
 Ecopetrol es capital de trabajo operativo o financiación. Todo lo
 anterior requiere más casos y/o criterio experto antes de precisarse
 (ver `docs/velarix/casos/02-terpel/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
+
+---
+
+## 23. Ajustes confirmados por el Caso 03 (Ecopetrol) — 2026-08-10
+
+**CASO 03 NO AUTORIZA IMPLEMENTACIÓN.** Ni el Caso 01, ni el Caso 02, ni
+el Caso 03, ni ninguno de sus reportes de contraste, ni esta
+actualización del Expediente, constituyen autorización para implementar
+ninguna estructura técnica (tablas, SQL, migraciones, schemas, UI,
+motores, Edge Functions, automatizaciones, persistencia, coherence
+engine, decomposition engine, grafo causal, `case_perimeter`,
+`contracts`, `economic_period`, `economic_lifecycle`, o cualquier cambio
+runtime). Solo Nicolás/fundador puede autorizar implementación, de forma
+explícita y separada.
+
+**Estado: especificación conceptual sujeta a validación adicional con
+más casos; no autorización de implementación.** Detalle completo del
+caso y del contraste:
+`docs/velarix/casos/03-ecopetrol/CASO-03-ECOPETROL-V0.md` y
+`docs/velarix/casos/03-ecopetrol/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
+
+El Caso Público 03 (Ecopetrol, FY2025) no buscó practicar otra
+valoración — buscó tensionar y, donde correspondiera, refutar lo
+confirmado o reforzado por los Casos 01 y 02. **Dos casos muestran
+patrones; dos casos no crean leyes universales.** Con un tercer caso, la
+regla se mantiene: **tres casos siguen sin crear leyes universales**,
+pero permiten registrar, con prudencia, qué reaparece de forma
+transversal e idéntica en los tres (`PATRÓN OBSERVADO EN TRES CASOS`) —
+nunca `CONFIRMADO`. El estudio manual de Ecopetrol confirmó, reforzó o
+cambió de estado lo siguiente, ahora incorporado en §5, §5.2 y §20:
+
+1. **R1, R2, R7 y R8 pasan a `PATRÓN OBSERVADO EN TRES CASOS`** —
+   reaparecen de forma transversal e idéntica en Tecnoglass, Terpel y
+   Ecopetrol: contabilidad ≠ economía (reservas con causas heterogéneas,
+   impairment neto que oculta movimientos opuestos, perímetro de ISA);
+   observado ≠ normalizado ≠ proyectado (FEPC: CFO de un período incluye
+   cobros originados en otro); drivers específicos por empresa (no existe
+   biblioteca universal cerrada, confirmado con tres economías muy
+   distintas); detección de incoherencias sin decisión automática
+   (nuevos ejemplos de Ecopetrol). Ninguna de estas cuatro reglas generó
+   cambio de especificación — se registran con el nivel de evidencia más
+   alto disponible hasta ahora, sin convertirse en ley universal.
+2. **R3 se profundiza, sin cambio de especificación**: Ecopetrol aporta
+   cadenas causales adicionales (reposición de reservas→CAPEX→
+   agotamiento→horizonte; provisión de abandono→flujo terminal),
+   consistentes con las de Terpel. Estado:
+   `PATRÓN OBSERVADO EN TRES CASOS + DISEÑO INSUFICIENTEMENTE VALIDADO`
+   — **no se rediseña `assumption_relations` en esta actualización**.
+3. **R4 (formulación de §21/§22) se mantiene sin cambios** — *"una
+   partida o variable material puede necesitar descomposición según la
+   dimensión que explique su comportamiento económico"*. Ecopetrol
+   aporta evidencia consistente con la dimensión "negocio" ya vista en
+   Terpel, y además evidencia de una posible extensión (cifras netas y
+   movimientos agregados, no solo partidas) que se registra como
+   **Candidato A (neteo)**, sin modificar la formulación vigente de R4
+   (ver §5, fila `account_components`).
+4. **R5 se profundiza, sin nuevo enum**: `desconocido` puede significar
+   tanto "falta el dato" como "tengo el dato pero no sé interpretarlo
+   económicamente sin sus componentes" (impairment neto ≈0 de Ecopetrol).
+   No se agrega ningún valor nuevo a la clasificación epistémica de §5.1.
+5. **`scope` (§5.2) sube de nivel de evidencia**: pasa de "hueco
+   conceptual sólido, reforzado por Terpel" a `NECESIDAD CONCEPTUAL
+   FUERTEMENTE RESPALDADA POR MÚLTIPLES CASOS` — Ecopetrol muestra que un
+   supuesto puede aplicar al grupo consolidado, a un negocio, o a la
+   porción atribuible a Ecopetrol después de intereses no controladores
+   (NCI). **`purpose` permanece sin cambio de nivel** — evidencia menor
+   que `scope`, sin fusionarse con él.
+6. **Comparabilidad/perímetro histórico cambia de estado** (§20): de
+   `EVIDENCIA INSUFICIENTE PARA DISEÑAR SOLUCIÓN — VALIDAR EN CASOS
+   FUTUROS` (Caso 02) a `PROBLEMA DEMOSTRADO; EVIDENCIA INSUFICIENTE
+   PARA DISEÑAR UNA SOLUCIÓN GENERAL` (Caso 03) — evidencia directa: ISA
+   consolidada al 100% con ≈51,4% de control económico, intereses no
+   controladores materiales. **Sigue sin crearse `case_perimeter` ni
+   ninguna estructura** — un problema demostrado no es, por sí mismo,
+   evidencia suficiente para diseñar una solución general.
+7. **Tres candidatos nuevos, registrados explícitamente como candidatos
+   — no como R9/R10/R11** (§20): **Candidato A — neteo** ("el neteo puede
+   destruir información económica relevante", evidencia: impairment neto
+   de Ecopetrol); **Candidato B — ciclo de vida económico** ("algunas
+   variables o activos tienen un ciclo de vida económico que importa
+   para la valoración", evidencia: provisión de abandono/desmantelamiento
+   y patrón reposición-agotamiento de reservas; **no se crea
+   `economic_lifecycle`**); **Candidato C — atribución temporal / corte
+   de conocimiento** (fecha de valoración, período financiero, fecha
+   económica del hecho, fecha de reconocimiento, fecha de caja y fecha
+   en que la información se conoció pueden ser distintas entre sí;
+   **no se crea `economic_period`**). Los tres requieren más casos y,
+   después, criterio experto antes de precisarse.
+
+**Explícitamente no confirmado por este caso** (queda fuera, sin
+agregarse a la especificación): ninguna cifra de Ecopetrol (reservas,
+reposición, vida media, impairment, saldo FEPC, cobros FEPC, porcentaje
+de control de ISA) se incorporó como default, benchmark ni referencia
+metodológica de Velarix; ningún negocio o driver de Ecopetrol (E&P,
+transporte, refinación, gas/transición, ISA) se declaró requisito
+universal para otras empresas; no se decidió el nombre, tipo ni
+estructura final de `scope` ni de `purpose`; no se rediseñó
+`assumption_relations`; no se creó ninguna estructura para
+comparabilidad/perímetro histórico pese al cambio de estado a "problema
+demostrado"; no se crearon `economic_period`, `economic_lifecycle`,
+`case_perimeter` ni ninguna entidad `contracts` universal; no se declaró
+obligatoria ninguna metodología de suma de partes (SOTP), múltiples DCF,
+múltiples WACC, múltiples g ni múltiples horizontes. Todo lo anterior
+requiere más casos y/o criterio experto antes de precisarse (ver
+`docs/velarix/casos/03-ecopetrol/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
