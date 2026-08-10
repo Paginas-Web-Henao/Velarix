@@ -2,8 +2,10 @@
 
 **Fecha:** 2026-08-10
 **Estado:** análisis manual, versión V0. No es una valoración. No autoriza
-implementación de ningún cambio al Expediente — eso se decide en
-`REPORTE-CONTRASTE-EXPEDIENTE-V1.md` de esta misma carpeta.
+implementación de ningún cambio al Expediente. El reporte de contraste
+(`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma carpeta) tampoco
+constituye autorización de implementación; cualquier implementación
+requiere autorización explícita y separada del fundador.
 **Fuente de los datos:** material de trabajo aportado directamente por el
 fundador, compilado a partir de reportes financieros públicos de
 Tecnoglass (cifras descritas por el fundador como aproximadas). **No se
@@ -34,7 +36,7 @@ un caso real antes de implementarlo.
   a cualquier empresa o sector.
 - No equivale a due diligence, auditoría, ni opinión profesional de
   valor.
-- Tecnoglass es una compañía pública (NASDAQ) con obligaciones de
+- Tecnoglass es una compañía pública (New York Stock Exchange, NYSE) con obligaciones de
   reporte muy superiores a las de una PYME colombiana típica — este caso
   no asume que una PYME real tendrá información de esta granularidad; al
   contrario, ayuda a entender qué preguntarle a una empresa que reporte
