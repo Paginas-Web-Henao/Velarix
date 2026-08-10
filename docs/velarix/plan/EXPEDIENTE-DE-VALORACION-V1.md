@@ -140,7 +140,7 @@ esquema existente al implementar.
 | `valuation_files` (Expediente) | Contenedor raíz de un caso, 1:1 con un `analysis_id` existente |
 | `company_context` | Ficha cualitativa de la empresa (1:1 con el expediente) |
 | `account_notes` | Interpretación de una cuenta material (N por expediente). **Confirmado por Caso 01 (§21)**: debe distinguir explícitamente `clasificacion_contable` (dónde y cómo la reporta la empresa) de `interpretacion_economica` (driver real, fijo/variable/mixto, sensibilidad a volumen, sensibilidad a commodity/FX, mecanismo y lag de pass-through) — son campos distintos, uno no sustituye al otro |
-| `account_components` | **Nueva, confirmada por Caso 01 (§21)**: descomposición económica opcional de una cuenta agregada material cuando la fuente disponible no la desagrega (ej. Cost of Sales → materiales/labor/energía/logística) — N por `account_notes`, cada componente con su propio driver, participación estimada, fuente y estado epistémico (§5.1) |
+| `account_components` | **Nueva, confirmada por Caso 01, refinada por Caso 02 (§21, §22)**: descomposición económica opcional de una partida o variable material cuando su comportamiento económico no puede explicarse como una sola cifra. La dimensión de descomposición **no se limita a subcuentas contables** (ej. Cost of Sales → materiales/labor/energía/logística en Tecnoglass) — puede ser también de negocio, de producto, de canal, de geografía o de contrato (ej. EDS/Industria/Aviación & Marinos/Lubricantes/Servicios Complementarios en Terpel). N por `account_notes`, cada componente con su propio driver, participación estimada, fuente y estado epistémico (§5.1) |
 | `expedient_questions` | Preguntas generadas, vinculables a cuenta/documento/normalización/supuesto |
 | `expedient_answers` | Respuestas a una pregunta, con evidencia asociada |
 | `evidence_links` | Trazabilidad entre una decisión y su fuente (documento, página, respuesta, nota, fuente externa) |
@@ -178,6 +178,30 @@ se incorpora aquí porque ese ejercicio demostró que sin esta distinción
 explícita el expediente no puede diferenciar "lo sabemos" de "lo estamos
 asumiendo".
 
+## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02 — §22)
+
+`docs/velarix/casos/02-terpel/CASO-02-TERPEL-V0.md` §11 mostró que, en
+una organización con múltiples negocios, países o contratos, un mismo
+supuesto puede no significar lo mismo en toda la empresa, y que una
+cifra puede haber sido determinada originalmente para un propósito
+distinto al de una valoración Velarix. Esto deja registradas dos
+necesidades conceptuales sobre `case_assumptions` (y potencialmente
+`projection_hypotheses`), **sin implementarlas ni diseñar su tipo,
+enum o estructura todavía**:
+
+- **Alcance** (nombre tentativo `scope`): ¿a qué aplica exactamente este
+  supuesto? — por ejemplo empresa completa, filial, país, segmento, UGE,
+  producto o contrato. Evidencia relativamente fuerte (Caso 02).
+- **Propósito** (nombre tentativo `purpose`): ¿para qué fue originalmente
+  determinado o utilizado este supuesto? — por ejemplo prueba de
+  deterioro, presupuesto, planificación, covenant, valoración previa, o
+  presentación gerencial. Evidencia más débil que la de `scope` (Caso
+  02), pero justificada.
+
+Ninguno de los dos nombres, tipos ni estructuras finales queda decidido
+por esta actualización — ver `docs/velarix/casos/02-terpel/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
+§2 (cambios #2 y #3).
+
 ## 6. Relaciones principales
 
 - `valuation_files.analysis_id` → `analyses.id` (existente) — 1:1.
@@ -201,7 +225,10 @@ asumiendo".
 - `case_assumptions.valuation_file_id` → `valuation_files.id` — N:1 (un
   supuesto por nombre y versión, historial conservado).
 - `account_components.account_note_id` → `account_notes.id` — N:1
-  (**nueva, Caso 01**: componentes económicos de una cuenta agregada).
+  (**nueva, Caso 01, refinada por Caso 02**: componentes económicos de
+  una partida material, descompuesta según la dimensión que explique su
+  comportamiento — contable, de negocio, de producto, de canal, de
+  geografía o de contrato, no solo contable).
 - `assumption_relations` — **nueva, Caso 01**: relación N:N entre dos
   `case_assumptions` y/o `projection_hypotheses` (autorreferencial entre
   ambas entidades), con `tipo_relacion` (ej. `depende_de`,
@@ -438,10 +465,17 @@ que modifiquen los mismos archivos").
 - Reactivación del Bloque 1E — bloqueada hasta superar el checkpoint
   mínimo de §0.1, no hasta completar este documento entero.
 - **Implementación de `coherence_flags`** (§5, §6) — queda como concepto
-  confirmado por Caso 01, no como autorización de implementación.
-  Requiere al menos el Caso 02 (para confirmar qué patrones de
-  incoherencia se repiten, no solo los observados en Tecnoglass) y
-  criterio de un experto financiero antes de precisar su diseño.
+  confirmado por Caso 01 y reforzado por Caso 02, no como autorización de
+  implementación. Requiere criterio de un experto financiero antes de
+  precisar su diseño.
+- **Diseño e implementación de `scope` y `purpose`** (§5.2) — quedan
+  como necesidad conceptual registrada por Caso 02, no como campos ni
+  estructura a implementar. Requiere más casos y criterio experto.
+- **Cualquier estructura para comparabilidad/perímetro histórico**
+  (adquisiciones, ventas, reclasificaciones, operaciones discontinuadas,
+  cambios de consolidación) — Caso 02 (§12, §22) registra esta necesidad
+  con evidencia insuficiente para diseñar solución; no se crea
+  `case_perimeter` ni ninguna tabla o schema.
 
 ---
 
@@ -493,3 +527,79 @@ universal para otras empresas. No se definió todavía el umbral de
 materialidad que activa `account_components`, ni el diseño final de
 `coherence_flags` — ambos requieren más casos y/o criterio experto antes
 de precisarse (ver `REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
+
+---
+
+## 22. Ajustes confirmados por el Caso 02 (Organización Terpel) — 2026-08-10
+
+**CASO 02 NO AUTORIZA IMPLEMENTACIÓN.** Ni el Caso 01, ni el Caso 02, ni
+este contraste, ni esta actualización del Expediente constituyen
+autorización para implementar ninguna estructura técnica (tablas, SQL,
+migraciones, schemas, UI, motores, Edge Functions, automatizaciones,
+persistencia, coherence engine, decomposition engine, o cualquier cambio
+runtime). Solo Nicolás/fundador puede autorizar implementación, de forma
+explícita y separada.
+
+**Estado: especificación conceptual sujeta a validación adicional con
+más casos; no autorización de implementación.** Detalle completo del
+caso y del contraste:
+`docs/velarix/casos/02-terpel/CASO-02-TERPEL-V0.md` y
+`docs/velarix/casos/02-terpel/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
+
+El Caso Público 02 (Organización Terpel) no buscó practicar otra
+valoración — buscó romper o refutar lo confirmado por el Caso 01. **Dos
+casos muestran patrones; dos casos no crean leyes universales.** El
+estudio manual de Terpel confirmó, profundizó o refinó lo siguiente,
+ahora incorporado en §5, §5.2 y §20:
+
+1. **R1, R2, R5, R7 y R8 (Caso 01, §19 del caso Tecnoglass) sobreviven,
+   reforzadas con evidencia independiente** — decalaje, contratos y
+   negocios con economics propios (R1); el fenómeno de decalaje como
+   nueva evidencia de que observado ≠ normalizado ≠ proyectado (R2);
+   preguntas sin respuesta disponible en este caso, preservadas como
+   `desconocido`/`pregunta_a_gerencia` (R5); drivers de Terpel
+   radicalmente distintos de los de Tecnoglass, sin biblioteca universal
+   (R7); nuevos patrones de incoherencia detectables sin decisión
+   automática (R8). Ninguna de estas reglas generó cambio de
+   especificación — se registran como confirmación con segunda
+   evidencia independiente.
+2. **R4 se refina** (§5, tabla de `account_components`; §6): la
+   descomposición económica de una partida material **no se limita a
+   subcuentas contables** — la dimensión relevante puede ser también de
+   negocio, de producto, de canal, de geografía o de contrato,
+   confirmado por los negocios de Terpel (EDS, Industria, Aviación &
+   Marinos, Lubricantes, Servicios Complementarios).
+3. **R3 se profundiza, sin cambio de especificación**: Terpel sugiere
+   cadenas causales de más de dos elementos (precio→inventario→decalaje→
+   margen; plazo proveedor→AP→NWC→caja). Queda como pregunta abierta si
+   `assumption_relations` necesita representar esto — **no se rediseña
+   en esta actualización**.
+4. **R6 se muestra incompleto**: se registra la necesidad conceptual de
+   **alcance** (`scope`, §5.2) y de **propósito original** (`purpose`,
+   §5.2) de un supuesto — **sin definir tipo, enum ni estructura**.
+5. **Nueva pregunta abierta, sin estructura propuesta**: comparabilidad/
+   perímetro histórico (adquisiciones, ventas, reclasificaciones,
+   operaciones discontinuadas, cambios de consolidación) puede afectar
+   la comparabilidad entre periodos — registrada en §20 como
+   `EVIDENCIA INSUFICIENTE PARA DISEÑAR SOLUCIÓN — VALIDAR EN CASOS
+   FUTUROS`, sin crear `case_perimeter` ni ninguna tabla.
+6. **Segunda instancia de una pregunta metodológica ya abierta**: el
+   plazo de pago ampliado con Ecopetrol reabre, con un instrumento
+   distinto, la misma pregunta que el supplier finance de Tecnoglass
+   (¿capital de trabajo operativo o financiación?) — sigue sin
+   resolverse aquí; ahora hay dos instancias independientes del mismo
+   tipo de pregunta, lo que la hace más relevante para llevar a un
+   experto financiero, no menos abierta.
+
+**Explícitamente no confirmado por este caso** (queda fuera, sin
+agregarse a la especificación): ninguna cifra de Terpel se incorporó
+—de hecho, el material de trabajo de este caso no incluyó cifras
+financieras específicas—; ningún negocio o driver de Terpel (EDS,
+Industria, Aviación & Marinos, Lubricantes, Servicios Complementarios)
+se declaró requisito universal para otras empresas; no se decidió el
+nombre, tipo ni estructura final de `scope` ni de `purpose`; no se
+rediseñó `assumption_relations`; no se creó ninguna estructura para
+comparabilidad/perímetro histórico; no se resolvió si el plazo con
+Ecopetrol es capital de trabajo operativo o financiación. Todo lo
+anterior requiere más casos y/o criterio experto antes de precisarse
+(ver `docs/velarix/casos/02-terpel/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
