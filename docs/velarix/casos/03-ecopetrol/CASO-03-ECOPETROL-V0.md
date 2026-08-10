@@ -1,11 +1,16 @@
 # Caso Público 03 — Ecopetrol — V0
 
 **Fecha:** 2026-08-10
-**Estado:** análisis manual, versión V0. No es una valoración. No autoriza
-implementación de ningún cambio al Expediente. El reporte de contraste
-(`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma carpeta) tampoco
-constituye autorización de implementación; cualquier implementación
-requiere autorización explícita y separada del fundador.
+**Estado: CASO PÚBLICO 03 — ECOPETROL: FORMALMENTE CERRADO Y
+CONGELADO.** Versión V0. No es una valoración. No autoriza implementación
+de ningún cambio al Expediente. No produjo Enterprise Value, Equity
+Value, precio por acción, WACC definitivo, g definitiva ni horizonte
+definitivo. El análisis metodológico de este caso terminó: el caso queda
+congelado y no debe reabrirse salvo nueva evidencia concreta, una
+contradicción documental real, o una pregunta explícita del fundador. El
+reporte de contraste (`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma
+carpeta) tampoco constituye autorización de implementación; cualquier
+implementación requiere autorización explícita y separada del fundador.
 
 **CASO 03 NO AUTORIZA IMPLEMENTACIÓN.** Ningún hallazgo, hipótesis,
 candidato o patrón de este documento constituye autorización para crear
@@ -548,9 +553,10 @@ universal, y nunca por aplicación automática.
 - **R7 — Drivers específicos por empresa.** `SOBREVIVE — FUERTEMENTE
   REFORZADA.` Ecopetrol usa drivers radicalmente distintos de Tecnoglass
   y de Terpel (reservas/agotamiento, FEPC, perímetro de consolidación con
-  NCI, provisiones de abandono) — no existe una biblioteca universal
-  cerrada de drivers, confirmado ahora con tres economías muy distintas
-  entre sí. **Estado transversal: `PATRÓN OBSERVADO EN TRES CASOS`.**
+  NCI, provisiones de abandono) — la ausencia de una biblioteca universal
+  cerrada de drivers vuelve a observarse ahora en tres economías muy
+  distintas entre sí. **Estado transversal: `PATRÓN OBSERVADO EN TRES
+  CASOS`.**
 - **R8 — Detectar incoherencias sin decidir.** `SOBREVIVE — FUERTEMENTE
   REFORZADA.` Ejemplos conceptuales nuevos, específicos de Ecopetrol:
   reservas que suben sin driver operativo/geológico identificado;

@@ -624,7 +624,7 @@ anterior requiere más casos y/o criterio experto antes de precisarse
 
 ---
 
-## 23. Ajustes confirmados por el Caso 03 (Ecopetrol) — 2026-08-10
+## 23. Refinamientos documentales derivados del Caso 03 (Ecopetrol) — 2026-08-10
 
 **CASO 03 NO AUTORIZA IMPLEMENTACIÓN.** Ni el Caso 01, ni el Caso 02, ni
 el Caso 03, ni ninguno de sus reportes de contraste, ni esta
@@ -644,23 +644,25 @@ caso y del contraste:
 
 El Caso Público 03 (Ecopetrol, FY2025) no buscó practicar otra
 valoración — buscó tensionar y, donde correspondiera, refutar lo
-confirmado o reforzado por los Casos 01 y 02. **Dos casos muestran
+observado o reforzado por los Casos 01 y 02. **Dos casos muestran
 patrones; dos casos no crean leyes universales.** Con un tercer caso, la
 regla se mantiene: **tres casos siguen sin crear leyes universales**,
 pero permiten registrar, con prudencia, qué reaparece de forma
 transversal e idéntica en los tres (`PATRÓN OBSERVADO EN TRES CASOS`) —
-nunca `CONFIRMADO`. El estudio manual de Ecopetrol confirmó, reforzó o
-cambió de estado lo siguiente, ahora incorporado en §5, §5.2 y §20:
+nunca `CONFIRMADO`. El estudio manual de Ecopetrol aportó evidencia que
+reforzó, profundizó o cambió de estado lo siguiente, ahora incorporado
+en §5, §5.2 y §20:
 
 1. **R1, R2, R7 y R8 pasan a `PATRÓN OBSERVADO EN TRES CASOS`** —
    reaparecen de forma transversal e idéntica en Tecnoglass, Terpel y
    Ecopetrol: contabilidad ≠ economía (reservas con causas heterogéneas,
    impairment neto que oculta movimientos opuestos, perímetro de ISA);
    observado ≠ normalizado ≠ proyectado (FEPC: CFO de un período incluye
-   cobros originados en otro); drivers específicos por empresa (no existe
-   biblioteca universal cerrada, confirmado con tres economías muy
-   distintas); detección de incoherencias sin decisión automática
-   (nuevos ejemplos de Ecopetrol). Ninguna de estas cuatro reglas generó
+   cobros originados en otro); drivers específicos por empresa (la
+   ausencia de una biblioteca universal cerrada vuelve a observarse en
+   tres economías muy distintas); detección de incoherencias sin
+   decisión automática (nuevos ejemplos de Ecopetrol). Ninguna de estas
+   cuatro reglas generó
    cambio de especificación — se registran con el nivel de evidencia más
    alto disponible hasta ahora, sin convertirse en ley universal.
 2. **R3 se profundiza, sin cambio de especificación**: Ecopetrol aporta

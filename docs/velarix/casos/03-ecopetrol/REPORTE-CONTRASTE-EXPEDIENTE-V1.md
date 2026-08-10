@@ -6,7 +6,7 @@
 y su reporte de contraste; `docs/velarix/casos/02-terpel/CASO-02-TERPEL-V0.md`
 y su reporte de contraste (mismas carpetas que cada caso).
 **Objetivo:** determinar, con el Caso 03 como tercer punto de dato
-independiente, qué de lo confirmado o reforzado por Tecnoglass y Terpel
+independiente, qué de lo observado o reforzado por Tecnoglass y Terpel
 **sobrevive de forma transversal a los tres casos**, qué **se profundiza
 o cambia de forma**, qué **problema pasa de hipótesis a demostrado**, y
 qué necesidad **nueva** aparece que el Expediente V1 (ya actualizado por
