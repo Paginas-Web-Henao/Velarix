@@ -1,15 +1,17 @@
 # Caso Público 08 — Münchener Rückversicherungs-Gesellschaft (Munich Re) — V0
 
-**Fecha:** 2026-08-12 (cierre formal: 2026-08-12, tras revisión y
-autorización explícita del fundador)
+**Fecha:** 2026-08-12 (cierre formal: 2026-08-12, tras autorización
+explícita del fundador)
 **Estado: CASO PÚBLICO 08 — MUNICH RE: FORMALMENTE CERRADO Y CONGELADO.**
 Versión V0. No es una valoración. No autorizó implementación de ningún
 cambio al Expediente. No produjo Enterprise Value, Equity Value, precio
 por acción, WACC definitivo, Cost of Equity aprobado, g definitiva, ni
 horizonte definitivo, y no seleccionó método de valoración final. El
-análisis metodológico de este caso terminó: Nicolás/fundador revisó el
-resultado documental y autorizó expresamente, en esta misma ejecución,
-su cierre y congelamiento. El caso queda cerrado **como caso de
+análisis metodológico de este caso terminó: Nicolás/fundador autorizó
+explícitamente la ejecución documental y el cierre formal del Caso 08,
+condicionado a que las validaciones documentales resultaran limpias y
+consistentes; cumplida esa condición, este documento fue generado y
+commiteado bajo esa autorización. El caso queda cerrado **como caso de
 estudio**, y sus hallazgos metodológicos quedan preservados como
 fotografía metodológica de este caso (R1–R8, `scope`, `purpose`,
 comparabilidad/perímetro, Candidatos A–G, observación Goldman de
@@ -878,14 +880,18 @@ detalle cuantitativo en este documento.
 
 **Mecánica del seguro/reaseguro**
 
-2. ¿Qué proporción del premium reconocido corresponde a General
-   Measurement Model vs. Premium Allocation Approach?
-3. ¿Qué supuestos de discounting y risk adjustment se usan para el CSM?
+2. ¿Qué materialidad tienen GMM, PAA y VFA dentro de los principales
+   negocios del Grupo, y cómo cambia esa composición entre Reinsurance y
+   ERGO?
+3. ¿Qué supuestos materiales de discounting y risk adjustment se aplican
+   a los fulfilment cash flows, y cómo afectan la medición y evolución
+   de la CSM cuando corresponde?
 
 **Reservas / desarrollo**
 
-4. ¿Qué parte del reserve development del período responde a
-   reestimación de siniestros existentes vs. nueva originación?
+4. ¿Qué parte del resultado técnico del período proviene de reserve
+   development de accident years anteriores frente a claims y
+   experiencia del período corriente?
 5. ¿Qué nivel de cat losses se considera parte del ciclo normal
    through-the-cycle vs. extraordinario?
 
@@ -903,8 +909,9 @@ detalle cuantitativo en este documento.
 
 **Método de valoración**
 
-9. ¿Qué metodología de valoración usan internamente los analistas que
-   cubren la acción de Munich Re?
+9. ¿Qué marcos internos utiliza Munich Re para evaluar creación de valor
+   y asignación de capital entre sus principales negocios, y cómo se
+   reconcilian esas métricas a nivel consolidado?
 
 Estas preguntas siguen el mismo flujo usado en los casos previos:
 
@@ -970,14 +977,15 @@ Ninguna de estas ocho reglas se declara ley universal por haber
 reaparecido en ocho casos.
 
 **Conclusión propuesta del caso**: Munich Re cierra la primera batería
-demostrando que la disciplina adversarial aplicada a Bancolombia y a
-Goldman Sachs se sostiene en una tercera economía financiera
-prudencialmente regulada, con mecanismos propios (IFRS 17, CSM,
-retrocession, Solvency II) sin equivalente exacto en los siete casos
-previos. Refuerza que una arquitectura profesional de valoración puede
-conservar principios de proceso transversales sin imponer una
-arquitectura financiera universal, incluso entre instituciones
-financieras materialmente distintas entre sí.
+aportando evidencia adicional que refuerza la inferencia metodológica de
+que la disciplina adversarial aplicada a Bancolombia y a Goldman Sachs
+se sostiene en una tercera economía financiera prudencialmente regulada,
+con mecanismos propios (IFRS 17, CSM, retrocession, Solvency II) sin
+equivalente exacto en los siete casos previos. Refuerza que una
+arquitectura profesional de valoración puede conservar principios de
+proceso transversales sin imponer una arquitectura financiera universal,
+incluso entre instituciones financieras materialmente distintas entre
+sí.
 
 **Esta conclusión no se convierte en regla universal.** JPMorgan, si
 llegara a estudiarse tras la consolidación, todavía debería intentar
