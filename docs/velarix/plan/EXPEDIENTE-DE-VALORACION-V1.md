@@ -1542,12 +1542,12 @@ más casos; no autorización de implementación.** Detalle completo del
 caso y del contraste:
 `docs/velarix/casos/07-goldman-sachs/CASO-07-GOLDMAN-SACHS-V0.md` y
 `docs/velarix/casos/07-goldman-sachs/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
-**El Caso 07 NO queda formalmente cerrado ni congelado en esta
-actualización** — permanece `ANÁLISIS DOCUMENTADO — PENDIENTE DE
-REVISIÓN Y CIERRE FORMAL POR EL FUNDADOR`; su cierre formal requiere
-revisión, posibles correcciones, y autorización explícita y separada de
-Nicolás/fundador, en una ejecución posterior, siguiendo el mismo patrón
-usado en los Casos 03, 04, 05 y 06.
+**El Caso 07 queda FORMALMENTE CERRADO Y CONGELADO como caso de
+estudio**, tras revisión y autorización explícita de Nicolás/fundador —
+este cierre no cierra R1–R8, no cierra la metodología, no cierra los
+Bloques 1B ni 1C, no congela el Expediente como arquitectura, no cierra
+ninguno de los Candidatos A–E ni las observaciones ISA-F y
+Bancolombia-G, que siguen abiertos.
 
 El Caso Público 07 (The Goldman Sachs Group, Inc., FY2025) se usó como
 séptima economía — la segunda institución financiera regulada de la
@@ -1696,13 +1696,12 @@ conceptualmente al Caso 07 — refuerza especialmente su capa universal de
 proceso frente a la arquitectura financiera específica del método y de
 la economía valorada, ahora con evidencia de que esa heterogeneidad
 puede existir incluso dentro de una misma organización — pero todavía no
-está listo para congelarse como arquitectura. **El Caso 07 NO queda
-formalmente cerrado ni congelado en esta actualización** — permanece
-`ANÁLISIS DOCUMENTADO — PENDIENTE DE REVISIÓN Y CIERRE FORMAL POR EL
-FUNDADOR`; este estado no cierra R1–R8 como leyes universales, no cierra
-la metodología, no cierra los Bloques 1B ni 1C, no congela el Expediente
-como arquitectura, no cierra ninguno de los Candidatos A–E ni las
-observaciones ISA-F y Bancolombia-G, y no selecciona método de
-valoración final. El Caso 08 (Munich Re) está autorizado, pero no se
-inicia en esta actualización — debe todavía intentar romper las
-conclusiones de este caso.
+está listo para congelarse como arquitectura. **El Caso 07 queda
+FORMALMENTE CERRADO Y CONGELADO como caso de estudio**, tras revisión y
+autorización explícita de Nicolás — este cierre no cierra R1–R8 como
+leyes universales, no cierra la metodología, no cierra los Bloques 1B ni
+1C, no congela el Expediente como arquitectura, no cierra ninguno de los
+Candidatos A–E ni las observaciones ISA-F y Bancolombia-G, y no
+selecciona método de valoración final. El Caso 08 (Munich Re) está
+autorizado, pero no se inicia en esta actualización — debe todavía
+intentar romper las conclusiones de este caso.

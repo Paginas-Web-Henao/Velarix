@@ -1,16 +1,43 @@
 # Caso Público 07 — The Goldman Sachs Group, Inc. — V0
 
-**Fecha:** 2026-08-12
-**Estado: ANÁLISIS DOCUMENTADO — PENDIENTE DE REVISIÓN Y CIERRE FORMAL POR
-EL FUNDADOR.** Versión V0. No es una valoración. No autoriza
-implementación de ningún cambio al Expediente. No produce Enterprise
+**Fecha:** 2026-08-12 (cierre formal: 2026-08-12, tras revisión y
+autorización explícita del fundador)
+**Estado: CASO PÚBLICO 07 — THE GOLDMAN SACHS GROUP, INC.: FORMALMENTE
+CERRADO Y CONGELADO.** Versión V0. No es una valoración. No autorizó
+implementación de ningún cambio al Expediente. No produjo Enterprise
 Value, Equity Value, precio por acción, WACC definitivo, Cost of Equity
-aprobado, g definitiva, ni horizonte definitivo, y no selecciona método
-de valoración final. Este documento **no está formalmente cerrado ni
-congelado** — queda pendiente de revisión por Nicolás/fundador, posibles
-correcciones de redacción, y su autorización explícita de cierre en una
-ejecución separada y posterior, siguiendo el mismo patrón usado en los
-Casos 01–06.
+aprobado, g definitiva, ni horizonte definitivo, y no seleccionó método
+de valoración final. El análisis metodológico de este caso terminó:
+Nicolás/fundador revisó el resultado documental (incluida la corrección
+de redacción del commit `2f01bda`) y autorizó expresamente su cierre y
+congelamiento. El caso queda cerrado **como caso de estudio**, y sus
+hallazgos metodológicos quedan preservados como fotografía metodológica
+de este caso (R1–R8, `scope`, `purpose`, comparabilidad/perímetro,
+Candidatos A–E, observaciones ISA-F y Bancolombia-G, observación de
+compensación, métodos de valoración documentados — ver §22–§42). No debe
+reabrirse ni reanalizarse salvo nueva evidencia concreta, una
+contradicción documental real, un fallo concreto, un requerimiento
+nuevo, o una pregunta explícita de Nicolás/fundador — **no** por deseo
+de mejorar redacción, por una idea interesante, por necesidad de
+"confirmar" Velarix, por nuevas preferencias de estilo, ni por deseo de
+ampliar la investigación sin evidencia nueva.
+
+**Este cierre es exclusivamente del Caso 07 como caso de estudio — NO
+cierra R1–R8 como leyes universales, NO cierra la metodología, NO cierra
+los Bloques 1B ni 1C, NO inicia el Bloque 1E, NO congela el Expediente
+como arquitectura, NO eleva automáticamente ningún candidato (Candidato
+A incluido, pese a su evidencia fuerte independiente), NO cierra ninguno
+de los Candidatos A–E ni las observaciones ISA-F y Bancolombia-G (que
+siguen siendo candidatos/observaciones abiertos), NO crea un candidato
+para la observación de compensación, NO crea R9, NO divide el Candidato
+E, NO selecciona método de valoración final, NO aprueba Residual Income,
+FCFE, DDM, SOTP, Enterprise Value, WACC, Cost of Equity ni g, NO cambia
+el horizonte, NO produce una valoración, NO autoriza implementación, y
+NO inicia Munich Re (Caso 08).** El reporte de contraste
+(`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma carpeta) queda
+formalmente cerrado junto con este caso, y tampoco constituye
+autorización de implementación; cualquier implementación requiere
+autorización explícita y separada del fundador.
 
 **CASO 07 NO AUTORIZA IMPLEMENTACIÓN.** Ningún hallazgo, hipótesis,
 candidato u observación de este documento constituye autorización para
@@ -1104,22 +1131,39 @@ todavía debe intentar romperla.
 
 ## 43. Estado del caso al final de esta ejecución
 
-**Estado: `ANÁLISIS DOCUMENTADO — PENDIENTE DE REVISIÓN Y CIERRE FORMAL
-POR EL FUNDADOR`.**
+**Estado: `CASO PÚBLICO 07 — THE GOLDMAN SACHS GROUP, INC.: FORMALMENTE
+CERRADO Y CONGELADO`.**
 
-Este documento **no está formalmente cerrado ni congelado**. El cierre
-formal del Caso 07 requiere: (1) revisión del resultado documental por
-Nicolás/fundador; (2) posibles correcciones de redacción o de etiquetado
-epistémico; (3) autorización explícita y posterior del fundador para el
-cierre y congelamiento, en una ejecución separada — siguiendo el mismo
-patrón usado en los Casos 03, 04, 05 y 06.
+Nicolás/fundador revisó el resultado documental de este caso (incluida
+la corrección de redacción del commit `2f01bda`) y autorizó
+explícitamente, en una ejecución separada y posterior a la documentación
+y a la corrección, su cierre formal y congelamiento. El Caso 07 **queda
+cerrado como caso de estudio** — investigación y contraste
+suficientemente documentados; conclusiones y cautelas actuales
+congeladas como fotografía metodológica de este caso; no se amplía
+Goldman Sachs dentro de esta primera batería salvo condición de
+reapertura.
 
-**Este documento no cierra R1–R8 como leyes universales, no cierra la
-metodología, no cierra los Bloques 1B ni 1C, no congela el Expediente
-como arquitectura, no cierra ninguno de los Candidatos A–E ni las
-observaciones ISA-F y Bancolombia-G, no selecciona método de valoración
-final, no aprueba WACC, Cost of Equity, g ni un horizonte nuevo, y no
-autoriza que Munich Re se asuma similar a Goldman Sachs o a
+**Condiciones de reapertura** (las mismas rectoras usadas en los casos
+previos formalmente cerrados): el Caso 07 solo debe reabrirse ante nueva
+evidencia concreta, una contradicción documental real, un fallo
+concreto, un requerimiento nuevo, o una pregunta explícita de
+Nicolás/fundador. **No debe reabrirse** por deseo de mejorar redacción,
+por la aparición de una idea interesante, por necesidad de "confirmar"
+Velarix, por nuevas preferencias de estilo, ni por deseo de ampliar la
+investigación sin evidencia nueva.
+
+**Este cierre es exclusivamente del Caso 07 como caso de estudio** — no
+cierra R1–R8 como leyes universales, no cierra la metodología, no cierra
+los Bloques 1B ni 1C, no inicia el Bloque 1E, no congela el Expediente
+como arquitectura, no eleva automáticamente ningún candidato (Candidato
+A incluido), no cierra ninguno de los Candidatos A–E ni las
+observaciones ISA-F y Bancolombia-G, no crea un candidato para la
+observación de compensación, no crea R9, no divide el Candidato E, no
+selecciona método de valoración final, no aprueba Residual Income,
+FCFE, DDM, SOTP, Enterprise Value, WACC, Cost of Equity, g ni un
+horizonte nuevo, no produce una valoración, no autoriza implementación,
+y no autoriza que Munich Re se asuma similar a Goldman Sachs o a
 Bancolombia** — Munich Re todavía debe intentar romper estas
 conclusiones (§37).
 
@@ -1144,7 +1188,13 @@ un modelo de compensación, ni ningún schema, tabla, migración, UI, Edge
 Function o automatización. Solo Nicolás/fundador puede autorizar
 implementación, de forma explícita y separada, caso por caso.
 
-**Este documento NO declara el Caso Público 07 — The Goldman Sachs
-Group, Inc. formalmente cerrado ni congelado** (§43). El cierre formal
-requiere revisión y autorización explícita posterior del fundador, en
-una ejecución separada.
+**Este documento declara el Caso Público 07 — The Goldman Sachs Group,
+Inc. FORMALMENTE CERRADO Y CONGELADO**, tras revisión y autorización
+explícita del fundador (§43). Este cierre aplica exclusivamente al caso
+de estudio y a su reporte de contraste — no cierra R1–R8, no cierra la
+metodología, no cierra los Bloques 1B ni 1C, no congela el Expediente
+como arquitectura, no cierra ninguno de los Candidatos A–E ni las
+observaciones ISA-F y Bancolombia-G, no selecciona método de valoración
+final, y no autoriza ninguna implementación, que permanecen
+abiertos/pendientes según corresponda. Cualquier implementación futura
+requiere autorización explícita y separada del fundador, caso por caso.
