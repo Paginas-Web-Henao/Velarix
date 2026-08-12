@@ -178,7 +178,7 @@ se incorpora aquí porque ese ejercicio demostró que sin esta distinción
 explícita el expediente no puede diferenciar "lo sabemos" de "lo estamos
 asumiendo".
 
-## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Casos 03, 04 y 05 — §22, §23, §24, §25)
+## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Casos 03, 04, 05 y 06 — §22, §23, §24, §25, §26)
 
 `docs/velarix/casos/02-terpel/CASO-02-TERPEL-V0.md` §11 mostró que, en
 una organización con múltiples negocios, países o contratos, un mismo
@@ -229,11 +229,28 @@ implementarlas ni diseñar su tipo, enum o estructura todavía**:
   procedencia, narrativa, método de determinación, u otra
   representación.
 
+`docs/velarix/casos/06-bancolombia/CASO-06-BANCOLOMBIA-V0.md` §6, §17 y
+§20 (R6) aportó **refuerzo muy fuerte** a ambas necesidades —
+Bancolombia hace especialmente material distinguir holding (Grupo
+Cibest), banco operativo regulado (Bancolombia S.A.), grupo consolidado,
+unidad regulatoria, e interés económico final del accionista, así como
+ejemplos adicionales de propósito (instrumento mantenido para cobrar,
+negociar, cubrir riesgos, administrar liquidez, soportar necesidades
+regulatorias) — **sin que ninguna de las dos necesidades suba de nivel
+formal más allá de lo ya alcanzado en el Caso 05**: `scope` permanece
+`NECESIDAD CONCEPTUAL FUERTEMENTE RESPALDADA POR MÚLTIPLES CASOS` y
+`purpose` permanece `NECESIDAD CONCEPTUAL FUERTEMENTE RESPALDADA POR
+MÚLTIPLES CASOS, AÚN MENOS MADURA QUE SCOPE`. El Caso 06 deja explícito
+que un problema de `scope` no implica la obligación de modelar todos
+los niveles posibles.
+
 Ninguno de los dos nombres, tipos ni estructuras finales queda decidido
 por esta actualización — ver `docs/velarix/casos/02-terpel/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §2 (cambios #2 y #3), `docs/velarix/casos/03-ecopetrol/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §3, `docs/velarix/casos/04-grupo-exito/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
-§3, y `docs/velarix/casos/05-isa/REPORTE-CONTRASTE-EXPEDIENTE-V1.md` §6.
+§3, `docs/velarix/casos/05-isa/REPORTE-CONTRASTE-EXPEDIENTE-V1.md` §6, y
+`docs/velarix/casos/06-bancolombia/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
+§3.
 
 ## 6. Relaciones principales
 
@@ -531,76 +548,109 @@ que modifiquen los mismos archivos").
   de NCI/JV**, porque exigir tratamiento metodológico no equivale a una
   solución de diseño disponible. **Cautela explícita del Caso 05**:
   problema de perímetro demostrado ≠ obligación de modelar entidad por
-  entidad.
-- **Candidatos registrados por Caso 03, actualizados por Casos 04 y 05,
-  sin arquitectura ni campos** (§23, §24, §25):
+  entidad. **Caso 06 (§21, §26)** — sobre Grupo Cibest/Bancolombia S.A.,
+  la primera institución financiera regulada de la secuencia — aporta
+  holding distinto del banco operativo, regulación a `scopes`
+  específicos, reorganización societaria completada en 2025, y una
+  operación (Banistmo) con clasificación de perímetro relevante al
+  cierre, y eleva el estado a `PROBLEMA FUERTEMENTE DEMOSTRADO EN
+  MÚLTIPLES ECONOMÍAS, AHORA INCLUYENDO UNA INSTITUCIÓN FINANCIERA;
+  EVIDENCIA SUFICIENTE PARA EXIGIR TRATAMIENTO METODOLÓGICO, TODAVÍA
+  INSUFICIENTE PARA DISEÑAR UNA REPRESENTACIÓN GENERAL` — **sigue sin
+  crearse `case_perimeter` ni ninguna estructura**.
+- **Candidatos registrados por Caso 03, actualizados por Casos 04, 05 y
+  06, sin arquitectura ni campos** (§23, §24, §25, §26):
   - **Candidato A — neteo de movimientos económicamente distintos**: ni
-    Caso 04 ni Caso 05 aportaron evidencia independiente fuerte sobre
-    este candidato; se mantiene sin elevar (`EVIDENCIA FUERTE EN
-    ECOPETROL — VALIDAR EN CASOS FUTUROS`).
+    Caso 04, ni Caso 05, ni Caso 06 aportaron evidencia independiente
+    fuerte sobre este candidato; se mantiene sin elevar (`EVIDENCIA
+    FUERTE EN ECOPETROL — VALIDAR EN CASOS FUTUROS`). Caso 06 aclara
+    explícitamente que la coexistencia normal de activos y pasivos
+    financieros en el balance de un banco no equivale, por sí misma, a
+    evidencia de neteo económicamente destructivo.
   - **Candidato B — ciclo de vida económico de un activo o variable**:
     Caso 04 aportó una segunda economía de naturaleza muy distinta
     (ciclo de apertura/remodelación/cierre de tiendas de Grupo Éxito,
     frente al ciclo de agotamiento/abandono de activos E&P de
-    Ecopetrol). **Caso 05** aporta un tercer ciclo, también de
-    naturaleza distinta (adjudicación→construcción→entrada en
-    operación→explotación/O&M→refuerzos/reposición→vencimiento
-    contractual→reversión/indemnización/renovación según contrato) — el
-    estado sube a `PATRÓN OBSERVADO EN TRES CASOS DE NATURALEZA
-    ECONÓMICA MUY DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **Cautela
-    añadida por el Caso 05**: el ciclo de vida debe evaluarse respecto
-    de la unidad económica pertinente — el ciclo de un activo, proyecto
-    o contrato no determina automáticamente el ciclo de vida de la
-    compañía que lo posee. **No se crea `economic_lifecycle`.**
+    Ecopetrol). Caso 05 aportó un tercer ciclo (concesiones de ISA). El
+    estado subió a `PATRÓN OBSERVADO EN TRES CASOS DE NATURALEZA
+    ECONÓMICA MUY DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **Caso
+    06** aporta una cuarta instancia, más débil estructuralmente que las
+    tres anteriores (vida/vencimiento contractual de activos o pasivos
+    financieros ≠ vida económica del portafolio ≠ vida de la compañía)
+    — el estado sube a `PATRÓN OBSERVADO EN CUATRO CASOS DE NATURALEZA
+    ECONÓMICA MUY DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **No se
+    crea `economic_lifecycle`.**
   - **Candidato C — atribución temporal/corte de conocimiento**: Caso 04
-    aportó evidencia independiente fuerte (información posterior al
-    corte de Grupo Éxito, 1T26/2T26, donde la propia compañía reconoce
-    que un cambio de perímetro limita la comparabilidad). **Caso 05**
-    refuerza el mismo problema con un mecanismo distinto (construcción,
-    reconocimiento, puesta en servicio, remuneración, recaudo y
-    vencimiento contractual ocurriendo en momentos distintos dentro de
-    concesiones), **sin elevar el estado**: se mantiene `PROBLEMA
-    METODOLÓGICO RESPALDADO POR MÚLTIPLES CASOS — REQUIERE DEFINIR
-    PRINCIPIOS ANTES DE DISEÑAR REPRESENTACIÓN`. **No se crea
-    `economic_period`.**
+    aportó evidencia independiente fuerte; Caso 05 reforzó el problema
+    sin elevar el estado, que quedó en `PROBLEMA METODOLÓGICO
+    RESPALDADO POR MÚLTIPLES CASOS — REQUIERE DEFINIR PRINCIPIOS ANTES
+    DE DISEÑAR REPRESENTACIÓN`. **Caso 06** refuerza muy fuertemente el
+    problema (reorganización societaria de 2025; acuerdo sobre
+    Banistmo, su clasificación al cierre, y sus eventos posteriores) y
+    eleva el estado a `PROBLEMA METODOLÓGICO FUERTEMENTE RESPALDADO POR
+    MÚLTIPLES CASOS — REQUIERE DEFINIR PRINCIPIOS ANTES DE DISEÑAR
+    REPRESENTACIÓN`. **No se crea `economic_period`.**
   - **Candidato D — derechos económicos/propiedad dinámica (nuevo,
     Caso 04)**: la atribución económica puede depender no solo de la
     propiedad actual, sino de derechos u obligaciones contractuales
     capaces de modificarla (evidencia: opción de venta sobre intereses
     no controladores de Grupo Disco Uruguay, ejercida parcialmente en
-    2025). **Caso 05 aporta evidencia fuerte de que control ≠
-    porcentaje económico, pero no de la parte específicamente
-    dinámica/contractual del candidato** — se registra únicamente como
-    evidencia adicional del problema más amplio de atribución
-    económica, **sin elevar el estado**: se mantiene `EVIDENCIA FUERTE
-    EN GRUPO ÉXITO — VALIDAR EN CASOS FUTUROS`. **No se crea entidad,
-    tabla, campos, ni modelo automático de valoración de opciones.**
+    2025). Caso 05 aportó evidencia fuerte de que control ≠ porcentaje
+    económico, pero no de la parte específicamente dinámica/contractual
+    del candidato, sin elevar el estado. **Caso 06 tampoco aportó
+    evidencia suficiente para reforzar el componente
+    contractual/dinámico** — la reorganización societaria de 2025 es un
+    cambio estructural completado, no un derecho contractual dinámico
+    pendiente. Se mantiene sin elevar: `EVIDENCIA FUERTE EN GRUPO ÉXITO
+    — VALIDAR EN CASOS FUTUROS`. **No se crea entidad, tabla, campos, ni
+    modelo automático de valoración de opciones.**
   - **Candidato E — base de medición/régimen monetario (nuevo,
-    Caso 04)**: antes de comparar, normalizar o proyectar una cifra,
-    puede ser necesario conocer la base de medición y el régimen
-    monetario bajo el cual fue construida (evidencia: subsidiaria
-    argentina en economía hiperinflacionaria, NIC 29, reexpresión y
-    conversión). **Caso 05** aporta evidencia independiente de
-    naturaleza distinta (moneda funcional, moneda de presentación,
-    moneda contractual, indexación, coberturas, medición nominal vs.
-    costo amortizado) — el estado sube a `PATRÓN OBSERVADO EN DOS CASOS
-    DE NATURALEZA ECONÓMICA DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`.
-    **Cautela añadida por el Caso 05**: este candidato puede estar
-    agrupando fenómenos económicamente relacionados pero
-    metodológicamente diferentes entre sí. **No se crea
-    `measurement_basis`, enum monetario, ni campos.**
+    Caso 04)**: Caso 05 aportó evidencia independiente de naturaleza
+    distinta (moneda funcional, indexación, coberturas, medición
+    nominal vs. costo amortizado) y el estado subió a `PATRÓN OBSERVADO
+    EN DOS CASOS DE NATURALEZA ECONÓMICA DISTINTA — FORMULACIÓN GENERAL
+    AÚN ABIERTA`. **Caso 06** aporta evidencia adicional fuerte (costo
+    amortizado, FVOCI, FVTPL, impairment/ECL como "base de medición";
+    moneda funcional y exposición FX como "régimen monetario"), pero
+    **tensiona la formulación general en vez de simplemente
+    reforzarla**: el estado pasa a `EVIDENCIA ADICIONAL FUERTE, PERO LA
+    FORMULACIÓN GENERAL SE VUELVE MENOS ESTABLE: "BASE DE MEDICIÓN" Y
+    "RÉGIMEN MONETARIO / MONEDA" PUEDEN SER FENÓMENOS RELACIONADOS PERO
+    METODOLÓGICAMENTE DISTINTOS`. **No se divide todavía en E1/E2. No se
+    crea `measurement_basis`, enum monetario, ni campos.**
   - **Observación ISA-F (nueva, Caso 05, explícitamente NO un candidato
     formal)**: "el reconocimiento, titularidad o control de un recurso
     no implica necesariamente que esté económicamente disponible para
-    cualquier propósito" — evidencia: efectivo restringido en ISA;
-    consecuencia: cash contable ≠ automáticamente cash disponible para
-    net debt o distribución. Estado `EVIDENCIA FUERTE EN ISA — VALIDAR
-    ANTES DE ELEVAR A CANDIDATO TRANSVERSAL`. **No se crea `availability`,
-    enum, campo, schema, ni automatización. No se registra todavía como
-    Candidato F.**
+    cualquier propósito" — evidencia original: efectivo restringido en
+    ISA. **Caso 06** refuerza con un mecanismo distinto: cash contable ≠
+    automáticamente cash disponible para net debt o distribución
+    (liquidez prudencial bancaria) — el estado sube a `OBSERVACIÓN
+    TRANSVERSAL FUERTEMENTE REFORZADA EN DOS ECONOMÍAS RADICALMENTE
+    DISTINTAS — ISA Y BANCOLOMBIA — MANTENER ABIERTA PARA VALIDACIÓN EN
+    CASOS 07–08 ANTES DE DECIDIR SU ELEVACIÓN`. **Sigue sin convertirse
+    en Candidato F. No se crea `availability`, enum, campo, schema, ni
+    automatización.**
+  - **Observación Bancolombia-G (nueva, Caso 06, explícitamente NO un
+    candidato formal)**: "la generación de utilidad o la existencia de
+    patrimonio en una entidad regulada no determina por sí sola cuánto
+    valor económico puede distribuirse al accionista final; pueden
+    intervenir requerimientos de capital, crecimiento, buffers
+    prudenciales y niveles societarios intermedios" (cadena conceptual:
+    resultado → retención necesaria → capital que soporta crecimiento/
+    riesgo → posible capital excedentario → capacidad de distribución de
+    la subsidiaria → recursos recibidos por el holding → obligaciones
+    propias del holding → capacidad final de distribución). Estado
+    `EVIDENCIA FUERTE EN BANCOLOMBIA — OBSERVACIÓN SECTORIAL; VALIDAR
+    ANTES DE ELEVAR A CANDIDATO TRANSVERSAL`. **No se llama "Candidato
+    G". No se fusiona todavía con la observación ISA-F** — ambas tratan
+    disponibilidad/capacidad de recursos, pero por mecanismos distintos.
+    Munich Re (Caso 08, autorizado, no iniciado) es la prueba futura más
+    relevante identificada para esta observación. **No se crea
+    `capital_bridge`, `regulatory_capital`, `distributable_capital`,
+    campos, tablas, ni reglas automáticas.**
 
-  Todos los candidatos y la observación ISA-F requieren más casos y,
-  después, criterio experto antes de precisarse.
+  Todos los candidatos y las observaciones ISA-F y Bancolombia-G
+  requieren más casos y, después, criterio experto antes de precisarse.
 - **Cautelas conceptuales adicionales aportadas por el Caso 05, sin
   cambio de especificación** (§22, §25):
   - **R3**: no convertir `assumption_relations` en un grafo causal
@@ -614,6 +664,34 @@ que modifiquen los mismos archivos").
   - **CAPEX**: la clasificación contable de un desembolso en el estado
     de flujos de efectivo no determina por sí sola si existe inversión
     económica — no se crea todavía una nueva taxonomía de CAPEX.
+- **Cautelas conceptuales adicionales aportadas por el Caso 06, sin
+  cambio de especificación** (§20, §26):
+  - **Arquitectura financiera método-dependiente**: la tasa de
+    descuento, el flujo valorado, y el puente entre valor de empresa y
+    valor de equity pueden depender del método de valoración elegido y
+    del objeto económico valorado, no de una arquitectura financiera
+    única — Bancolombia aporta evidencia suficiente para rechazar como
+    obligación universal la secuencia `FCFF → WACC → CAPEX → NWC →
+    Enterprise Value → net debt → Equity Value`, sin eliminarla como
+    opción válida cuando la economía y el método la justifiquen. **No
+    se aprueba ningún método alternativo. No se calcula WACC ni Cost of
+    Equity. No se modifica la Decisión 1 del Bloque 1B.**
+  - **Proceso universal ≠ arquitectura financiera específica**: el
+    Expediente puede conservar una capa universal de proceso (evidencia
+    → contexto → interpretación → estado de conocimiento → preguntas →
+    normalizaciones → hipótesis/supuestos → selección/justificación
+    metodológica → aprobación experta → cálculo → conclusión
+    profesional) aunque la arquitectura financiera específica del
+    método y de la economía valorada no sea universal — **esta
+    distinción no se convierte en `industry_type`, `bank_mode`, enum de
+    institución financiera, motores sectoriales, ni arquitectura
+    técnica nueva.**
+  - **Objeto de valoración**: puede ser necesario establecer
+    explícitamente qué interés económico se está intentando valorar
+    (ej. grupo consolidado, holding, subsidiaria regulada, u otro
+    `scope`) antes de seleccionar método — necesidad metodológica, **no**
+    diseño de datos. **No se crea `valuation_method` field, enum,
+    selector, ni "method engine".**
 
 ---
 
@@ -1140,3 +1218,165 @@ estudio**, tras revisión humana del fundador — este cierre no cierra
 R1–R8, no cierra la metodología, no cierra los Bloques 1B ni 1C, no
 congela el Expediente como arquitectura, y no cierra ninguno de los
 Candidatos A–E ni la observación ISA-F, que permanecen abiertos.
+
+---
+
+## 26. Refinamientos documentales derivados del Caso 06 (Grupo Cibest / Bancolombia) — 2026-08-12
+
+**CASO 06 NO AUTORIZA IMPLEMENTACIÓN.** Ni el Caso 01, ni el Caso 02, ni
+el Caso 03, ni el Caso 04, ni el Caso 05, ni el Caso 06, ni ninguno de
+sus reportes de contraste, ni esta actualización del Expediente,
+constituyen autorización para implementar ninguna estructura técnica
+(tablas, SQL, migraciones, schemas, UI, motores, Edge Functions,
+automatizaciones, persistencia, coherence engine, decomposition engine,
+grafo causal, `case_perimeter`, `contracts`, `economic_period`,
+`economic_lifecycle`, `measurement_basis`, `availability`,
+`regulatory_capital`, `capital_bridge`, `distributable_capital`,
+`valuation_method`, un "bank mode", un enum de institución financiera, o
+cualquier cambio runtime). Solo Nicolás/fundador puede autorizar
+implementación, de forma explícita y separada.
+
+**Estado: especificación conceptual sujeta a validación adicional con
+más casos; no autorización de implementación.** Detalle completo del
+caso y del contraste:
+`docs/velarix/casos/06-bancolombia/CASO-06-BANCOLOMBIA-V0.md` y
+`docs/velarix/casos/06-bancolombia/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
+**El Caso 06 NO está formalmente cerrado ni congelado** — queda en
+estado `ANÁLISIS DOCUMENTADO — PENDIENTE DE REVISIÓN Y CIERRE FORMAL POR
+EL FUNDADOR`; su cierre, si corresponde, es una ejecución posterior
+autorizada explícitamente por Nicolás.
+
+El Caso Público 06 (Grupo Cibest/Bancolombia S.A., FY2025, con
+información posterior al corte de 2026 documentada por separado) se usó
+como sexta economía — la primera institución financiera regulada de la
+secuencia — **para intentar romper Velarix, no para confirmarlo**.
+**Seis casos muestran patrones más resistentes; seis casos no crean
+leyes universales.** El estudio manual de Bancolombia aportó evidencia
+que reforzó, elevó, tensionó, mantuvo sin cambio, o resultó insuficiente
+para lo siguiente, ahora incorporado en §5.2 y §20:
+
+1. **R1, R2, R4 (formulación base), R7 y R8 pasan a `PATRÓN OBSERVADO EN
+   SEIS CASOS`** — reaparecen de forma transversal e idéntica en
+   Tecnoglass, Terpel, Ecopetrol, Grupo Éxito, ISA y Bancolombia:
+   contabilidad ≠ economía (depósitos, intereses, liquidez, instrumentos
+   financieros y capital con clasificación contable correcta que no
+   determina, por sí sola, su interpretación para valoración); observado
+   ≠ normalizado ≠ proyectado (provisiones/ECL, Banistmo); descomposición
+   según dimensión económica relevante (producto, cartera, fondeo,
+   riesgo, función económica, moneda, geografía, entidad, regulación);
+   drivers específicos por empresa (NIM, costo de depósitos, yield de
+   cartera, RWA, entre otros, sin biblioteca universal cerrada);
+   detección de incoherencias sin decisión automática. Ninguna de estas
+   cinco reglas generó cambio de especificación.
+2. **R3, en su núcleo conceptual, también pasa a `PATRÓN OBSERVADO EN
+   SEIS CASOS`**, pero el diseño de `assumption_relations` sigue
+   insuficientemente validado — Bancolombia aporta evidencia de
+   relaciones temporales, condicionales, regulatorias, macroeconómicas y
+   bidireccionales o no lineales propias del balance bancario. **No se
+   rediseña en esta actualización.**
+3. **R5 se profundiza, sin nuevo enum**: Bancolombia aporta múltiples
+   instancias de "conozco la cifra, pero todavía no sé cómo
+   interpretarla económicamente para este propósito" (provisiones,
+   cash/liquidez, capital).
+4. **`scope` y `purpose` (§5.2) reciben refuerzo muy fuerte, sin subir de
+   nivel formal**: Bancolombia hace especialmente material distinguir
+   holding, banco operativo regulado, subsidiaria, grupo consolidado,
+   unidad regulatoria, e interés económico final del accionista
+   (`scope`); y aporta ejemplos adicionales de propósito — instrumento
+   mantenido para cobrar, negociar, cubrir riesgos, administrar
+   liquidez, soportar necesidades regulatorias (`purpose`). **No se
+   concluye que `purpose` alcance la misma madurez que `scope`. No se
+   fusionan. No se crean campos ni enums.**
+5. **Comparabilidad/perímetro histórico cambia de estado** (§20): de
+   `PROBLEMA FUERTEMENTE DEMOSTRADO EN MÚLTIPLES ECONOMÍAS; EVIDENCIA
+   SUFICIENTE PARA EXIGIR TRATAMIENTO METODOLÓGICO, TODAVÍA INSUFICIENTE
+   PARA DISEÑAR UNA REPRESENTACIÓN GENERAL` (Caso 05) a la misma
+   formulación **ahora incluyendo una institución financiera** — la
+   primera vez que el problema se demuestra en un banco regulado
+   (holding distinto del banco operativo, reorganización societaria de
+   2025, Banistmo). **Sigue sin crearse `case_perimeter` ni ninguna
+   estructura.**
+6. **Candidatos actualizados de forma desigual — resultados positivos,
+   negativos y una tensión** (§20): **Candidato A — neteo**: sin
+   evidencia nueva, se mantiene sin elevar. **Candidato B — ciclo de
+   vida económico**: sube a cuatro casos de naturaleza económica muy
+   distinta (Ecopetrol, Grupo Éxito, ISA, Bancolombia), con evidencia
+   más débil que en los tres anteriores. **Candidato C — atribución
+   temporal/corte de conocimiento**: sube a "fuertemente respaldado"
+   (reorganización societaria 2025, Banistmo). **Candidato D — derechos
+   económicos/propiedad dinámica**: sin evidencia nueva en dos casos
+   consecutivos (ISA, Bancolombia), se mantiene sin elevar. **Candidato
+   E — base de medición/régimen monetario**: recibe evidencia adicional
+   fuerte, pero la formulación general se vuelve **menos estable** —
+   Bancolombia refuerza que "base de medición" (costo amortizado, FVOCI,
+   FVTPL, ECL) y "régimen monetario/moneda" (moneda funcional, FX)
+   pueden ser fenómenos relacionados pero metodológicamente distintos.
+   **No se divide todavía en E1/E2.**
+7. **Observación ISA-F sube de nivel**: de `EVIDENCIA FUERTE EN ISA —
+   VALIDAR ANTES DE ELEVAR A CANDIDATO TRANSVERSAL` a `OBSERVACIÓN
+   TRANSVERSAL FUERTEMENTE REFORZADA EN DOS ECONOMÍAS RADICALMENTE
+   DISTINTAS — ISA Y BANCOLOMBIA — MANTENER ABIERTA PARA VALIDACIÓN EN
+   CASOS 07–08 ANTES DE DECIDIR SU ELEVACIÓN` (evidencia: cash contable ≠
+   automáticamente cash disponible para net debt o distribución).
+   **Sigue sin convertirse en Candidato F.**
+8. **Nueva observación registrada — Bancolombia-G, explícitamente NO un
+   candidato formal** (§20): puente de capital/capacidad de distribución
+   entre banco operativo y holding. Estado `EVIDENCIA FUERTE EN
+   BANCOLOMBIA — OBSERVACIÓN SECTORIAL; VALIDAR ANTES DE ELEVAR A
+   CANDIDATO TRANSVERSAL`. **No se llama "Candidato G". No se fusiona
+   con ISA-F. No se crean campos, tablas, ni reglas automáticas.**
+9. **Resultados negativos explícitos de este caso**: supplier financing
+   resultó irrelevante para Bancolombia como empresa valorada, sin
+   cambio de estado (`PROBLEMA FUERTEMENTE REFORZADO — CRITERIOS DE
+   RECLASIFICACIÓN TODAVÍA ABIERTOS`, apoyado en Tecnoglass, Terpel y
+   Grupo Éxito). Leases se refuerza (tercera instancia de doble rol)
+   sin cambio de estado (`PROBLEMA DEMOSTRADO — TRATAMIENTO DE
+   VALORACIÓN NO GENERALIZADO`).
+10. **Tensión metodológica documentada, sin resolver, sin cambiar
+    decisiones aprobadas**: Bancolombia aporta evidencia suficiente para
+    rechazar como obligación universal la secuencia `FCFF → WACC →
+    CAPEX → NWC → Enterprise Value → net debt → Equity Value`, y para
+    distinguir conceptualmente la **arquitectura universal del proceso
+    de valoración** (evidencia → contexto → interpretación → estado de
+    conocimiento → preguntas → normalizaciones → hipótesis/supuestos →
+    selección/justificación metodológica → aprobación experta → cálculo
+    → conclusión profesional) de la **arquitectura financiera específica
+    del método y de la economía valorada** — ver §20. **Ninguna
+    Decisión aprobada del Bloque 1B cambia** (Decisión 1 — supuestos de
+    WACC; Decisión 2 — estructura de capital observada; Decisión 4 —
+    horizonte explícito de 5 años). **No se calculó WACC, Cost of
+    Equity, g, FCFF, FCFE, ni ninguna valoración.**
+
+**Explícitamente no confirmado por este caso** (queda fuera, sin
+agregarse a la especificación): ninguna cifra de Bancolombia se
+incorporó como default, benchmark ni referencia metodológica de
+Velarix; ningún negocio, driver, ni método de valoración específico de
+Bancolombia se declaró requisito universal para otras empresas o
+bancos; no se decidió el nombre, tipo ni estructura final de `scope` ni
+de `purpose`; no se rediseñó `assumption_relations`; no se creó ninguna
+estructura para comparabilidad/perímetro histórico pese al cambio de
+estado; no se crearon `economic_period`, `economic_lifecycle`,
+`measurement_basis`, `availability`, `case_perimeter`,
+`regulatory_capital`, `capital_bridge`, `distributable_capital`,
+`valuation_method`, ni ninguna entidad `contracts`/`bank_mode`/enum de
+institución financiera; no se declaró obligatoria ninguna metodología
+de valoración (Residual Income, FCFE, DDM, SOTP, ni la secuencia
+FCFF/WACC/CAPEX/NWC/EV/net debt/Equity Value); no se seleccionó método
+final de valoración para Bancolombia; no se eleva la observación ISA-F a
+Candidato F; no se crea "Candidato G" para Bancolombia-G; no se divide el
+Candidato E; no se cerraron los Bloques 1B ni 1C; no se modificó ninguna
+Decisión financiera aprobada del Bloque 1B. Todo lo anterior requiere
+más casos y/o criterio experto antes de precisarse (ver
+`docs/velarix/casos/06-bancolombia/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
+
+**Conclusión de esta actualización, consistente con
+`CASO-06-BANCOLOMBIA-V0.md` §37**: el Expediente V1 sobrevive
+conceptualmente al Caso 06 — refuerza especialmente su capa universal de
+proceso frente a la arquitectura financiera específica del método y de
+la economía valorada — pero todavía no está listo para congelarse como
+arquitectura. **El Caso 06 NO queda formalmente cerrado ni congelado en
+esta actualización** — permanece `ANÁLISIS DOCUMENTADO — PENDIENTE DE
+REVISIÓN Y CIERRE FORMAL POR EL FUNDADOR`; su cierre y congelamiento
+serán una ejecución posterior si Nicolás lo autoriza tras revisar este
+resultado. Los Casos 07 (Goldman Sachs) y 08 (Munich Re) están
+autorizados, pero no se inician en esta actualización.
