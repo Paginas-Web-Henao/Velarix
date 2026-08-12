@@ -178,7 +178,7 @@ se incorpora aquí porque ese ejercicio demostró que sin esta distinción
 explícita el expediente no puede diferenciar "lo sabemos" de "lo estamos
 asumiendo".
 
-## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Casos 03, 04, 05, 06 y 07 — §22, §23, §24, §25, §26, §27)
+## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Casos 03, 04, 05, 06, 07 y 08 — §22, §23, §24, §25, §26, §27, §28)
 
 `docs/velarix/casos/02-terpel/CASO-02-TERPEL-V0.md` §11 mostró que, en
 una organización con múltiples negocios, países o contratos, un mismo
@@ -256,13 +256,21 @@ NECESIDAD CONCEPTUAL FUERTEMENTE RESPALDADA POR MÚLTIPLES CASOS; GOLDMAN
 REDUCE MATERIALMENTE LA BRECHA DE MADUREZ FRENTE A SCOPE`** — `purpose`
 se acerca a la madurez de `scope` sin alcanzarla ni fusionarse con él.
 
+`docs/velarix/casos/08-munich-re/CASO-08-MUNICH-RE-V0.md` §20 (R6) eleva
+ambas necesidades a `NECESIDAD CONCEPTUAL MUY FUERTEMENTE RESPALDADA` —
+Munich Re aporta evidencia especialmente fuerte porque IFRS y Solvency
+II pueden representar el mismo Grupo usando distintos propósitos,
+distintas bases de medición, y distintos tratamientos de perímetro.
+**`scope` ≠ `purpose`. No se fusionan. No se crean campos ni enums.**
+
 Ninguno de los dos nombres, tipos ni estructuras finales queda decidido
 por esta actualización — ver `docs/velarix/casos/02-terpel/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §2 (cambios #2 y #3), `docs/velarix/casos/03-ecopetrol/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §3, `docs/velarix/casos/04-grupo-exito/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §3, `docs/velarix/casos/05-isa/REPORTE-CONTRASTE-EXPEDIENTE-V1.md` §6,
 `docs/velarix/casos/06-bancolombia/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
-§3, y `docs/velarix/casos/07-goldman-sachs/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
+§3, `docs/velarix/casos/07-goldman-sachs/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
+§3, y `docs/velarix/casos/08-munich-re/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §3.
 
 ## 6. Relaciones principales
@@ -582,9 +590,22 @@ que modifiquen los mismos archivos").
   INSTITUCIONES FINANCIERAS; EXISTE EVIDENCIA SUFICIENTE PARA EXIGIR
   TRATAMIENTO METODOLÓGICO, TODAVÍA INSUFICIENTE PARA DISEÑAR UNA
   REPRESENTACIÓN GENERAL` — **sigue sin crearse `case_perimeter` ni
-  ninguna estructura**.
-- **Candidatos registrados por Caso 03, actualizados por Casos 04, 05 y
-  06, sin arquitectura ni campos** (§23, §24, §25, §26):
+  ninguna estructura**. **Caso 08 (§21, §28)** — sobre Munich Re, tercera
+  institución financiera prudencialmente regulada de la secuencia y
+  primera del sector seguros/reaseguros — aporta evidencia directa de
+  que field of business ≠ reportable segment ≠ entidad legal ≠
+  necesariamente unidad económica adecuada de valoración (Global
+  Specialty Insurance es primary insurance administrado dentro de
+  Reinsurance), y de que un mismo Grupo puede requerir perímetros y
+  métodos de representación diferentes según el propósito (IFRS vs.
+  Solvency II), y eleva el estado a `PROBLEMA MUY FUERTEMENTE
+  DEMOSTRADO EN MÚLTIPLES ECONOMÍAS; MUNICH RE APORTA EVIDENCIA DIRECTA
+  DE QUE UN MISMO GRUPO PUEDE REQUERIR PERÍMETROS Y MÉTODOS DE
+  REPRESENTACIÓN DIFERENTES SEGÚN EL PROPÓSITO` — **sigue sin crearse
+  `case_perimeter` ni ninguna estructura**.
+- **Candidatos registrados por Caso 03, actualizados por Casos 04, 05,
+  06, 07 y 08, sin arquitectura ni campos** (§23, §24, §25, §26, §27,
+  §28):
   - **Candidato A — neteo de movimientos económicamente distintos**: ni
     Caso 04, ni Caso 05, ni Caso 06 aportaron evidencia independiente
     fuerte sobre este candidato; se mantuvo sin elevar (`EVIDENCIA
@@ -607,6 +628,18 @@ que modifiquen los mismos archivos").
     puente entre posición bruta → netting jurídicamente/económicamente
     válido → collateral → mitigantes → exposición económica relevante.
     **No se eleva formalmente. No se crea R9. No se crea `netting`.**
+    **Caso 08** aporta una tercera evidencia fuerte independiente
+    (Ecopetrol, Goldman Sachs, Munich Re) y muestra que "neteo" ya
+    parece un nombre demasiado estrecho para el fenómeno — Munich Re
+    obliga a distinguir una cadena más amplia: posición/exposición bruta
+    → compensación jurídicamente válida → collateral →
+    reinsurance/retrocession → otros mitigantes → exposición económica
+    relevante (no todos esos mecanismos son netting). Estado:
+    `CANDIDATO A — EVIDENCIA FUERTE INDEPENDIENTE EN ECOPETROL, GOLDMAN
+    SACHS Y MUNICH RE; "NETEO" YA PARECE UN NOMBRE DEMASIADO ESTRECHO;
+    LA FORMULACIÓN GENERAL DEBE REFINARSE ANTES DE CUALQUIER ELEVACIÓN`.
+    **No se eleva formalmente. No se renombra todavía. No se implementa
+    nada.**
   - **Candidato B — ciclo de vida económico de un activo o variable**:
     Caso 04 aportó una segunda economía de naturaleza muy distinta
     (ciclo de apertura/remodelación/cierre de tiendas de Grupo Éxito,
@@ -621,10 +654,15 @@ que modifiquen los mismos archivos").
     ECONÓMICA MUY DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **Caso
     07** aporta una quinta instancia: vida contractual de una posición ≠
     vida de la relación con cliente ≠ vida del programa/fondo ≠ vida de
-    la franquicia ≠ vida de la empresa, en Goldman Sachs. El estado sube
+    la franquicia ≠ vida de la empresa, en Goldman Sachs. El estado subió
     a `PATRÓN OBSERVADO EN CINCO CASOS DE NATURALEZA ECONÓMICA MUY
-    DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **No se crea
-    `economic_lifecycle`.**
+    DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **Caso 08** aporta una
+    sexta instancia mediante Munich Re: vida contractual ≠ coverage
+    period ≠ vida del riesgo ≠ accident year ≠ claim development ≠
+    settlement ≠ vida del reconocimiento económico. El estado sube a
+    `PATRÓN OBSERVADO EN SEIS CASOS DE NATURALEZA ECONÓMICA MUY
+    DISTINTA` (Ecopetrol, Grupo Éxito, ISA, Bancolombia, Goldman Sachs,
+    Munich Re). **No se crea `economic_lifecycle`.**
   - **Candidato C — atribución temporal/corte de conocimiento**: Caso 04
     aportó evidencia independiente fuerte; Caso 05 reforzó el problema
     sin elevar el estado, que quedó en `PROBLEMA METODOLÓGICO
@@ -640,7 +678,12 @@ que modifiquen los mismos archivos").
     transaction → completion → fee recognition en investment banking),
     sin cambio de nivel formal: `PROBLEMA METODOLÓGICO FUERTEMENTE
     RESPALDADO POR MÚLTIPLES CASOS — GOLDMAN APORTA UNA NUEVA ECONOMÍA
-    TEMPORAL`. **No se crea `economic_period`.**
+    TEMPORAL`. **Caso 08** aporta una de las instancias más fuertes hasta
+    ahora (contrato; inicio de cobertura; ocurrencia; reporte;
+    conocimiento posterior; reconocimiento; actualización de reservas;
+    settlement; recoveries; valuation date) y eleva el estado a
+    `PROBLEMA METODOLÓGICO MUY FUERTEMENTE RESPALDADO POR MÚLTIPLES
+    CASOS`. **No se crea `economic_period`.**
   - **Candidato D — derechos económicos/propiedad dinámica (nuevo,
     Caso 04)**: la atribución económica puede depender no solo de la
     propiedad actual, sino de derechos u obligaciones contractuales
@@ -657,9 +700,15 @@ que modifiquen los mismos archivos").
     suficiente** — derivatives, deferred compensation, RSUs y structured
     products de Goldman no deben confundirse con el fenómeno específico
     del candidato. Estado: `EVIDENCIA FUERTE EN GRUPO ÉXITO — GOLDMAN
-    SACHS APORTA EVIDENCIA INSUFICIENTE PARA REFORZAR EL FENÓMENO`. **No
-    se crea entidad, tabla, campos, ni modelo automático de valoración de
-    opciones.**
+    SACHS APORTA EVIDENCIA INSUFICIENTE PARA REFORZAR EL FENÓMENO`. **Caso
+    08 tampoco aportó evidencia suficiente** — participating contracts,
+    underlying items, y derechos contractuales de policyholders de
+    Munich Re no resultaron suficientemente comparables al fenómeno
+    específico de Grupo Éxito. Estado sin cambio: `EVIDENCIA FUERTE EN
+    GRUPO ÉXITO — VALIDAR EN CASOS FUTUROS` (sin evidencia nueva en
+    cuatro casos consecutivos: ISA, Bancolombia, Goldman Sachs, Munich
+    Re). **No se fuerza confirmación. No se crea entidad, tabla, campos,
+    ni modelo automático de valoración de opciones.**
   - **Candidato E — base de medición/régimen monetario (nuevo,
     Caso 04)**: Caso 05 aportó evidencia independiente de naturaleza
     distinta (moneda funcional, indexación, coberturas, medición
@@ -680,14 +729,24 @@ que modifiquen los mismos archivos").
     `EVIDENCIA MUY FUERTE ADICIONAL EN GOLDMAN SACHS, PERO LA
     FORMULACIÓN GENERAL SE VUELVE AÚN MENOS ESTABLE; LA HIPÓTESIS DE QUE
     BASE DE MEDICIÓN Y RÉGIMEN MONETARIO SON FENÓMENOS DISTINTOS SE
-    FORTALECE`. **No se divide todavía en E1/E2. No se crea
-    `measurement_basis`, enum monetario, ni campos. Munich Re debe
-    tensionarlo.**
-  - **Observación ISA-F (nueva, Caso 05, explícitamente NO un candidato
-    formal)**: "el reconocimiento, titularidad o control de un recurso
-    no implica necesariamente que esté económicamente disponible para
-    cualquier propósito" — evidencia original: efectivo restringido en
-    ISA. **Caso 06** refuerza con un mecanismo distinto: cash contable ≠
+    FORTALECE`. **Caso 08** aporta evidencia clara porque IFRS y Solvency
+    II pueden producir valores distintos para el mismo Grupo sin cambiar
+    moneda, y FX puede modificar valores sin cambiar la base de medición
+    — ambos fenómenos pueden además interactuar mediante discounting,
+    tasas, ALM y currency mismatch. Estado: `LA HIPÓTESIS DE QUE BASE DE
+    MEDICIÓN Y RÉGIMEN MONETARIO/MONEDA SON DOS FENÓMENOS
+    METODOLÓGICAMENTE DISTINTOS QUEDA MUY FUERTEMENTE RESPALDADA`. **No
+    se divide todavía en E1/E2. No se crea `measurement_basis`, enum
+    monetario, ni campos.** La pregunta de si la evidencia de los ocho
+    casos ya justifica separar formalmente measurement basis de monetary
+    regime queda para la consolidación transversal (§28).
+  - **Candidato F — Disponibilidad económica de recursos (elevado desde
+    la observación ISA-F en el Caso 08, ver §28)**: "el reconocimiento,
+    titularidad o control de un recurso no implica necesariamente que
+    esté económicamente disponible para cualquier propósito" — evidencia
+    original: efectivo restringido en ISA (Caso 05, donde se registró
+    explícitamente como observación, no como candidato formal). **Caso
+    06** refuerza con un mecanismo distinto: cash contable ≠
     automáticamente cash disponible para net debt o distribución
     (liquidez prudencial bancaria) — el estado subió a `OBSERVACIÓN
     TRANSVERSAL FUERTEMENTE REFORZADA EN DOS ECONOMÍAS RADICALMENTE
@@ -703,42 +762,71 @@ que modifiquen los mismos archivos").
     liquidez de Goldman esté restringido — el estado sube a `OBSERVACIÓN
     TRANSVERSAL FUERTEMENTE REFORZADA EN TRES ECONOMÍAS RADICALMENTE
     DISTINTAS — ISA, BANCOLOMBIA Y GOLDMAN SACHS — MANTENER ABIERTA HASTA
-    MUNICH RE ANTES DE DECIDIR SU ELEVACIÓN`. **Sigue sin convertirse en
-    Candidato
-    F. No se crea `availability`, enum, campo, schema, ni
-    automatización.**
-  - **Observación Bancolombia-G (nueva, Caso 06, explícitamente NO un
-    candidato formal)**: "la generación de utilidad o la existencia de
-    patrimonio en una entidad regulada no determina por sí sola cuánto
-    valor económico puede distribuirse al accionista final; pueden
-    intervenir requerimientos de capital, crecimiento, buffers
-    prudenciales y niveles societarios intermedios" (cadena conceptual:
-    resultado → retención necesaria → capital que soporta crecimiento/
-    riesgo → posible capital excedentario → capacidad de distribución de
-    la subsidiaria → recursos recibidos por el holding → obligaciones
-    propias del holding → capacidad final de distribución). Estado
-    original `EVIDENCIA FUERTE EN BANCOLOMBIA — OBSERVACIÓN SECTORIAL;
-    VALIDAR ANTES DE ELEVAR A CANDIDATO TRANSVERSAL`. **Caso 07** produce
-    evidencia independiente: Goldman reportó (hecho documentado) CET1,
-    RWA, CET1 ratio y Supplementary Leverage Ratio, y devolvió ≈US$16.78B
-    a accionistas en 2025 vía recompras y dividendos — la coexistencia de
-    esos hechos regulatorios y de retorno de capital es la base de una
-    inferencia analítica/metodológica, **no** un hecho reportado por
-    Goldman, de que capital regulatorio, buffers, crecimiento y riesgo
-    pueden condicionar cuánto capital puede liberarse para distribución
-    — mecanismo distinto del puente banco operativo → holding de
-    Bancolombia, con la misma estructura conceptual. Estado: `EVIDENCIA
-    FUERTE INDEPENDIENTE EN DOS
+    MUNICH RE ANTES DE DECIDIR SU ELEVACIÓN`. **Caso 08** reportó (hecho
+    documentado) inversiones sujetas en determinados casos a restraints
+    on disposal, y consideraciones de fungibility y transferability de
+    recursos entre entidades del Grupo; y, tras los ajustes
+    correspondientes, declaró (hecho documentado) que no existían
+    restricciones significativas de fungibilidad/transferibilidad para
+    cubrir el Group SCR — esta combinación de evidencia (inferencia
+    analítica construida a partir de ambos hechos, no una conclusión
+    reportada por Munich Re) refuerza el fenómeno con independencia,
+    pero también muestra que no debe exagerarse: la disponibilidad puede
+    depender de `scope`, `purpose`, entidad, regulación,
+    contractualidad, fungibilidad, transferibilidad, y compromisos
+    económicos. **El Caso 08 eleva formalmente esta observación —
+    únicamente de forma metodológica/documental — a Candidato F**, con
+    estado `CANDIDATO F — DISPONIBILIDAD ECONÓMICA DE RECURSOS —
+    EVIDENCIA TRANSVERSAL FUERTEMENTE REFORZADA EN CUATRO ECONOMÍAS
+    RADICALMENTE DISTINTAS: ISA, BANCOLOMBIA, GOLDMAN SACHS Y MUNICH
+    RE`. **No se crea `availability`, `restricted_asset`, `fungibility`,
+    enum, campo, schema, ni automatización.**
+  - **Candidato G — Puente capital / capacidad de distribución (elevado
+    desde la observación Bancolombia-G en el Caso 08, ver §28)**: "la
+    generación de utilidad o la existencia de patrimonio en una entidad
+    regulada no determina por sí sola cuánto valor económico puede
+    distribuirse al accionista final; pueden intervenir requerimientos
+    de capital, crecimiento, buffers prudenciales y niveles societarios
+    intermedios" (cadena conceptual: resultado → retención necesaria →
+    capital que soporta crecimiento/riesgo → posible capital
+    excedentario → capacidad de distribución de la subsidiaria →
+    recursos recibidos por el holding → obligaciones propias del holding
+    → capacidad final de distribución). Estado original `EVIDENCIA
+    FUERTE EN BANCOLOMBIA — OBSERVACIÓN SECTORIAL; VALIDAR ANTES DE
+    ELEVAR A CANDIDATO TRANSVERSAL` (Caso 06, registrado explícitamente
+    como observación sectorial, no como candidato formal). **Caso 07**
+    produce evidencia independiente: Goldman reportó (hecho documentado)
+    CET1, RWA, CET1 ratio y Supplementary Leverage Ratio, y devolvió
+    ≈US$16.78B a accionistas en 2025 vía recompras y dividendos — la
+    coexistencia de esos hechos regulatorios y de retorno de capital es
+    la base de una inferencia analítica/metodológica, **no** un hecho
+    reportado por Goldman, de que capital regulatorio, buffers,
+    crecimiento y riesgo pueden condicionar cuánto capital puede
+    liberarse para distribución — mecanismo distinto del puente banco
+    operativo → holding de Bancolombia, con la misma estructura
+    conceptual. Estado: `EVIDENCIA FUERTE INDEPENDIENTE EN DOS
     INSTITUCIONES FINANCIERAS CON ECONOMÍAS MATERIALMENTE DISTINTAS —
     BANCOLOMBIA Y GOLDMAN SACHS — MANTENER COMO OBSERVACIÓN ABIERTA
-    HASTA MUNICH RE ANTES DE DECIDIR SI ES SECTORIAL O MÁS
-    TRANSVERSAL`. **No se llama "Candidato G". No se fusiona todavía con
-    la observación ISA-F** — ambas tratan disponibilidad/capacidad de
-    recursos, pero por mecanismos distintos. Munich Re (Caso 08,
-    autorizado, no iniciado) es la prueba futura más relevante
-    identificada para esta observación. **No se crea `capital_bridge`,
-    `regulatory_capital`, `distributable_capital`, campos, tablas, ni
-    reglas automáticas.**
+    HASTA MUNICH RE ANTES DE DECIDIR SI ES SECTORIAL O MÁS TRANSVERSAL`.
+    **Caso 08** reportó (hecho documentado) que Munich Re opera bajo
+    Solvency II, con eligible own funds, SCR, y un régimen de capital
+    prudencial propio del sector seguros/reaseguros, materialmente
+    distinto del régimen bancario pero con la misma estructura de fondo
+    (inferencia analítica/metodológica, no una conclusión reportada por
+    Munich Re): capital regulatorio y buffers que condicionan la
+    distribución — ahora existe evidencia fuerte independiente en tres
+    instituciones financieras prudencialmente reguladas con economías
+    materialmente distintas (banca comercial, banca de inversión,
+    seguros/reaseguros). **El Caso 08 eleva formalmente esta observación
+    — únicamente de forma metodológica/documental — a Candidato G**, con
+    estado `CANDIDATO G — PUENTE CAPITAL / CAPACIDAD DE DISTRIBUCIÓN —
+    PATRÓN OBSERVADO EN TRES INSTITUCIONES FINANCIERAS PRUDENCIALMENTE
+    REGULADAS CON ECONOMÍAS MATERIALMENTE DISTINTAS`. **No decir
+    "confirmado para instituciones financieras". No decir "universal".
+    No se fusiona con el Candidato F** — ambos tratan disponibilidad/
+    capacidad de recursos, pero por mecanismos distintos. **No se crea
+    `capital_bridge`, `regulatory_capital`, `distributable_capital`,
+    campos, tablas, ni reglas automáticas.**
   - **Nueva observación registrada por el Caso 07 — compensación como
     posible variable económica endógena (explícitamente NO un candidato
     formal)**: Goldman reportó ≈US$18.9B en compensation and benefits
@@ -749,15 +837,32 @@ que modifiquen los mismos archivos").
     condicional, discrecional, diferida, variable por negocio, cíclica, y
     afectada por stock-based/deferred compensation. Estado:
     `OBSERVACIÓN GOLDMAN — COMPENSACIÓN COMO POSIBLE VARIABLE ECONÓMICA
-    ENDÓGENA`. **`EVIDENCIA INSUFICIENTE PARA CREAR CANDIDATO`. No se
-    llama "Candidato H" ni "Goldman-H". No se crea `compensation
-    model`.** Pregunta abierta: si es simplemente R3, driver R7,
-    fenómeno sectorial de negocios intensivos en capital humano, o algo
-    nuevo — sin resolver en esta actualización.
+    ENDÓGENA`. **Caso 08** no aportó evidencia comparable sobre
+    compensación como variable económica endógena en Munich Re — estado
+    sin cambio: `EVIDENCIA INSUFICIENTE PARA REFORZARLA`. **`EVIDENCIA
+    INSUFICIENTE PARA CREAR CANDIDATO`. No se llama "Candidato H" ni
+    "Goldman-H". No se crea `compensation model`.** Pregunta abierta: si
+    es simplemente R3, driver R7, fenómeno sectorial de negocios
+    intensivos en capital humano, o algo nuevo — sin resolver en esta
+    actualización.
+  - **Nueva observación registrada por el Caso 08 — Observación Munich:
+    puente exposición / retención / capital (explícitamente NO un
+    candidato formal)**: en la economía aseguradora/reaseguradora,
+    riesgo o exposición bruta ≠ riesgo retenido ≠ exposición después de
+    mitigantes ≠ capital requerido por esa exposición (distinción
+    conceptual construida a partir de la mecánica de reinsurance/
+    retrocession de Munich Re, no un hecho reportado literalmente).
+    Estado: `OBSERVACIÓN MUNICH — PUENTE EXPOSICIÓN / RETENCIÓN /
+    CAPITAL`. **`EVIDENCIA INSUFICIENTE PARA NUEVO CANDIDATO`. No se
+    llama "Candidato H".** Puede terminar siendo parte del Candidato A
+    (arriba en esta misma lista), parte de R3, parte del Candidato G, o
+    un fenómeno nuevo — pregunta que queda para la consolidación
+    transversal (§28).
 
-  Todos los candidatos y las observaciones ISA-F, Bancolombia-G y la
-  observación de compensación de Goldman requieren más casos y, después,
-  criterio experto antes de precisarse.
+  Todos los candidatos A–G y las observaciones de compensación (Goldman)
+  y de exposición/retención/capital (Munich) requieren, en lo que no
+  quedó ya elevado por el Caso 08, más casos y/o la consolidación
+  transversal (§28) y, después, criterio experto antes de precisarse.
 - **Cautelas conceptuales adicionales aportadas por el Caso 05, sin
   cambio de especificación** (§22, §25):
   - **R3**: no convertir `assumption_relations` en un grafo causal
@@ -824,6 +929,31 @@ que modifiquen los mismos archivos").
     client facilitation, investment) — evidencia más fuerte hasta ahora
     sobre `purpose` (§5.2, §27). **No se fusiona `purpose` con `scope`.
     No se crean campos ni enums.**
+- **Cautelas conceptuales adicionales aportadas por el Caso 08, sin
+  cambio de especificación** (§20, §28):
+  - **Field of business ≠ reportable segment ≠ entidad legal ≠ unidad
+    económica de valoración**: Munich Re administra Global Specialty
+    Insurance (primary insurance) dentro de la organización de
+    Reinsurance — evidencia directa de que la unidad económicamente
+    adecuada de análisis puede no coincidir con la etiqueta contable ni
+    legal. **No implica que cada segmento deba valorarse
+    separadamente.**
+  - **Puente bruto/mitigantes/exposición más allá del netting**: Munich
+    Re muestra que el fenómeno del Candidato A excede la compensación
+    jurídica de posiciones — incluye reinsurance/retrocession como
+    mecanismo económico distinto. **No se crea `netting`, modelo de
+    collateral, ni campos.**
+  - **`scope` y `purpose` alcanzan necesidad conceptual muy fuertemente
+    respaldada**: IFRS y Solvency II pueden representar el mismo Grupo
+    con distintos propósitos y bases de medición — evidencia más fuerte
+    hasta ahora sobre ambas necesidades conjuntamente (§5.2, §28). **No
+    se fusionan. No se crean campos ni enums.**
+  - **Elevación documental de dos observaciones a candidatos (Candidato
+    F y Candidato G)**: ver detalle completo en §20 y §28. **Ambas
+    elevaciones son únicamente metodológicas/documentales — no autorizan
+    `availability`, `restricted_asset`, `fungibility`, `capital_bridge`,
+    `regulatory_capital`, `distributable_capital`, campos, tablas, ni
+    reglas automáticas.**
 
 ---
 
@@ -1705,3 +1835,185 @@ Candidatos A–E ni las observaciones ISA-F y Bancolombia-G, y no
 selecciona método de valoración final. El Caso 08 (Munich Re) está
 autorizado, pero no se inicia en esta actualización — debe todavía
 intentar romper las conclusiones de este caso.
+
+---
+
+## 28. Refinamientos documentales derivados del Caso 08 (Munich Re) — 2026-08-12 — CIERRE DE LA PRIMERA BATERÍA
+
+**CASO 08 NO AUTORIZA IMPLEMENTACIÓN.** Ni el Caso 01, ni el Caso 02, ni
+el Caso 03, ni el Caso 04, ni el Caso 05, ni el Caso 06, ni el Caso 07,
+ni el Caso 08, ni ninguno de sus reportes de contraste, ni esta
+actualización del Expediente, constituyen autorización para implementar
+ninguna estructura técnica (tablas, SQL, migraciones, schemas, UI,
+motores, Edge Functions, automatizaciones, persistencia, coherence
+engine, decomposition engine, grafo causal, `case_perimeter`, `netting`,
+modelo de collateral, `economic_period`, `economic_lifecycle`,
+`measurement_basis`, `availability`, `restricted_asset`, `fungibility`,
+`regulatory_capital`, `capital_bridge`, `distributable_capital`,
+`valuation_method`, un "bank mode", un "insurance mode", un enum de
+institución financiera, un IFRS17 engine, un CSM engine, o cualquier
+cambio runtime). Solo Nicolás/fundador puede autorizar implementación,
+de forma explícita y separada.
+
+**Estado: especificación conceptual sujeta a validación adicional
+mediante consolidación transversal; no autorización de implementación.**
+Detalle completo del caso y del contraste:
+`docs/velarix/casos/08-munich-re/CASO-08-MUNICH-RE-V0.md` y
+`docs/velarix/casos/08-munich-re/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
+**El Caso 08 queda FORMALMENTE CERRADO Y CONGELADO como caso de
+estudio**, tras autorización explícita de Nicolás/fundador en esta misma
+ejecución — este cierre no cierra R1–R8, no cierra la metodología, no
+cierra los Bloques 1B ni 1C, no congela el Expediente como arquitectura,
+y no cierra ninguno de los Candidatos A–G ni las observaciones de
+compensación (Goldman) y de exposición/retención/capital (Munich), que
+siguen abiertos. **El Caso 08 es el último caso de la primera batería de
+ocho casos de Velarix.**
+
+El Caso Público 08 (Munich Re, FY2025) se usó como octava economía — la
+tercera institución financiera prudencialmente regulada de la secuencia,
+y la primera del sector seguros/reaseguros — **para intentar romper
+Velarix, no para confirmarlo**. **Ocho casos muestran patrones más
+resistentes; ocho casos no crean leyes universales.** El estudio manual
+de Munich Re aportó evidencia que reforzó, elevó, tensionó, mantuvo sin
+cambio, o resultó insuficiente para lo siguiente, ahora incorporado en
+§5.2 y §20:
+
+1. **R1, R2, R4 (formulación base), R7 y R8 se mantienen en `PATRÓN
+   OBSERVADO EN OCHO CASOS`** — reaparecen de forma transversal e
+   idéntica en Tecnoglass, Terpel, Ecopetrol, Grupo Éxito, ISA,
+   Bancolombia, Goldman Sachs y Munich Re: contabilidad ≠ economía
+   (insurance liabilities, CSM, reinsurance held); observado ≠
+   normalizado ≠ proyectado (cat losses, reserve development);
+   descomposición según dimensión económica relevante (segmento, línea,
+   accident year, gross/net, cat/man-made, moneda, duración); drivers
+   específicos por empresa (loss ratio, combined ratio, retrocession,
+   CSM release, entre otros, sin biblioteca universal cerrada);
+   detección de incoherencias sin decisión automática. Ninguna de estas
+   cinco reglas generó cambio de especificación.
+2. **R3, en su núcleo conceptual, también se mantiene en `PATRÓN
+   OBSERVADO EN OCHO CASOS`**, con la representación general de
+   `assumption_relations` aún más insuficientemente validada — Munich Re
+   aporta evidencia de feedback, mitigación, circularidad, e
+   interacciones entre pricing, claims, capital, inversiones, solvencia y
+   retrocession. **No se rediseña en esta actualización.**
+3. **R5 se profundiza, sin nuevo enum**: Munich Re aporta la instancia de
+   "conozco la cifra reportada de claims/reservas, pero todavía no sé el
+   desenlace económico final" (ultimate losses, reserve development,
+   risk adjustment).
+4. **`scope` y `purpose` (§5.2) alcanzan `NECESIDAD CONCEPTUAL MUY
+   FUERTEMENTE RESPALDADA`**: Munich Re hace especialmente material que
+   IFRS y Solvency II puedan representar el mismo Grupo con distintos
+   propósitos, bases de medición, y tratamientos de perímetro. **No se
+   fusionan. No se crean campos ni enums.**
+5. **Comparabilidad/perímetro histórico cambia de estado** (§20): de
+   `PROBLEMA FUERTEMENTE DEMOSTRADO EN MÚLTIPLES ECONOMÍAS Y
+   PROFUNDIZADO DENTRO DE INSTITUCIONES FINANCIERAS` (Caso 07) a
+   `PROBLEMA MUY FUERTEMENTE DEMOSTRADO EN MÚLTIPLES ECONOMÍAS; MUNICH RE
+   APORTA EVIDENCIA DIRECTA DE QUE UN MISMO GRUPO PUEDE REQUERIR
+   PERÍMETROS Y MÉTODOS DE REPRESENTACIÓN DIFERENTES SEGÚN EL PROPÓSITO`
+   (field of business ≠ reportable segment ≠ entidad legal ≠ unidad
+   económica de valoración; Global Specialty Insurance administrado
+   dentro de Reinsurance). **Sigue sin crearse `case_perimeter` ni
+   ninguna estructura.**
+6. **Candidatos actualizados de forma desigual — refuerzos y dos
+   elevaciones formales** (§20): **Candidato A — neteo**: sube a
+   evidencia fuerte independiente en tres casos (Ecopetrol, Goldman
+   Sachs, Munich Re), con la advertencia de que "neteo" ya es un nombre
+   demasiado estrecho — la formulación general sigue sin elevarse
+   formalmente. **Candidato B — ciclo de vida económico**: sube a seis
+   casos de naturaleza económica muy distinta. **Candidato C —
+   atribución temporal/corte de conocimiento**: sube a "muy fuertemente
+   respaldado". **Candidato D — derechos económicos/propiedad
+   dinámica**: sin evidencia nueva en cuatro casos consecutivos (ISA,
+   Bancolombia, Goldman Sachs, Munich Re), se mantiene sin elevar.
+   **Candidato E — base de medición/régimen monetario**: la hipótesis de
+   que son fenómenos distintos queda "muy fuertemente respaldada", sin
+   dividirse todavía.
+7. **Observación ISA-F se eleva formalmente a Candidato F**: de
+   `OBSERVACIÓN TRANSVERSAL FUERTEMENTE REFORZADA EN TRES ECONOMÍAS
+   RADICALMENTE DISTINTAS` (Caso 07) a `CANDIDATO F — DISPONIBILIDAD
+   ECONÓMICA DE RECURSOS — EVIDENCIA TRANSVERSAL FUERTEMENTE REFORZADA EN
+   CUATRO ECONOMÍAS RADICALMENTE DISTINTAS: ISA, BANCOLOMBIA, GOLDMAN
+   SACHS Y MUNICH RE` (evidencia: restraints on disposal, fungibility,
+   transferability de inversiones de Munich Re, con la cautela explícita
+   de que, tras ajustes, no existían restricciones significativas para
+   cubrir el Group SCR). **La elevación es únicamente
+   metodológica/documental — no se implementa `availability`,
+   `restricted_asset`, `fungibility`, campos, ni enums.**
+8. **Observación Bancolombia-G se eleva formalmente a Candidato G**: de
+   `EVIDENCIA FUERTE INDEPENDIENTE EN DOS INSTITUCIONES FINANCIERAS`
+   (Caso 07) a `CANDIDATO G — PUENTE CAPITAL / CAPACIDAD DE DISTRIBUCIÓN
+   — PATRÓN OBSERVADO EN TRES INSTITUCIONES FINANCIERAS PRUDENCIALMENTE
+   REGULADAS CON ECONOMÍAS MATERIALMENTE DISTINTAS` (evidencia: régimen
+   de capital Solvency II de Munich Re, materialmente distinto del
+   régimen bancario pero con la misma estructura conceptual de fondo).
+   **No se dice "confirmado para instituciones financieras". No se dice
+   "universal". No se fusiona con el Candidato F. La elevación es
+   únicamente metodológica/documental — no se implementa
+   `capital_bridge`, `regulatory_capital`, `distributable_capital`,
+   campos, ni tablas.**
+9. **Resultados negativos y observación nueva sin candidato**: supplier
+   financing y leases sin evidencia material nueva, sin cambio de
+   estado. La observación de compensación de Goldman no recibió refuerzo
+   en Munich Re (`EVIDENCIA INSUFICIENTE PARA REFORZARLA`). Se registra
+   una **nueva observación — Observación Munich: puente exposición/
+   retención/capital** (riesgo bruto ≠ riesgo retenido ≠ exposición
+   después de mitigantes ≠ capital requerido), explícitamente `EVIDENCIA
+   INSUFICIENTE PARA NUEVO CANDIDATO`, sin convertirse en "Candidato H".
+10. **Diez resultados metodológicos documentados, sin resolver, sin
+    cambiar decisiones aprobadas**: Enterprise Value consolidado y net
+    debt convencional (no adecuados como default consolidado); FCFF/WACC
+    consolidado (no adecuado como default, sin que DCF esté prohibido
+    para aseguradoras); Residual Income/Excess Return y FCFE adaptado a
+    capital (candidatos muy fuerte/fuerte, con problema abierto sobre la
+    base de capital adecuada); DDM literal (demasiado estrecho); Potential
+    Distributions y SOTP (candidatos muy fuertes, con riesgos de
+    interpretación mecánica o de descomposición ingenua); Cost of Equity
+    (conceptualmente natural para métodos directos de equity, no
+    aprobado); WACC (no universal, no eliminado). **Ninguna Decisión
+    aprobada del Bloque 1B cambia.** **No se calculó WACC, Cost of
+    Equity, g, FCFF, FCFE, ni ninguna valoración.**
+
+**Explícitamente no confirmado por este caso** (queda fuera, sin
+agregarse a la especificación): ninguna cifra de Munich Re se incorporó
+como default, benchmark ni referencia metodológica de Velarix; ningún
+negocio, driver, ni método de valoración específico de Munich Re se
+declaró requisito universal para otras empresas o instituciones
+financieras; no se decidió el nombre, tipo ni estructura final de
+`scope` ni de `purpose`; no se rediseñó `assumption_relations`; no se
+creó ninguna estructura para comparabilidad/perímetro histórico pese al
+cambio de estado; no se crearon `economic_period`, `economic_lifecycle`,
+`measurement_basis`, `availability`, `restricted_asset`, `fungibility`,
+`case_perimeter`, `netting`, modelo de collateral, `regulatory_capital`,
+`capital_bridge`, `distributable_capital`, `valuation_method`, ni
+ninguna entidad `bank_mode`/`insurance_mode`/enum de institución
+financiera; no se declaró obligatoria ninguna metodología de valoración;
+no se seleccionó método final de valoración para Munich Re; no se crea
+"Candidato H" para ninguna de las dos observaciones sin candidato; no se
+divide el Candidato E; no se cerraron los Bloques 1B ni 1C; no se
+modificó ninguna Decisión financiera aprobada del Bloque 1B; **no se
+ejecutó la consolidación transversal de los ocho casos** (queda como
+siguiente etapa autorizada, no iniciada); **JPMorgan no se convierte en
+Caso 09 de forma automática**. Todo lo anterior requiere la consolidación
+transversal y/o criterio experto antes de precisarse (ver
+`docs/velarix/casos/08-munich-re/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
+
+**Conclusión de esta actualización, consistente con
+`CASO-08-MUNICH-RE-V0.md` §35**: el Expediente V1 sobrevive
+conceptualmente al Caso 08 — cierra la primera batería de ocho casos
+reforzando especialmente su capa universal de proceso frente a la
+arquitectura financiera específica del método y de la economía valorada
+— pero todavía no está listo para congelarse como arquitectura. **El
+Caso 08 queda FORMALMENTE CERRADO Y CONGELADO como caso de estudio**,
+tras autorización explícita de Nicolás en esta misma ejecución — este
+cierre no cierra R1–R8 como leyes universales, no cierra la metodología,
+no cierra los Bloques 1B ni 1C, no congela el Expediente como
+arquitectura, no cierra ninguno de los Candidatos A–G ni las
+observaciones de compensación y de exposición/retención/capital, y no
+selecciona método de valoración final. **La primera batería de ocho
+casos de Velarix queda cerrada.** La siguiente etapa autorizada es la
+**consolidación transversal de los ocho casos** — revisando
+explícitamente los veintinueve puntos de `CASO-08-MUNICH-RE-V0.md` §30
+— **no iniciada en esta actualización**. **JPMorgan no se convierte
+automáticamente en Caso 09**; queda reservado únicamente si, después de
+la consolidación, aporta evidencia nueva que la justifique.
