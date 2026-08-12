@@ -18,9 +18,12 @@ que el caso que resume, es exclusivamente documental. Ningún cambio
 descrito aquí autoriza crear tablas, migraciones, schemas, UI, motores,
 Edge Functions, automatizaciones ni ningún otro cambio técnico. Solo
 Nicolás/fundador puede autorizar implementación, de forma explícita y
-separada. **Este reporte tampoco declara el Caso 04 formalmente cerrado
-ni congelado** — esa declaración, si corresponde, es una ejecución
-posterior tras revisión humana de este commit.
+separada. **Este reporte queda formalmente cerrado junto con el Caso
+04 — Grupo Éxito**, tras revisión humana. El cierre es exclusivamente
+del caso de estudio y de este contraste — **no cierra R1–R8, no cierra
+la metodología, no congela el Expediente como arquitectura, y no cierra
+ninguno de los Candidatos A–E**, que permanecen abiertos como
+candidatos.
 
 **Regla rectora de este reporte**: cuatro casos muestran patrones más
 resistentes; cuatro casos no crean leyes universales. Con un cuarto
@@ -66,7 +69,7 @@ Resumen:
 
 ## 2. A. Áreas suficientemente cubiertas conceptualmente
 
-Sin cambios estructurales — Grupo Éxito confirma que lo existente sigue
+Sin cambios estructurales — Grupo Éxito refuerza que lo existente sigue
 siendo suficiente:
 
 - `company_context` — suficiente para registrar el contexto cualitativo
@@ -206,8 +209,12 @@ por Grupo Éxito (`CASO-04-GRUPO-EXITO-V0.md` §31, §33):
 ## 8. Resumen de disposición final
 
 - **Incorporado como refuerzo transversal, sin cambio de
-  especificación**: R1, R2, R4 (formulación base), R7, R8 (`PATRÓN
-  OBSERVADO EN CUATRO CASOS`).
+  especificación**: R1, R2, R7, R8 (`PATRÓN OBSERVADO EN CUATRO CASOS`);
+  R4 en su formulación base (`PATRÓN OBSERVADO EN CUATRO CASOS`); R3 en
+  su núcleo conceptual —que existen relaciones materiales entre
+  supuestos— también `PATRÓN OBSERVADO EN CUATRO CASOS`, aunque el
+  diseño de `assumption_relations` sigue insuficientemente validado (ver
+  matriz §1).
 - **Incorporado como necesidad conceptual reforzada, sin implementar**:
   `purpose` (sube de nivel); comparabilidad/perímetro (pasa a "problema
   demostrado en múltiples economías").
@@ -244,9 +251,10 @@ declara listo para implementación.
 ## 10. Qué sigue
 
 1. Un eventual Caso 05 (empresa con una quinta economía distinta, no
-   analizado en esta tarea) ayudaría a: confirmar si `PATRÓN OBSERVADO EN
-   CUATRO CASOS` (R1, R2, R4 base, R7, R8) se sostiene con un quinto
-   punto de dato independiente; aportar una tercera instancia a los
+   analizado en esta tarea) ayudaría a: evaluar si el patrón `PATRÓN
+   OBSERVADO EN CUATRO CASOS` (R1, R2, R3 en su núcleo, R4 base, R7, R8)
+   se sostiene con un quinto punto de dato independiente; aportar una
+   tercera instancia a los
    Candidatos B y C (que ya tienen dos); aportar una segunda instancia a
    los Candidatos D y E (que hoy tienen solo una); y ayudar a decidir si
    comparabilidad/perímetro puede pasar de "problema demostrado en
@@ -255,9 +263,10 @@ declara listo para implementación.
 2. Ninguno de los cambios de este reporte autoriza implementación — sigue
    pendiente autorización explícita y separada del fundador
    (`Negocio_Velarix_v4.2.md` §19, regla 19).
-3. Este reporte **no declara el Caso 04 formalmente cerrado ni
-   congelado** — esa declaración, si corresponde, es una ejecución
-   posterior tras revisión humana de este commit.
+3. Este reporte y el Caso 04 quedan **formalmente cerrados y
+   congelados**, tras esta revisión humana (ver encabezado). El cierre
+   no afecta R1–R8, la metodología, los Bloques 1B/1C, el Expediente
+   como arquitectura, ni los Candidatos A–E, que permanecen abiertos.
 4. Las preguntas metodológicas de `CASO-04-GRUPO-EXITO-V0.md` §29
    (scope, purpose, `assumption_relations`, supplier financing, leases
    con doble rol arrendatario/arrendador, book vs. fair value

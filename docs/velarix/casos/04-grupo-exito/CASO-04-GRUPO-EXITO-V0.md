@@ -1,14 +1,27 @@
 # Caso Público 04 — Grupo Éxito — V0
 
-**Fecha:** 2026-08-12
-**Estado:** análisis manual, versión V0. No es una valoración. No autoriza
-implementación de ningún cambio al Expediente. El reporte de contraste
-(`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma carpeta) tampoco
-constituye autorización de implementación; cualquier implementación
-requiere autorización explícita y separada del fundador. **Este
-documento NO declara el Caso 04 formalmente cerrado ni congelado** — ese
-cierre, si corresponde, será una ejecución posterior tras revisión
-humana de este commit.
+**Fecha:** 2026-08-12 (cierre formal: 2026-08-12, tras revisión humana)
+**Estado: CASO PÚBLICO 04 — GRUPO ÉXITO: FORMALMENTE CERRADO Y
+CONGELADO.** Versión V0. No es una valoración. No autorizó implementación
+de ningún cambio al Expediente. No produjo Enterprise Value, Equity
+Value, precio por acción, WACC definitivo, g definitiva ni horizonte
+definitivo. El análisis metodológico de este caso terminó: el caso queda
+cerrado **como caso de estudio**, y sus hallazgos metodológicos quedan
+preservados (R1–R8, `scope`, `purpose`, comparabilidad/perímetro,
+Candidatos A–E, supplier financing, leases, CAPEX — ver §20–§27). No
+debe reabrirse salvo nueva evidencia concreta, una contradicción
+documental real, o una instrucción explícita de Nicolás/fundador.
+
+**Este cierre es exclusivamente del Caso 04 como caso de estudio —
+NO cierra R1–R8, NO cierra la metodología, NO cierra los Bloques 1B ni
+1C, NO congela el Expediente como arquitectura, y NO cierra ninguno de
+los Candidatos A–E, que siguen siendo candidatos.** Los asuntos
+pendientes de este caso se llevarán a casos posteriores y a la
+consolidación prevista después del Caso 06. El reporte de contraste
+(`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma carpeta) queda
+formalmente cerrado junto con este caso, y tampoco constituye
+autorización de implementación; cualquier implementación requiere
+autorización explícita y separada del fundador.
 
 **CASO 04 NO AUTORIZA IMPLEMENTACIÓN.** Ningún hallazgo, hipótesis,
 candidato o patrón de este documento constituye autorización para crear
@@ -24,7 +37,8 @@ puede autorizar implementación, de forma explícita y separada.
 - **Posición en la secuencia:** cuarto caso de estudio manual, después de
   Caso 01 (Tecnoglass, cerrado y congelado), Caso 02 (Organización
   Terpel, cerrado) y Caso 03 (Ecopetrol, cerrado y congelado).
-- **Insumos previos leídos antes de escribir este documento:**
+- **Insumos documentales de continuidad revisados para el contraste y
+  cierre del Caso 04:**
   `docs/velarix/casos/01-tecnoglass/CASO-01-TECNOGLASS-V0.md`,
   `docs/velarix/casos/01-tecnoglass/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`,
   `docs/velarix/casos/02-terpel/CASO-02-TERPEL-V0.md`,
@@ -338,7 +352,7 @@ financieras)
   → caja
 ```
 
-**Regla transversal confirmada (R2)**: saldo observado ≠ saldo
+**Patrón transversal observado (R2)**: saldo observado ≠ saldo
 normalizado ≠ saldo proyectado — un mismo saldo de cuentas por pagar
 puede reflejar mecanismos comerciales, financieros o mixtos
 simultáneamente, sin que eso implique automáticamente reclasificarlo.
@@ -736,7 +750,7 @@ problema estructural: consolidación con NCI materiales (participación
 atribuible tan baja como 26,01% en las estructuras "Viva", §8), negocios
 conjuntos fuera de consolidación línea por línea (§8), y un cambio
 posterior del perímetro de Argentina reconocido explícitamente por la
-propia compañía como limitante de comparabilidad (§19). Esto confirma
+propia compañía como limitante de comparabilidad (§19). Esto refuerza
 que el problema **no es específico de la estructura de un grupo
 energético con una subsidiaria eléctrica** — reaparece en una economía
 de naturaleza completamente distinta.
@@ -1071,13 +1085,34 @@ Adicionalmente:
 ## 32. Conclusión metodológica
 
 Con cuatro casos independientes (Tecnoglass, Terpel, Ecopetrol, Grupo
-Éxito), cinco de las ocho reglas (R1, R2, R4 en su formulación base, R7,
-R8) reaparecen de forma transversal e idéntica — se documentan como
-`PATRÓN OBSERVADO EN CUATRO CASOS`, el nivel de evidencia más alto
-registrado hasta ahora por Velarix, pero **explícitamente no una ley
-universal**. R3 y R6 se profundizan o se muestran incompletos; `purpose`
-sube un nivel de madurez sin alcanzar a `scope`; `scope` se mantiene sin
-nueva evidencia que lo eleve más allá de lo ya alcanzado en el Caso 03.
+Éxito), el estado de cada regla queda así — se evita deliberadamente un
+conteo agregado tipo "cinco de ocho" o "seis de ocho", porque un conteo
+de ese tipo puede ocultar diferencias reales de madurez entre reglas:
+
+- **R1, R2, R7 y R8** reaparecen de forma transversal e idéntica:
+  `PATRÓN OBSERVADO EN CUATRO CASOS`.
+- **R3**: su núcleo conceptual —que existen relaciones materiales entre
+  supuestos— es también `PATRÓN OBSERVADO EN CUATRO CASOS` (§20), pero
+  el diseño de `assumption_relations` sigue **insuficientemente
+  validado** (evidencia nueva de causalidad inversa y retroalimentación,
+  no solo de cadenas más largas) — por eso su estado completo es
+  `PATRÓN OBSERVADO EN CUATRO CASOS + DISEÑO INSUFICIENTEMENTE
+  VALIDADO`, no una simple ausencia de la lista transversal.
+- **R4**, en su formulación base, es igualmente `PATRÓN OBSERVADO EN
+  CUATRO CASOS`; su extensión candidata hacia cifras netas/movimientos
+  (Candidato A) sigue sin evidencia transversal suficiente para
+  modificar la formulación.
+- **R5** sobrevive y se profundiza — este documento no le asigna una
+  etiqueta transversal formal, porque §20 no la definió para R5.
+- **R6** sobrevive incompleto; `scope` y `purpose` mantienen sus estados
+  específicos (ver más abajo), sin fusionarse entre sí.
+
+Ninguna de estas ocho reglas se declara ley universal por haber
+reaparecido en cuatro casos — es, hasta ahora, el nivel de evidencia más
+alto que Velarix ha registrado, **explícitamente no una ley universal**.
+`purpose` sube un nivel de madurez sin alcanzar a `scope`; `scope` se
+mantiene sin nueva evidencia que lo eleve más allá de lo ya alcanzado en
+el Caso 03.
 
 Grupo Éxito refuerza dos candidatos heredados de Ecopetrol de forma
 desigual: Candidato B (ciclo de vida económico) sube a evidencia de dos
@@ -1115,6 +1150,11 @@ persistencia, coherence engine, decomposition engine, grafo causal,
 puede autorizar implementación, de forma explícita y separada, caso por
 caso.
 
-**Este documento no declara el Caso 04 formalmente cerrado ni
-congelado.** Esa declaración, si corresponde, es una ejecución posterior
-condicionada a revisión humana de este commit.
+**Este documento declara el Caso Público 04 — Grupo Éxito FORMALMENTE
+CERRADO Y CONGELADO**, tras la revisión humana correspondiente. Este
+cierre aplica exclusivamente al caso de estudio y a su reporte de
+contraste — **no cierra R1–R8, no cierra la metodología, no cierra los
+Bloques 1B ni 1C, no congela el Expediente como arquitectura, y no
+cierra ninguno de los Candidatos A–E**, que permanecen abiertos como
+candidatos. Los asuntos pendientes de este caso se llevarán a casos
+posteriores y a la consolidación prevista después del Caso 06.

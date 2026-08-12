@@ -799,8 +799,10 @@ más casos; no autorización de implementación.** Detalle completo del
 caso y del contraste:
 `docs/velarix/casos/04-grupo-exito/CASO-04-GRUPO-EXITO-V0.md` y
 `docs/velarix/casos/04-grupo-exito/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
-**Este Caso 04 no está formalmente cerrado ni congelado** — su cierre,
-si corresponde, es una ejecución posterior tras revisión humana.
+**El Caso 04 queda formalmente cerrado y congelado como caso de
+estudio**, tras revisión humana — este cierre no cierra R1–R8, no cierra
+la metodología, no congela el Expediente como arquitectura, y no cierra
+ninguno de los Candidatos A–E, que siguen siendo candidatos.
 
 El Caso Público 04 (Grupo Éxito, FY2025, con información posterior al
 corte de 2026 documentada por separado) fue diseñado explícitamente
