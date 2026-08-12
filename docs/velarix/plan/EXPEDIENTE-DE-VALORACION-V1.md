@@ -1329,9 +1329,10 @@ para lo siguiente, ahora incorporado en §5.2 y §20:
    resultó irrelevante para Bancolombia como empresa valorada, sin
    cambio de estado (`PROBLEMA FUERTEMENTE REFORZADO — CRITERIOS DE
    RECLASIFICACIÓN TODAVÍA ABIERTOS`, apoyado en Tecnoglass, Terpel y
-   Grupo Éxito). Leases se refuerza (tercera instancia de doble rol)
-   sin cambio de estado (`PROBLEMA DEMOSTRADO — TRATAMIENTO DE
-   VALORACIÓN NO GENERALIZADO`).
+   Grupo Éxito). Leases se refuerza (Bancolombia aporta otra instancia
+   explícita de doble rol lessee/lessor, después de ISA) sin cambio de
+   estado (`PROBLEMA DEMOSTRADO — TRATAMIENTO DE VALORACIÓN NO
+   GENERALIZADO`).
 10. **Tensión metodológica documentada, sin resolver, sin cambiar
     decisiones aprobadas**: Bancolombia aporta evidencia suficiente para
     rechazar como obligación universal la secuencia `FCFF → WACC →

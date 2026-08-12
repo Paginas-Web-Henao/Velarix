@@ -98,9 +98,12 @@ Resumen:
   respaldado".
 - **Observación ISA-F**: sube a "observación transversal fuertemente
   reforzada en dos economías radicalmente distintas".
-- **Leases y supplier financing**: reforzados en su problema (leases) o
-  en su irrelevancia sectorial confirmada (supplier financing), sin
-  cambio de estado formal en ninguno de los dos.
+- **Leases y supplier financing**: reforzado en su problema (leases);
+  para supplier financing, Bancolombia no aportó evidencia material
+  útil — resultado `IRRELEVANCIA / EVIDENCIA INSUFICIENTE` para
+  Bancolombia como empresa valorada, sin que esto confirme
+  irrelevancia universal del fenómeno. Sin cambio de estado formal en
+  ninguno de los dos.
 
 ## 4. Qué quedó conceptualmente incompleto
 

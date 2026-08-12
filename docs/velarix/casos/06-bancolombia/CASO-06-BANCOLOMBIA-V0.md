@@ -327,9 +327,10 @@ tratamiento distinto.
 
 ## 12. D. Cash / liquidez
 
-`HECHO DOCUMENTADO` (a nivel conceptual, según la síntesis recibida): en
-una institución bancaria deben distinguirse conceptualmente al menos
-cuatro nociones de efectivo:
+`DISTINCIÓN CONCEPTUAL` (construida a partir de la síntesis recibida,
+no un hecho reportado literalmente por la compañía): en una institución
+bancaria deben distinguirse conceptualmente al menos cuatro nociones de
+efectivo:
 
 ```
 cash contable
@@ -356,8 +357,9 @@ efectivo restringido contractualmente).
 
 ## 13. E. Capital
 
-`HECHO DOCUMENTADO` (a nivel conceptual, según la síntesis recibida):
-deben distinguirse conceptualmente al menos cinco nociones de capital:
+`DISTINCIÓN CONCEPTUAL` (construida a partir de la síntesis recibida,
+no un hecho reportado literalmente por la compañía): deben distinguirse
+conceptualmente al menos cinco nociones de capital:
 
 ```
 patrimonio contable
@@ -387,9 +389,11 @@ puede, a su vez, distribuirse al accionista final — ver Bancolombia-G
 
 ## 14. F. NWC
 
-`HECHO DOCUMENTADO` (conclusión analítica de este caso): el concepto
-industrial convencional de capital de trabajo neto (NWC) **no aparece
-como un driver económicamente adecuado** para el core bancario — un
+`INFERENCIA ANALÍTICA` (conclusión económica de este caso, construida a
+partir de los hechos documentados en §9–§12, no un hecho reportado por
+la compañía): el concepto industrial convencional de capital de trabajo
+neto (NWC) **no aparece como un driver económicamente adecuado** para el
+core bancario — un
 banco no tiene "inventario" ni "cuentas por cobrar comerciales" en el
 sentido industrial; su "capital de trabajo" económico está mejor
 representado por la relación entre depósitos, cartera y liquidez ya
@@ -405,13 +409,16 @@ siéndolo.
 
 ## 15. G. CAPEX / reinversión
 
-`HECHO DOCUMENTADO` (a nivel conceptual, según la síntesis recibida):
-CAPEX existe en Bancolombia (infraestructura física, tecnología), pero
-**no representa necesariamente toda la reinversión económica relevante**
-de un banco. El crecimiento de un banco puede exigir, además,
-**retención de capital** que soporte activos, riesgo y requerimientos
-prudenciales — una forma de reinversión sin equivalente exacto en las
-economías industriales de los cinco casos previos.
+`HECHO DOCUMENTADO` (según la síntesis recibida): CAPEX existe en
+Bancolombia (infraestructura física, tecnología).
+
+`INFERENCIA ANALÍTICA` (conclusión económica construida a partir de ese
+hecho y del §13, no un hecho reportado por la compañía): ese CAPEX **no
+representa necesariamente toda la reinversión económica relevante** de
+un banco. El crecimiento de un banco puede exigir, además, **retención
+de capital** que soporte activos, riesgo y requerimientos prudenciales
+— una forma de reinversión sin equivalente exacto en las economías
+industriales de los cinco casos previos.
 
 **Regla explícita**: **no crear una fórmula automática** que combine
 CAPEX contable y retención de capital regulatorio en una única métrica
@@ -752,6 +759,15 @@ VALORACIÓN NO GENERALIZADO`.** **No se crea regla automática.**
 
 **No se selecciona método final. No se valora Bancolombia.**
 
+**Nota epistemológica de esta sección**: los hechos económicos de
+Bancolombia citados a continuación (§9–§18) son `HECHO DOCUMENTADO` o
+síntesis de hechos públicos, según lo indicado en cada sección. La
+evaluación de qué tan compatible es cada método con esos hechos es una
+`INFERENCIA METODOLÓGICA` — una conclusión sobre método construida a
+partir de esos hechos económicos y de referencias metodológicas
+secundarias (Damodaran, BIS — ver §5), **no** un hecho reportado por
+Bancolombia ni evidencia primaria sobre la compañía.
+
 ### A. EV / FCFF + WACC convencional
 
 **Resultado: NO ADECUADO COMO DEFAULT PARA EL CORE BANCARIO.** Razones:
@@ -1025,7 +1041,9 @@ presuponer su resultado:
   condicionales, regulatorias o bidireccionales.
 - Umbral de materialidad para exigir descomposición (`account_components`).
 - Tratamiento de leases cuando el mismo grupo es simultáneamente
-  arrendatario y arrendador — tercera instancia.
+  arrendatario y arrendador — Bancolombia vuelve a reforzar el problema
+  y aporta otra instancia explícita de doble rol lessee/lessor, después
+  de ISA.
 - Comparabilidad/perímetro — ahora incluyendo una institución
   financiera, sin representación general.
 - Candidato A (neteo) — sin evidencia nueva en dos casos consecutivos
