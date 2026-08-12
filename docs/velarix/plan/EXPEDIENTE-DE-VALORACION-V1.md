@@ -178,7 +178,7 @@ se incorpora aquí porque ese ejercicio demostró que sin esta distinción
 explícita el expediente no puede diferenciar "lo sabemos" de "lo estamos
 asumiendo".
 
-## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Caso 03 — §22, §23)
+## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Casos 03 y 04 — §22, §23, §24)
 
 `docs/velarix/casos/02-terpel/CASO-02-TERPEL-V0.md` §11 mostró que, en
 una organización con múltiples negocios, países o contratos, un mismo
@@ -187,26 +187,37 @@ cifra puede haber sido determinada originalmente para un propósito
 distinto al de una valoración Velarix. `docs/velarix/casos/03-ecopetrol/CASO-03-ECOPETROL-V0.md`
 §13 y §17 (R6) reforzó esto con un mecanismo adicional: perímetro
 consolidado con intereses no controladores materiales (ISA, ≈51,4% de
-control). Esto deja registradas dos necesidades conceptuales sobre
-`case_assumptions` (y potencialmente `projection_hypotheses`), **sin
-implementarlas ni diseñar su tipo, enum o estructura todavía**:
+control). `docs/velarix/casos/04-grupo-exito/CASO-04-GRUPO-EXITO-V0.md`
+§20 (R6) aportó evidencia particularmente limpia sobre **propósito**:
+tasas de descuento para impairment, supuestos de unidades generadoras de
+efectivo (UGE), y metodologías de fair value inmobiliario — un supuesto
+válido para impairment o para el fair value de un inmueble no es
+automáticamente válido para una valoración profesional del equity,
+porque fue determinado con un propósito distinto. Esto deja registradas
+dos necesidades conceptuales sobre `case_assumptions` (y potencialmente
+`projection_hypotheses`), **sin implementarlas ni diseñar su tipo, enum
+o estructura todavía**:
 
 - **Alcance** (nombre tentativo `scope`): ¿a qué aplica exactamente este
   supuesto? — por ejemplo empresa completa, filial, país, segmento, UGE,
   producto, contrato, o la porción atribuible después de intereses no
   controladores. **Necesidad conceptual fuertemente respaldada por
-  múltiples casos** (Terpel + Ecopetrol) — sigue sin definirse tipo, enum
-  ni estructura.
+  múltiples casos** (Terpel + Ecopetrol) — el Caso 04 no aportó evidencia
+  independiente nueva que eleve este nivel; sigue sin definirse tipo,
+  enum ni estructura.
 - **Propósito** (nombre tentativo `purpose`): ¿para qué fue originalmente
   determinado o utilizado este supuesto? — por ejemplo prueba de
   deterioro, presupuesto, planificación, covenant, valoración previa, o
-  presentación gerencial. **Permanece como pregunta conceptual abierta,
-  con evidencia menor que `scope`** — el Caso 03 no aportó evidencia
-  directa nueva sobre el propósito original de una cifra específica.
+  presentación gerencial. **Sube de nivel de evidencia con el Caso 04**:
+  pasa de "pregunta conceptual abierta, evidencia menor que `scope`" a
+  **necesidad conceptual respaldada por múltiples casos, todavía menos
+  madura que `scope`** — sigue sin definirse tipo, enum ni estructura, y
+  sigue sin fusionarse con `scope`.
 
 Ninguno de los dos nombres, tipos ni estructuras finales queda decidido
 por esta actualización — ver `docs/velarix/casos/02-terpel/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
-§2 (cambios #2 y #3) y `docs/velarix/casos/03-ecopetrol/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
+§2 (cambios #2 y #3), `docs/velarix/casos/03-ecopetrol/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
+§3, y `docs/velarix/casos/04-grupo-exito/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §3.
 
 ## 6. Relaciones principales
@@ -481,19 +492,59 @@ que modifiquen los mismos archivos").
 - **Cualquier estructura para comparabilidad/perímetro histórico**
   (adquisiciones, ventas, reclasificaciones, operaciones discontinuadas,
   cambios de consolidación) — Caso 02 (§12, §22) registró esta necesidad
-  con evidencia insuficiente para diseñar solución. **Caso 03 (§13, §23)**
-  cambia el estado a `PROBLEMA DEMOSTRADO; EVIDENCIA INSUFICIENTE PARA
+  con evidencia insuficiente para diseñar solución. Caso 03 (§13, §23)
+  cambió el estado a `PROBLEMA DEMOSTRADO; EVIDENCIA INSUFICIENTE PARA
   DISEÑAR UNA SOLUCIÓN GENERAL` (evidencia directa: ISA consolidada al
   100% con ≈51,4% de control económico, intereses no controladores
-  materiales) — **sigue sin crearse `case_perimeter` ni ninguna tabla o
-  schema**, porque el problema demostrado no equivale a una solución de
-  diseño disponible.
-- **Candidatos registrados por Caso 03, sin arquitectura ni campos**
-  (§23): neteo de movimientos económicamente distintos (Candidato A),
-  ciclo de vida económico de un activo o variable (Candidato B,
-  **no se crea `economic_lifecycle`**), y atribución temporal/corte de
-  conocimiento (Candidato C, **no se crea `economic_period`**). Los tres
-  requieren más casos y, después, criterio experto antes de precisarse.
+  materiales). **Caso 04 (§21, §24)** aporta una segunda economía
+  independiente con el mismo problema (estructuras inmobiliarias "Viva"
+  con participación atribuible de 26,01%, negocios conjuntos al 50% fuera
+  de consolidación línea por línea, y un cambio de perímetro de Argentina
+  reconocido explícitamente por la propia compañía como limitante de
+  comparabilidad) y eleva el estado a `PROBLEMA DEMOSTRADO EN MÚLTIPLES
+  ECONOMÍAS; EVIDENCIA TODAVÍA INSUFICIENTE PARA DISEÑAR UNA SOLUCIÓN
+  GENERAL` — **sigue sin crearse `case_perimeter` ni ninguna tabla o
+  schema**, porque un problema demostrado en más de una economía no
+  equivale a una solución de diseño disponible.
+- **Candidatos registrados por Caso 03, actualizados por Caso 04, sin
+  arquitectura ni campos** (§23, §24):
+  - **Candidato A — neteo de movimientos económicamente distintos**:
+    Caso 04 **no aportó evidencia independiente fuerte** sobre este
+    candidato; se mantiene sin elevar (`EVIDENCIA FUERTE EN ECOPETROL —
+    VALIDAR EN CASOS FUTUROS`).
+  - **Candidato B — ciclo de vida económico de un activo o variable**:
+    Caso 04 aporta una segunda economía de naturaleza muy distinta
+    (ciclo de apertura/remodelación/cierre de tiendas de Grupo Éxito,
+    frente al ciclo de agotamiento/abandono de activos E&P de Ecopetrol)
+    — estado `PATRÓN OBSERVADO EN DOS CASOS DE NATURALEZA ECONÓMICA MUY
+    DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **No se crea
+    `economic_lifecycle`.**
+  - **Candidato C — atribución temporal/corte de conocimiento**: Caso 04
+    aporta evidencia independiente fuerte (información posterior al
+    corte de Grupo Éxito, 1T26/2T26, donde la propia compañía reconoce
+    que un cambio de perímetro limita la comparabilidad) — estado
+    `PROBLEMA METODOLÓGICO RESPALDADO POR MÚLTIPLES CASOS — REQUIERE
+    DEFINIR PRINCIPIOS ANTES DE DISEÑAR REPRESENTACIÓN`. **No se crea
+    `economic_period`.**
+  - **Candidato D — derechos económicos/propiedad dinámica (nuevo,
+    Caso 04)**: la atribución económica puede depender no solo de la
+    propiedad actual, sino de derechos u obligaciones contractuales
+    capaces de modificarla (evidencia: opción de venta sobre intereses
+    no controladores de Grupo Disco Uruguay, ejercida parcialmente en
+    2025). Estado `EVIDENCIA FUERTE EN GRUPO ÉXITO — VALIDAR EN CASOS
+    FUTUROS`. **No se crea entidad, tabla, campos, ni modelo automático
+    de valoración de opciones.**
+  - **Candidato E — base de medición/régimen monetario (nuevo,
+    Caso 04)**: antes de comparar, normalizar o proyectar una cifra,
+    puede ser necesario conocer la base de medición y el régimen
+    monetario bajo el cual fue construida (evidencia: subsidiaria
+    argentina en economía hiperinflacionaria, NIC 29, reexpresión y
+    conversión). Estado `EVIDENCIA FUERTE EN GRUPO ÉXITO — VALIDAR EN
+    CASOS FUTUROS`. **No se crea `measurement_basis`, enum monetario, ni
+    campos.**
+
+  Todos los candidatos requieren más casos y, después, criterio experto
+  antes de precisarse.
 
 ---
 
@@ -728,3 +779,128 @@ obligatoria ninguna metodología de suma de partes (SOTP), múltiples DCF,
 múltiples WACC, múltiples g ni múltiples horizontes. Todo lo anterior
 requiere más casos y/o criterio experto antes de precisarse (ver
 `docs/velarix/casos/03-ecopetrol/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
+
+---
+
+## 24. Refinamientos documentales derivados del Caso 04 (Grupo Éxito) — 2026-08-12
+
+**CASO 04 NO AUTORIZA IMPLEMENTACIÓN.** Ni el Caso 01, ni el Caso 02, ni
+el Caso 03, ni el Caso 04, ni ninguno de sus reportes de contraste, ni
+esta actualización del Expediente, constituyen autorización para
+implementar ninguna estructura técnica (tablas, SQL, migraciones,
+schemas, UI, motores, Edge Functions, automatizaciones, persistencia,
+coherence engine, decomposition engine, grafo causal, `case_perimeter`,
+`contracts`, `economic_period`, `economic_lifecycle`,
+`measurement_basis`, o cualquier cambio runtime). Solo Nicolás/fundador
+puede autorizar implementación, de forma explícita y separada.
+
+**Estado: especificación conceptual sujeta a validación adicional con
+más casos; no autorización de implementación.** Detalle completo del
+caso y del contraste:
+`docs/velarix/casos/04-grupo-exito/CASO-04-GRUPO-EXITO-V0.md` y
+`docs/velarix/casos/04-grupo-exito/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
+**Este Caso 04 no está formalmente cerrado ni congelado** — su cierre,
+si corresponde, es una ejecución posterior tras revisión humana.
+
+El Caso Público 04 (Grupo Éxito, FY2025, con información posterior al
+corte de 2026 documentada por separado) fue diseñado explícitamente
+**para intentar romper Velarix, no para confirmarlo**. **Cuatro casos
+muestran patrones más resistentes; cuatro casos no crean leyes
+universales.** El estudio manual de Grupo Éxito aportó evidencia que
+reforzó, profundizó, elevó o mantuvo sin cambio lo siguiente, ahora
+incorporado en §5, §5.2 y §20:
+
+1. **R1, R2, R4 (formulación base), R7 y R8 pasan a `PATRÓN OBSERVADO EN
+   CUATRO CASOS`** — reaparecen de forma transversal e idéntica en
+   Tecnoglass, Terpel, Ecopetrol y Grupo Éxito: contabilidad ≠ economía
+   (inmobiliario book vs. fair value, supplier financing, perímetro con
+   NCI); observado ≠ normalizado ≠ proyectado (NWC, cifra inmobiliaria,
+   supplier financing); descomposición según dimensión económica
+   relevante (inventarios, ingresos heterogéneos bajo una misma
+   etiqueta); drivers específicos por empresa (métricas de retail sin
+   precedente en los tres casos previos); detección de incoherencias sin
+   decisión automática. Ninguna de estas cinco reglas generó cambio de
+   especificación — se registran con el nivel de evidencia más alto
+   disponible hasta ahora, sin convertirse en ley universal. **Cautela
+   explícita añadida por este caso**: R1 no debe interpretarse como que
+   la contabilidad es información inferior a reemplazar — sigue siendo
+   evidencia fundamental. R4 no debe interpretarse como que más
+   granularidad es automáticamente mejor análisis — la descomposición
+   depende de comportamiento económico, materialidad y propósito. R7 no
+   debe interpretarse como que un driver específico exige máxima
+   granularidad disponible.
+2. **R3 se profundiza, sin cambio de especificación**: Grupo Éxito
+   aporta evidencia de causalidad inversa y retroalimentación entre
+   supuestos, no solo de cadenas más largas. Estado: `PATRÓN OBSERVADO
+   EN CUATRO CASOS + DISEÑO INSUFICIENTEMENTE VALIDADO` — **no se
+   rediseña `assumption_relations` en esta actualización**.
+3. **R5 se profundiza, sin nuevo enum**: supplier financing muestra que
+   conocer la cifra, la clasificación contable y el contrato no equivale
+   a conocer la interpretación económica correcta para valoración.
+4. **`purpose` (§5.2) sube de nivel de evidencia**: pasa de "pregunta
+   conceptual abierta, evidencia menor que `scope`" a `NECESIDAD
+   CONCEPTUAL RESPALDADA POR MÚLTIPLES CASOS, AÚN MENOS MADURA QUE
+   SCOPE` — evidencia: tasas de descuento para impairment, supuestos de
+   UGE, y metodologías de fair value inmobiliario, todos determinados
+   con un propósito distinto al de una valoración profesional de
+   equity. **`scope` se mantiene sin cambio de nivel** — Caso 04 no
+   aportó evidencia independiente nueva que lo eleve más allá de lo ya
+   alcanzado en el Caso 03. No se fusionan.
+5. **Comparabilidad/perímetro histórico cambia de estado** (§20): de
+   `PROBLEMA DEMOSTRADO; EVIDENCIA INSUFICIENTE PARA DISEÑAR UNA
+   SOLUCIÓN GENERAL` (Caso 03) a `PROBLEMA DEMOSTRADO EN MÚLTIPLES
+   ECONOMÍAS; EVIDENCIA TODAVÍA INSUFICIENTE PARA DISEÑAR UNA SOLUCIÓN
+   GENERAL` (Caso 04) — evidencia directa e independiente: estructuras
+   inmobiliarias "Viva" con participación atribuible de 26,01%, negocios
+   conjuntos al 50% fuera de consolidación línea por línea, y un cambio
+   de perímetro de Argentina que la propia compañía reconoce como
+   limitante de comparabilidad (información posterior al corte FY2025,
+   1T26/2T26). **Sigue sin crearse `case_perimeter` ni ninguna
+   estructura.**
+6. **Candidatos A–C actualizados, D y E registrados como nuevos** (§20):
+   **Candidato A — neteo**: sin evidencia independiente nueva en este
+   caso, se mantiene sin elevar. **Candidato B — ciclo de vida
+   económico**: sube a `PATRÓN OBSERVADO EN DOS CASOS DE NATURALEZA
+   ECONÓMICA MUY DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA` (Ecopetrol:
+   agotamiento de reservas E&P; Grupo Éxito: ciclo de apertura/
+   remodelación/cierre de tiendas). **Candidato C — atribución
+   temporal/corte de conocimiento**: sube a `PROBLEMA METODOLÓGICO
+   RESPALDADO POR MÚLTIPLES CASOS — REQUIERE DEFINIR PRINCIPIOS ANTES
+   DE DISEÑAR REPRESENTACIÓN`. **Candidato D (nuevo) — derechos
+   económicos/propiedad dinámica**: la atribución económica puede
+   depender de derechos u obligaciones contractuales capaces de
+   modificarla (opción de venta sobre NCI de Grupo Disco Uruguay,
+   ejercida parcialmente en 2025); `EVIDENCIA FUERTE EN GRUPO ÉXITO —
+   VALIDAR EN CASOS FUTUROS`; **no se crea entidad, tabla, campos, ni
+   modelo automático de valoración de opciones**. **Candidato E (nuevo)
+   — base de medición/régimen monetario**: la base de medición y el
+   régimen monetario de una cifra pueden ser necesarios para
+   compararla, normalizarla o proyectarla (subsidiaria argentina
+   hiperinflacionaria, NIC 29); `EVIDENCIA FUERTE EN GRUPO ÉXITO —
+   VALIDAR EN CASOS FUTUROS`; **no se crea `measurement_basis`, enum
+   monetario, ni campos**.
+
+**Explícitamente no confirmado por este caso** (queda fuera, sin
+agregarse a la especificación): ninguna cifra de Grupo Éxito
+(inventarios, proveedores, leases, inmobiliario, CAPEX, participaciones
+NCI, cifras de fidelización) se incorporó como default, benchmark ni
+referencia metodológica de Velarix; ningún negocio o driver de Grupo
+Éxito (formatos de tienda, métricas de retail) se declaró requisito
+universal para otras empresas; no se decidió el nombre, tipo ni
+estructura final de `scope` ni de `purpose`; no se rediseñó
+`assumption_relations`; no se creó ninguna estructura para
+comparabilidad/perímetro histórico pese al cambio de estado; no se
+crearon `economic_period`, `economic_lifecycle`, `measurement_basis`,
+`case_perimeter` ni ninguna entidad `contracts` universal; no se declaró
+obligatoria ninguna metodología de suma de partes (SOTP), múltiples DCF,
+múltiples WACC, múltiples g ni múltiples horizontes; la información
+posterior al corte (1T26, 2T26) no se mezcló con el período base FY2025
+ni reescribió retroactivamente el perímetro de consolidación al 31-dic-
+2025. Todo lo anterior requiere más casos y/o criterio experto antes de
+precisarse (ver
+`docs/velarix/casos/04-grupo-exito/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
+
+**Conclusión de esta actualización, consistente con
+`CASO-04-GRUPO-EXITO-V0.md` §32**: el Expediente V1 sobrevive
+conceptualmente al Caso 04, pero todavía no está listo para congelarse
+como arquitectura.
