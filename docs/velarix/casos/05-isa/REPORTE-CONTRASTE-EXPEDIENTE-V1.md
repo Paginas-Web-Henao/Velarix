@@ -257,10 +257,11 @@ Expediente no se declara listo para implementación. Las Decisiones 2 y
    OBSERVADO EN CINCO CASOS` (R1, R2, R3 en su núcleo, R4 base, R7, R8)
    se sostiene con un sexto punto de dato independiente; aportar una
    cuarta instancia al Candidato B y una tercera al Candidato E; aportar
-   una segunda instancia a los Candidatos A, C y D (que hoy dependen de
-   un solo caso reforzado o de evidencia estancada); y decidir si la
-   observación ISA-F reaparece lo suficiente para registrarse como
-   Candidato F formal.
+   una segunda instancia independiente a los Candidatos A o D si aparece
+   evidencia realmente equivalente, aportar evidencia adicional al
+   Candidato C, y tensionar nuevamente B, E e ISA-F — sin presuponer
+   resultado; y decidir si la observación ISA-F reaparece lo suficiente
+   para registrarse como Candidato F formal.
 2. Ninguno de los cambios de este reporte autoriza implementación — sigue
    pendiente autorización explícita y separada del fundador
    (`Negocio_Velarix_v4.2.md` §19, regla 19).

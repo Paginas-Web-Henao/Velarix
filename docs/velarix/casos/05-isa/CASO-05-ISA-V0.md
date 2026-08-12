@@ -414,19 +414,21 @@ Existen intereses no controladores (NCI) materiales, y negocios
 conjuntos/asociadas que no consolidan línea por línea.
 
 **Regla explícita, coherente con Ecopetrol/ISA-como-subsidiaria (Caso
-03, §13) y con Grupo Éxito (Caso 04, §8)**: esto es la **quinta**
-instancia, y la más directa hasta ahora, de que perímetro consolidado ≠
-participación económica ≠ atribución final al accionista. A diferencia
-de Ecopetrol (una subsidiaria, ISA, con NCI material) y de Grupo Éxito
-(estructuras "Viva" con NCI muy altos), en ISA el fenómeno se observa
-**dentro de la propia entidad que se está estudiando como caso**, con
-múltiples negocios y geografías simultáneamente.
+03, §13) y con Grupo Éxito (Caso 04, §8)**: ISA aporta una nueva
+instancia independiente y especialmente directa de que perímetro
+consolidado, participación económica y atribución final al accionista
+pueden diferir. A diferencia de Ecopetrol (una subsidiaria, ISA, con NCI
+material) y de Grupo Éxito (estructuras "Viva" con NCI muy altos), en
+ISA el fenómeno se observa **dentro de la propia entidad que se está
+estudiando como caso**, con múltiples negocios y geografías
+simultáneamente.
 
 `INFERENCIA`: la combinación de NCI materiales, JVs/asociadas, y
 múltiples geografías sugiere que la atribución económica final al
-accionista de ISA requiere, en principio, entender el perímetro y la
-atribución negocio por negocio y país por país — pero esto **no implica
-la obligación de modelar entidad por entidad** (ver cautela en §23).
+accionista de ISA puede requerir descomposición adicional hasta el
+`scope` materialmente relevante para el propósito del análisis, sin
+implicar modelado obligatorio negocio por negocio, país por país ni
+entidad por entidad (ver cautela en §23).
 
 **No se diseña `case_perimeter` en este documento.** Ver comparabilidad/
 perímetro (§23).
@@ -524,10 +526,14 @@ documento.**
 
 **Cautela conceptual añadida por ISA**: antes de utilizar una estructura
 de capital observada puede importar determinar a qué `scope` pertenece
-esa estructura — la estructura de capital observada al nivel del grupo
-consolidado de ISA puede no ser representativa de la estructura de
-capital de un proyecto o concesión específica, financiada con deuda de
-proyecto (project finance) propia.
+esa estructura — estructuras de financiamiento observadas a nivel de
+grupo, filial, concesión o proyecto pueden diferir, y la estructura de
+capital observada al nivel del grupo consolidado de ISA puede no ser
+representativa de la de un proyecto o concesión específica. Este
+documento **no concluye** que exista una estructura de financiamiento
+de proyecto (project finance) determinada en ningún proyecto o
+concesión de ISA — es una pregunta abierta, no un hecho documentado (ver
+pregunta a gerencia más abajo).
 
 **Pero no hay evidencia en este caso para concluir universalmente que
 cada proyecto necesita su propio WACC** — eso sería una generalización
@@ -656,10 +662,12 @@ transversal — nunca como sinónimo de regla universal, nunca como
   implementa ninguno.**
 - **R7 — Drivers específicos por empresa.** `PATRÓN OBSERVADO EN CINCO
   CASOS.` ISA refuerza que no existe un set universal cerrado de
-  drivers — pueden importar, dependiendo del negocio, RAP (remuneración
-  de activos de transmisión), inflación, fecha de entrada en operación,
-  tráfico, tarifas, garantías, condiciones de concesión, capacidad,
-  utilización, contratos, u otros (§8, §10). Se mantiene: *"driver
+  drivers — pueden importar, dependiendo del negocio, Receita Anual
+  Permitida (RAP) (remuneración regulada asociada al servicio de
+  transmisión en Brasil, ejemplo específico observado en ISA/Brasil, no
+  driver universal), inflación, fecha de entrada en operación, tráfico,
+  tarifas, garantías, condiciones de concesión, capacidad, utilización,
+  contratos, u otros (§8, §10). Se mantiene: *"driver
   específico ≠ máxima granularidad disponible."*
 - **R8 — Detectar incoherencias sin decidir.** `PATRÓN OBSERVADO EN
   CINCO CASOS.` ISA refuerza muy fuertemente que Velarix puede detectar:
