@@ -32,16 +32,23 @@ puede autorizar implementación, de forma explícita y separada.
   institución financiera regulada, deliberadamente elegido para evitar
   que "institución financiera" se convierta en una categoría económica
   homogénea a partir de un solo ejemplo.
-- **Insumos documentales de continuidad revisados para el contraste de
-  este caso:**
-  `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`,
+- **Insumos documentales de continuidad**: se utilizaron como
+  referencias de continuidad los documentos relevantes del repositorio
+  — `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`,
   `docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`,
-  `docs/velarix/plan/REGISTRO-DE-DECISIONES.md`,
-  `docs/velarix/casos/06-bancolombia/CASO-06-BANCOLOMBIA-V0.md`,
-  `docs/velarix/casos/06-bancolombia/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`,
-  y los documentos equivalentes de los Casos 01–05, revisados
-  exclusivamente para replicar estructura y convenciones, no para
-  reauditar su contenido.
+  `docs/velarix/plan/REGISTRO-DE-DECISIONES.md`, y los documentos
+  equivalentes de los Casos 01–06. **Durante esta ejecución documental se
+  inspeccionaron directamente**
+  `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`,
+  `docs/velarix/casos/06-bancolombia/CASO-06-BANCOLOMBIA-V0.md`, y
+  `docs/velarix/casos/06-bancolombia/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
+  — los necesarios para preservar estructura, estados y consistencia con
+  el caso inmediatamente anterior. Los demás documentos listados se
+  citan por referencia de continuidad (decisiones y estados ya
+  establecidos en turnos previos de este mismo trabajo documental), sin
+  que este documento afirme haberlos vuelto a inspeccionar línea por
+  línea en esta ejecución específica. Ninguno se usó para reauditar su
+  contenido.
 - **No se reanaliza ni se recalcula ningún elemento de los Casos 01–06**
   — se citan únicamente para contraste. Sus conclusiones no se
   reinterpretan retrospectivamente a partir de Goldman Sachs.
@@ -131,10 +138,15 @@ ante la SEC, y estados financieros consolidados FY2025.
 **Esta ejecución documental no realizó verificación independiente
 adicional de las fuentes originales**, salvo donde se indique
 expresamente — no se hizo scraping, descarga automatizada, ni
-navegación por internet. Esta ejecución solo inspeccionó documentos ya
-existentes en el repositorio (Casos 01–06, Decisiones financieras del
-Bloque 1B, Registro de decisiones) para preservar estructura,
-vocabulario y consistencia documental.
+navegación por internet. Esta ejecución inspeccionó directamente el
+Expediente y el Caso 06 (Bancolombia) con su reporte de contraste, ya
+existentes en el repositorio, para preservar estructura, vocabulario y
+consistencia documental; los demás documentos (Decisiones financieras
+del Bloque 1B, Registro de decisiones, Casos 01–05) se usaron como
+referencia de continuidad de decisiones y estados ya establecidos en
+turnos previos de este mismo trabajo documental, sin que este documento
+afirme haberlos vuelto a inspeccionar línea por línea en esta ejecución
+específica.
 
 **No se atribuye a Nicolás/fundador la recopilación personal de esta
 información.** El flujo real fue: (1) existe una síntesis analítica de
@@ -397,17 +409,34 @@ TRANSVERSAL FUERTEMENTE REFORZADA EN DOS ECONOMÍAS RADICALMENTE
 DISTINTAS — ISA Y BANCOLOMBIA — MANTENER ABIERTA PARA VALIDACIÓN EN
 CASOS 07–08 ANTES DE DECIDIR SU ELEVACIÓN`.
 
-**Resultado Goldman**: Goldman añade dimensión contractual, de
-collateral, de reuse/repledge, de liquidez, y de regulación (§15). Goldman
-reportó además Global Core Liquid Assets promedio aproximados de
-US$466B durante 2025 — otra magnitud donde reconocimiento contable de un
-recurso no equivale automáticamente a su disponibilidad para cualquier
-propósito.
+**Resultado Goldman**:
 
-**Estado después de Goldman: `OBSERVACIÓN TRANSVERSAL FUERTEMENTE
-REFORZADA EN TRES ECONOMÍAS RADICALMENTE DISTINTAS — ISA, BANCOLOMBIA Y
-GOLDMAN SACHS — MANTENER ABIERTA HASTA MUNICH RE ANTES DE DECIDIR SU
-ELEVACIÓN.`**
+`HECHO DOCUMENTADO`: Goldman reportó Global Core Liquid Assets (GCLA)
+promedio aproximados de US$466B durante 2025. Goldman añade además
+dimensión contractual, de collateral, de reuse/repledge, y de regulación
+(§15).
+
+`DISTINCIÓN CONCEPTUAL / INFERENCIA ANALÍTICA` (construida a partir de
+ese hecho junto con la evidencia de collateral/reuse/repledge de §15, no
+un hecho reportado literalmente por Goldman): esa combinación de
+evidencia refuerza la necesidad de distinguir entre existencia/
+reconocimiento/control de un recurso y su disponibilidad económica para
+un propósito determinado.
+
+**Regla explícita, que no admite ambigüedad**: **no se presenta el GCLA
+por sí solo como demostración directa de indisponibilidad.** **No se
+afirma** "GCLA = recursos restringidos". **No se afirma** que toda la
+liquidez de Goldman esté restringida — la distinción anterior no implica
+que el GCLA, ni ningún otro recurso reconocido, esté indisponible; implica
+únicamente que reconocimiento/control no puede asumirse como equivalente
+a disponibilidad sin evidencia adicional sobre el propósito y las
+condiciones contractuales/regulatorias aplicables.
+
+**Estado después de Goldman, sin cambio respecto a la formulación
+anterior más allá de sumar esta tercera economía: `OBSERVACIÓN
+TRANSVERSAL FUERTEMENTE REFORZADA EN TRES ECONOMÍAS RADICALMENTE
+DISTINTAS — ISA, BANCOLOMBIA Y GOLDMAN SACHS — MANTENER ABIERTA HASTA
+MUNICH RE ANTES DE DECIDIR SU ELEVACIÓN.`**
 
 **No se convierte en Candidato F en este documento. No se crea
 `availability`, enum, campo, schema, ni automatización.**
@@ -484,14 +513,26 @@ distribuirse al accionista final; pueden intervenir requerimientos de
 capital, crecimiento, buffers prudenciales y niveles societarios
 intermedios."*
 
-**Resultado Goldman**: Goldman produce evidencia independiente. Los
-US$16.78B devueltos a accionistas en 2025 (§19) coexisten con
-requerimientos de CET1, RWA, y Supplementary Leverage Ratio que
-condicionan cuánto capital puede liberarse para distribución —
-mecanismo materialmente distinto del puente banco operativo → holding
-de Bancolombia (§20 del Caso 06), pero con la misma estructura
-conceptual: utilidad/patrimonio ≠ automáticamente capacidad de
-distribución.
+**Resultado Goldman**:
+
+`HECHO DOCUMENTADO`: Goldman reportó métricas regulatorias — CET1
+capital, Standardized RWA, Standardized/Advanced CET1 ratio,
+Supplementary Leverage Ratio (§19) — y devolvió capital a accionistas
+mediante recompras (≈US$12.36B) y dividendos (≈US$4.42B) en 2025,
+totalizando ≈US$16.78B (§19).
+
+`INFERENCIA ANALÍTICA / METODOLÓGICA` (construida a partir de esos
+hechos, no un hecho reportado literalmente por Goldman): la coexistencia
+de resultado, capital regulatorio, stress requirements, buffers,
+crecimiento, riesgo, y decisiones de capital puede intervenir en la
+capacidad económica sostenible de distribución. **No se presenta como
+hecho reportado por Goldman que "CET1/RWA/Supplementary Leverage Ratio
+determinan directamente cuánto puede distribuirse"** — la relación es
+una inferencia analítica construida a partir de los hechos regulatorios
+y económicos citados arriba, mecanismo materialmente distinto del
+puente banco operativo → holding de Bancolombia (§20 del Caso 06), pero
+con la misma estructura conceptual: utilidad/patrimonio ≠
+automáticamente capacidad de distribución.
 
 **Estado después del Caso 07: `EVIDENCIA FUERTE INDEPENDIENTE EN DOS
 INSTITUCIONES FINANCIERAS CON ECONOMÍAS MATERIALMENTE DISTINTAS —

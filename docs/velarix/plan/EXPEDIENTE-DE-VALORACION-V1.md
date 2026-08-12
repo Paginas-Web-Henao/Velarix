@@ -693,12 +693,18 @@ que modifiquen los mismos archivos").
     TRANSVERSAL FUERTEMENTE REFORZADA EN DOS ECONOMÍAS RADICALMENTE
     DISTINTAS — ISA Y BANCOLOMBIA — MANTENER ABIERTA PARA VALIDACIÓN EN
     CASOS 07–08 ANTES DE DECIDIR SU ELEVACIÓN`. **Caso 07** añade
-    dimensión contractual, de collateral, de reuse/repledge, de
-    liquidez y de regulación (Global Core Liquid Assets promedio
-    ≈US$466B durante 2025) — el estado sube a `OBSERVACIÓN TRANSVERSAL
-    FUERTEMENTE REFORZADA EN TRES ECONOMÍAS RADICALMENTE DISTINTAS —
-    ISA, BANCOLOMBIA Y GOLDMAN SACHS — MANTENER ABIERTA HASTA MUNICH RE
-    ANTES DE DECIDIR SU ELEVACIÓN`. **Sigue sin convertirse en Candidato
+    dimensión contractual, de collateral, de reuse/repledge, y de
+    regulación, junto con el hecho documentado de que Goldman reportó
+    Global Core Liquid Assets (GCLA) promedio ≈US$466B durante 2025 — sin
+    que el GCLA por sí solo se presente como demostración directa de
+    indisponibilidad; la evidencia combinada refuerza la distinción
+    conceptual entre reconocimiento/control de un recurso y su
+    disponibilidad económica, **no** afirma que el GCLA o cualquier otra
+    liquidez de Goldman esté restringido — el estado sube a `OBSERVACIÓN
+    TRANSVERSAL FUERTEMENTE REFORZADA EN TRES ECONOMÍAS RADICALMENTE
+    DISTINTAS — ISA, BANCOLOMBIA Y GOLDMAN SACHS — MANTENER ABIERTA HASTA
+    MUNICH RE ANTES DE DECIDIR SU ELEVACIÓN`. **Sigue sin convertirse en
+    Candidato
     F. No se crea `availability`, enum, campo, schema, ni
     automatización.**
   - **Observación Bancolombia-G (nueva, Caso 06, explícitamente NO un
@@ -713,12 +719,16 @@ que modifiquen los mismos archivos").
     propias del holding → capacidad final de distribución). Estado
     original `EVIDENCIA FUERTE EN BANCOLOMBIA — OBSERVACIÓN SECTORIAL;
     VALIDAR ANTES DE ELEVAR A CANDIDATO TRANSVERSAL`. **Caso 07** produce
-    evidencia independiente: los ≈US$16.78B devueltos a accionistas de
-    Goldman en 2025 coexisten con requerimientos de CET1, RWA y
-    Supplementary Leverage Ratio que condicionan cuánto capital puede
-    liberarse para distribución — mecanismo distinto del puente banco
-    operativo → holding de Bancolombia, con la misma estructura
-    conceptual. Estado: `EVIDENCIA FUERTE INDEPENDIENTE EN DOS
+    evidencia independiente: Goldman reportó (hecho documentado) CET1,
+    RWA, CET1 ratio y Supplementary Leverage Ratio, y devolvió ≈US$16.78B
+    a accionistas en 2025 vía recompras y dividendos — la coexistencia de
+    esos hechos regulatorios y de retorno de capital es la base de una
+    inferencia analítica/metodológica, **no** un hecho reportado por
+    Goldman, de que capital regulatorio, buffers, crecimiento y riesgo
+    pueden condicionar cuánto capital puede liberarse para distribución
+    — mecanismo distinto del puente banco operativo → holding de
+    Bancolombia, con la misma estructura conceptual. Estado: `EVIDENCIA
+    FUERTE INDEPENDIENTE EN DOS
     INSTITUCIONES FINANCIERAS CON ECONOMÍAS MATERIALMENTE DISTINTAS —
     BANCOLOMBIA Y GOLDMAN SACHS — MANTENER COMO OBSERVACIÓN ABIERTA
     HASTA MUNICH RE ANTES DE DECIDIR SI ES SECTORIAL O MÁS

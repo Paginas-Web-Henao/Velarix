@@ -237,6 +237,12 @@ completo:
 | 19 | Estado de conocimiento | `CUBIERTO` | R5 (§5, §22) ya cubre "conozco la cifra, no sé cómo interpretarla" sin nuevo enum |
 | 20 | Detect without decide | `CUBIERTO` | R8 (§5, §22) ya cubre esta distinción de forma transversal |
 
+**Conteo de la matriz anterior (verificado directamente sobre la tabla,
+fila por fila)**: **11 `CUBIERTO`** (puntos 1, 2, 6, 8, 10, 12, 16, 17,
+18, 19, 20), **5 `PARCIALMENTE CUBIERTO`** (puntos 3, 4, 7, 14, 15), **1
+`NO CUBIERTO`** (punto 13), **3 `NO DEBE RESOLVERSE TODAVÍA`** (puntos 5
+— net debt, 9 — Cost of Equity, 11 — selección de método). Total: 20.
+
 **Nota sobre el punto 13** (el único `NO CUBIERTO`): esto **no** significa
 que deba diseñarse una estructura de "netting" o "collateral" en el
 Expediente. Significa que la prosa conceptual del Expediente (§20,
@@ -250,19 +256,41 @@ reporte para el ajuste documental mínimo aplicado al Expediente.
 
 Consistente con la regla de cambio del Caso 07 (§50 del prompt de
 ejecución: modificar el Expediente solo si el contraste demuestra una
-necesidad documental clara), se aplicó **un único ajuste mínimo**:
-actualizar el estado del Candidato A en §20 del Expediente para reflejar
-la evidencia fuerte independiente de Goldman y la advertencia explícita
-de que su formulación general ("el neteo destruye información") es
-insuficiente y requiere refinamiento antes de cualquier elevación — sin
-crear `netting`, sin crear campos, sin crear un modelo de collateral.
-Los demás 19 puntos de la matriz (§9) ya podían representarse con la
-estructura documental existente del Expediente (`scope`, `purpose`,
-comparabilidad/perímetro, R1–R8, Candidatos B–E, ISA-F, Bancolombia-G) y
-se actualizaron con el texto correspondiente a Goldman siguiendo
-exactamente el mismo patrón usado en los Casos 02–06 — no por
-necesidad estructural nueva, sino por continuidad de la fotografía
-metodológica caso por caso (ver `EXPEDIENTE-DE-VALORACION-V1.md` §27).
+necesidad documental clara), corresponde distinguir dos cosas distintas
+en lo que se actualizó en el Expediente:
+
+**A. Gap documental nuevo.** El contraste identificó **un único gap
+documental nuevo** — el único punto de la matriz (§9) clasificado como
+`NO CUBIERTO` (punto 13): la necesidad de preservar conceptualmente la
+secuencia gross exposure → netting → collateral → net exposure/
+exposición interpretada, asociada al Candidato A. Antes de este caso, el
+Expediente no tenía ningún lenguaje que distinguiera explícitamente esos
+estados de una misma exposición financiera. Este es el único punto que
+generó una necesidad documental **nueva** — no una continuidad de algo
+ya representado.
+
+**B. Actualizaciones de continuidad metodológica.** Además de ese gap,
+la ejecución actualizó en el Expediente los **estados ya existentes**
+por continuidad metodológica derivada del séptimo caso — no porque el
+Expediente careciera de representación para ellos, sino porque cada caso
+nuevo actualiza la fotografía metodológica acumulada: R1–R8 (§22 del
+caso), `scope` y `purpose` (§5.2), comparabilidad/perímetro (§20),
+Candidatos B–D (sin evidencia nueva o sin cambio de nivel formal, salvo
+Candidato B que sube de instancia), Candidato E (evidencia adicional,
+formulación aún menos estable), ISA-F y Bancolombia-G (ambas reforzadas
+con una tercera/segunda economía independiente), y la nueva observación
+de compensación (§21 del caso, explícitamente no candidato). Estas
+actualizaciones **no** deben describirse como "un único ajuste mínimo" —
+son actualizaciones de continuidad, distintas en naturaleza del gap
+documental nuevo de la sección A.
+
+En síntesis: **el contraste identificó un único gap documental nuevo —
+la preservación conceptual del puente gross/netting/collateral/
+exposición (Candidato A) — y además requirió actualizar en el Expediente
+los estados de continuidad metodológica derivados del séptimo caso**,
+siguiendo exactamente el mismo patrón usado en los Casos 02–06. Ninguna
+de las dos categorías crea `netting`, campos, enums, ni ningún modelo de
+collateral (ver `EXPEDIENTE-DE-VALORACION-V1.md` §27).
 
 ## 11. Qué preguntas deben sobrevivir a Munich Re (Caso 08)
 
