@@ -178,7 +178,7 @@ se incorpora aquí porque ese ejercicio demostró que sin esta distinción
 explícita el expediente no puede diferenciar "lo sabemos" de "lo estamos
 asumiendo".
 
-## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Casos 03 y 04 — §22, §23, §24)
+## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Casos 03, 04 y 05 — §22, §23, §24, §25)
 
 `docs/velarix/casos/02-terpel/CASO-02-TERPEL-V0.md` §11 mostró que, en
 una organización con múltiples negocios, países o contratos, un mismo
@@ -186,39 +186,54 @@ supuesto puede no significar lo mismo en toda la empresa, y que una
 cifra puede haber sido determinada originalmente para un propósito
 distinto al de una valoración Velarix. `docs/velarix/casos/03-ecopetrol/CASO-03-ECOPETROL-V0.md`
 §13 y §17 (R6) reforzó esto con un mecanismo adicional: perímetro
-consolidado con intereses no controladores materiales (ISA, ≈51,4% de
-control). `docs/velarix/casos/04-grupo-exito/CASO-04-GRUPO-EXITO-V0.md`
+consolidado con intereses no controladores materiales (ISA-subsidiaria
+de Ecopetrol, ≈51,4% de control — no confundir con el Caso 05,
+Interconexión Eléctrica S.A. como entidad propia). `docs/velarix/casos/04-grupo-exito/CASO-04-GRUPO-EXITO-V0.md`
 §20 (R6) aportó evidencia particularmente limpia sobre **propósito**:
 tasas de descuento para impairment, supuestos de unidades generadoras de
 efectivo (UGE), y metodologías de fair value inmobiliario — un supuesto
 válido para impairment o para el fair value de un inmueble no es
 automáticamente válido para una valoración profesional del equity,
-porque fue determinado con un propósito distinto. Esto deja registradas
-dos necesidades conceptuales sobre `case_assumptions` (y potencialmente
-`projection_hypotheses`), **sin implementarlas ni diseñar su tipo, enum
-o estructura todavía**:
+porque fue determinado con un propósito distinto. `docs/velarix/casos/05-isa/CASO-05-ISA-V0.md`
+§19 y §22 (R6) reforzó esto aún más con ejemplos adicionales de
+propósito: WACC/tasas regulatorias, tasas usadas en mediciones
+contables, información segmentada usada por administración, y métricas
+contractuales. Esto deja registradas dos necesidades conceptuales sobre
+`case_assumptions` (y potencialmente `projection_hypotheses`), **sin
+implementarlas ni diseñar su tipo, enum o estructura todavía**:
 
 - **Alcance** (nombre tentativo `scope`): ¿a qué aplica exactamente este
   supuesto? — por ejemplo empresa completa, filial, país, segmento, UGE,
-  producto, contrato, o la porción atribuible después de intereses no
-  controladores. **Necesidad conceptual fuertemente respaldada por
-  múltiples casos** (Terpel + Ecopetrol) — el Caso 04 no aportó evidencia
+  producto, contrato, concesión, proyecto, activo, o la porción
+  atribuible después de intereses no controladores. **Necesidad
+  conceptual fuertemente respaldada por múltiples casos** (Terpel +
+  Ecopetrol) — ni el Caso 04 ni el Caso 05 aportaron evidencia
   independiente nueva que eleve este nivel; sigue sin definirse tipo,
-  enum ni estructura.
+  enum ni estructura. **Cautela añadida por el Caso 05**: un problema de
+  `scope` no implica la obligación de modelar siempre todos los niveles
+  posibles (grupo, holding, filial, concesión, proyecto, activo,
+  accionista).
 - **Propósito** (nombre tentativo `purpose`): ¿para qué fue originalmente
   determinado o utilizado este supuesto? — por ejemplo prueba de
   deterioro, presupuesto, planificación, covenant, valoración previa, o
-  presentación gerencial. **Sube de nivel de evidencia con el Caso 04**:
-  pasa de "pregunta conceptual abierta, evidencia menor que `scope`" a
-  **necesidad conceptual respaldada por múltiples casos, todavía menos
-  madura que `scope`** — sigue sin definirse tipo, enum ni estructura, y
-  sigue sin fusionarse con `scope`.
+  presentación gerencial. **Sube de nivel de evidencia con el Caso 04 y
+  nuevamente con el Caso 05**: de "pregunta conceptual abierta,
+  evidencia menor que `scope`" (hasta el Caso 03) a "necesidad
+  conceptual respaldada por múltiples casos" (Caso 04) y ahora a
+  **necesidad conceptual fuertemente respaldada por múltiples casos,
+  todavía menos madura que `scope`** (Caso 05) — sigue sin definirse
+  tipo, enum ni estructura, y sigue sin fusionarse con `scope`. **El
+  Caso 05 deja explícito, además, que la necesidad conceptual de
+  comprender `purpose` no equivale a la necesidad de crear un campo
+  `purpose`** — puede resolverse eventualmente mediante contexto,
+  procedencia, narrativa, método de determinación, u otra
+  representación.
 
 Ninguno de los dos nombres, tipos ni estructuras finales queda decidido
 por esta actualización — ver `docs/velarix/casos/02-terpel/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §2 (cambios #2 y #3), `docs/velarix/casos/03-ecopetrol/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
-§3, y `docs/velarix/casos/04-grupo-exito/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
-§3.
+§3, `docs/velarix/casos/04-grupo-exito/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
+§3, y `docs/velarix/casos/05-isa/REPORTE-CONTRASTE-EXPEDIENTE-V1.md` §6.
 
 ## 6. Relaciones principales
 
@@ -494,57 +509,111 @@ que modifiquen los mismos archivos").
   cambios de consolidación) — Caso 02 (§12, §22) registró esta necesidad
   con evidencia insuficiente para diseñar solución. Caso 03 (§13, §23)
   cambió el estado a `PROBLEMA DEMOSTRADO; EVIDENCIA INSUFICIENTE PARA
-  DISEÑAR UNA SOLUCIÓN GENERAL` (evidencia directa: ISA consolidada al
-  100% con ≈51,4% de control económico, intereses no controladores
-  materiales). **Caso 04 (§21, §24)** aporta una segunda economía
-  independiente con el mismo problema (estructuras inmobiliarias "Viva"
-  con participación atribuible de 26,01%, negocios conjuntos al 50% fuera
-  de consolidación línea por línea, y un cambio de perímetro de Argentina
-  reconocido explícitamente por la propia compañía como limitante de
-  comparabilidad) y eleva el estado a `PROBLEMA DEMOSTRADO EN MÚLTIPLES
-  ECONOMÍAS; EVIDENCIA TODAVÍA INSUFICIENTE PARA DISEÑAR UNA SOLUCIÓN
-  GENERAL` — **sigue sin crearse `case_perimeter` ni ninguna tabla o
-  schema**, porque un problema demostrado en más de una economía no
-  equivale a una solución de diseño disponible.
-- **Candidatos registrados por Caso 03, actualizados por Caso 04, sin
-  arquitectura ni campos** (§23, §24):
-  - **Candidato A — neteo de movimientos económicamente distintos**:
-    Caso 04 **no aportó evidencia independiente fuerte** sobre este
-    candidato; se mantiene sin elevar (`EVIDENCIA FUERTE EN ECOPETROL —
-    VALIDAR EN CASOS FUTUROS`).
+  DISEÑAR UNA SOLUCIÓN GENERAL` (evidencia directa: ISA-subsidiaria de
+  Ecopetrol consolidada al 100% con ≈51,4% de control económico,
+  intereses no controladores materiales). Caso 04 (§21, §24) aportó una
+  segunda economía independiente con el mismo problema (estructuras
+  inmobiliarias "Viva" con participación atribuible de 26,01%, negocios
+  conjuntos al 50% fuera de consolidación línea por línea, y un cambio
+  de perímetro de Argentina reconocido explícitamente por la propia
+  compañía como limitante de comparabilidad) y elevó el estado a
+  `PROBLEMA DEMOSTRADO EN MÚLTIPLES ECONOMÍAS; EVIDENCIA TODAVÍA
+  INSUFICIENTE PARA DISEÑAR UNA SOLUCIÓN GENERAL`. **Caso 05 (§23, §25)**
+  — esta vez sobre Interconexión Eléctrica S.A. (ISA) como entidad
+  propia, no como subsidiaria de otro caso — concentra dentro de una
+  sola entidad consolidación sin 100% económico, NCI material, negocios
+  conjuntos/asociadas fuera de consolidación línea por línea, y
+  diferencias entre control y porcentaje económico, y eleva el estado a
+  `PROBLEMA FUERTEMENTE DEMOSTRADO EN MÚLTIPLES ECONOMÍAS; EVIDENCIA
+  SUFICIENTE PARA EXIGIR TRATAMIENTO METODOLÓGICO, TODAVÍA INSUFICIENTE
+  PARA DISEÑAR UNA REPRESENTACIÓN GENERAL` — **sigue sin crearse
+  `case_perimeter` ni ninguna tabla, schema, campo, ni motor automático
+  de NCI/JV**, porque exigir tratamiento metodológico no equivale a una
+  solución de diseño disponible. **Cautela explícita del Caso 05**:
+  problema de perímetro demostrado ≠ obligación de modelar entidad por
+  entidad.
+- **Candidatos registrados por Caso 03, actualizados por Casos 04 y 05,
+  sin arquitectura ni campos** (§23, §24, §25):
+  - **Candidato A — neteo de movimientos económicamente distintos**: ni
+    Caso 04 ni Caso 05 aportaron evidencia independiente fuerte sobre
+    este candidato; se mantiene sin elevar (`EVIDENCIA FUERTE EN
+    ECOPETROL — VALIDAR EN CASOS FUTUROS`).
   - **Candidato B — ciclo de vida económico de un activo o variable**:
-    Caso 04 aporta una segunda economía de naturaleza muy distinta
+    Caso 04 aportó una segunda economía de naturaleza muy distinta
     (ciclo de apertura/remodelación/cierre de tiendas de Grupo Éxito,
-    frente al ciclo de agotamiento/abandono de activos E&P de Ecopetrol)
-    — estado `PATRÓN OBSERVADO EN DOS CASOS DE NATURALEZA ECONÓMICA MUY
-    DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **No se crea
-    `economic_lifecycle`.**
+    frente al ciclo de agotamiento/abandono de activos E&P de
+    Ecopetrol). **Caso 05** aporta un tercer ciclo, también de
+    naturaleza distinta (adjudicación→construcción→entrada en
+    operación→explotación/O&M→refuerzos/reposición→vencimiento
+    contractual→reversión/indemnización/renovación según contrato) — el
+    estado sube a `PATRÓN OBSERVADO EN TRES CASOS DE NATURALEZA
+    ECONÓMICA MUY DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **Cautela
+    añadida por el Caso 05**: el ciclo de vida debe evaluarse respecto
+    de la unidad económica pertinente — el ciclo de un activo, proyecto
+    o contrato no determina automáticamente el ciclo de vida de la
+    compañía que lo posee. **No se crea `economic_lifecycle`.**
   - **Candidato C — atribución temporal/corte de conocimiento**: Caso 04
-    aporta evidencia independiente fuerte (información posterior al
+    aportó evidencia independiente fuerte (información posterior al
     corte de Grupo Éxito, 1T26/2T26, donde la propia compañía reconoce
-    que un cambio de perímetro limita la comparabilidad) — estado
-    `PROBLEMA METODOLÓGICO RESPALDADO POR MÚLTIPLES CASOS — REQUIERE
-    DEFINIR PRINCIPIOS ANTES DE DISEÑAR REPRESENTACIÓN`. **No se crea
+    que un cambio de perímetro limita la comparabilidad). **Caso 05**
+    refuerza el mismo problema con un mecanismo distinto (construcción,
+    reconocimiento, puesta en servicio, remuneración, recaudo y
+    vencimiento contractual ocurriendo en momentos distintos dentro de
+    concesiones), **sin elevar el estado**: se mantiene `PROBLEMA
+    METODOLÓGICO RESPALDADO POR MÚLTIPLES CASOS — REQUIERE DEFINIR
+    PRINCIPIOS ANTES DE DISEÑAR REPRESENTACIÓN`. **No se crea
     `economic_period`.**
   - **Candidato D — derechos económicos/propiedad dinámica (nuevo,
     Caso 04)**: la atribución económica puede depender no solo de la
     propiedad actual, sino de derechos u obligaciones contractuales
     capaces de modificarla (evidencia: opción de venta sobre intereses
     no controladores de Grupo Disco Uruguay, ejercida parcialmente en
-    2025). Estado `EVIDENCIA FUERTE EN GRUPO ÉXITO — VALIDAR EN CASOS
-    FUTUROS`. **No se crea entidad, tabla, campos, ni modelo automático
-    de valoración de opciones.**
+    2025). **Caso 05 aporta evidencia fuerte de que control ≠
+    porcentaje económico, pero no de la parte específicamente
+    dinámica/contractual del candidato** — se registra únicamente como
+    evidencia adicional del problema más amplio de atribución
+    económica, **sin elevar el estado**: se mantiene `EVIDENCIA FUERTE
+    EN GRUPO ÉXITO — VALIDAR EN CASOS FUTUROS`. **No se crea entidad,
+    tabla, campos, ni modelo automático de valoración de opciones.**
   - **Candidato E — base de medición/régimen monetario (nuevo,
     Caso 04)**: antes de comparar, normalizar o proyectar una cifra,
     puede ser necesario conocer la base de medición y el régimen
     monetario bajo el cual fue construida (evidencia: subsidiaria
     argentina en economía hiperinflacionaria, NIC 29, reexpresión y
-    conversión). Estado `EVIDENCIA FUERTE EN GRUPO ÉXITO — VALIDAR EN
-    CASOS FUTUROS`. **No se crea `measurement_basis`, enum monetario, ni
-    campos.**
+    conversión). **Caso 05** aporta evidencia independiente de
+    naturaleza distinta (moneda funcional, moneda de presentación,
+    moneda contractual, indexación, coberturas, medición nominal vs.
+    costo amortizado) — el estado sube a `PATRÓN OBSERVADO EN DOS CASOS
+    DE NATURALEZA ECONÓMICA DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`.
+    **Cautela añadida por el Caso 05**: este candidato puede estar
+    agrupando fenómenos económicamente relacionados pero
+    metodológicamente diferentes entre sí. **No se crea
+    `measurement_basis`, enum monetario, ni campos.**
+  - **Observación ISA-F (nueva, Caso 05, explícitamente NO un candidato
+    formal)**: "el reconocimiento, titularidad o control de un recurso
+    no implica necesariamente que esté económicamente disponible para
+    cualquier propósito" — evidencia: efectivo restringido en ISA;
+    consecuencia: cash contable ≠ automáticamente cash disponible para
+    net debt o distribución. Estado `EVIDENCIA FUERTE EN ISA — VALIDAR
+    ANTES DE ELEVAR A CANDIDATO TRANSVERSAL`. **No se crea `availability`,
+    enum, campo, schema, ni automatización. No se registra todavía como
+    Candidato F.**
 
-  Todos los candidatos requieren más casos y, después, criterio experto
-  antes de precisarse.
+  Todos los candidatos y la observación ISA-F requieren más casos y,
+  después, criterio experto antes de precisarse.
+- **Cautelas conceptuales adicionales aportadas por el Caso 05, sin
+  cambio de especificación** (§22, §25):
+  - **R3**: no convertir `assumption_relations` en un grafo causal
+    ingenuo de tipo A → B — las relaciones observadas en ISA pueden ser
+    temporales, condicionales, regulatorias, reestimables, y afectadas
+    por variables externas.
+  - **R4**: la descomposición debería detenerse cuando una granularidad
+    adicional deja de modificar materialmente la interpretación
+    económica necesaria para el propósito del análisis — guía
+    conceptual, no umbral numérico ni campo a implementar.
+  - **CAPEX**: la clasificación contable de un desembolso en el estado
+    de flujos de efectivo no determina por sí sola si existe inversión
+    económica — no se crea todavía una nueva taxonomía de CAPEX.
 
 ---
 
@@ -906,3 +975,163 @@ precisarse (ver
 `CASO-04-GRUPO-EXITO-V0.md` §32**: el Expediente V1 sobrevive
 conceptualmente al Caso 04, pero todavía no está listo para congelarse
 como arquitectura.
+
+---
+
+## 25. Refinamientos documentales derivados del Caso 05 (ISA) — 2026-08-12
+
+**CASO 05 NO AUTORIZA IMPLEMENTACIÓN.** Ni el Caso 01, ni el Caso 02, ni
+el Caso 03, ni el Caso 04, ni el Caso 05, ni ninguno de sus reportes de
+contraste, ni esta actualización del Expediente, constituyen
+autorización para implementar ninguna estructura técnica (tablas, SQL,
+migraciones, schemas, UI, motores, Edge Functions, automatizaciones,
+persistencia, coherence engine, decomposition engine, grafo causal,
+`case_perimeter`, `contracts`, `economic_period`, `economic_lifecycle`,
+`measurement_basis`, `availability`, un "options engine", un algoritmo
+automático de NCI/JV, o cualquier cambio runtime). Solo Nicolás/fundador
+puede autorizar implementación, de forma explícita y separada.
+
+**Estado: especificación conceptual sujeta a validación adicional con
+más casos; no autorización de implementación.** Detalle completo del
+caso y del contraste:
+`docs/velarix/casos/05-isa/CASO-05-ISA-V0.md` y
+`docs/velarix/casos/05-isa/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
+**El Caso 05 NO está formalmente cerrado ni congelado** — su cierre, si
+corresponde, es una ejecución posterior tras revisión humana.
+
+El Caso Público 05 (Interconexión Eléctrica S.A. — ISA, FY2025, con
+información posterior al corte de 2026 documentada por separado) se usó
+como quinta economía **para intentar romper Velarix, no para
+confirmarlo**. **Cinco casos muestran patrones más resistentes; cinco
+casos no crean leyes universales.** El estudio manual de ISA aportó
+evidencia que reforzó, elevó, mantuvo sin cambio, o resultó insuficiente
+para lo siguiente, ahora incorporado en §5.2 y §20:
+
+1. **R1, R2, R7 y R8 pasan a `PATRÓN OBSERVADO EN CINCO CASOS`** —
+   reaparecen de forma transversal e idéntica en Tecnoglass, Terpel,
+   Ecopetrol, Grupo Éxito e ISA: contabilidad ≠ economía (activos
+   físicamente similares representados como PPE/intangible/activo
+   contractual/activo financiero según su naturaleza económica);
+   observado ≠ normalizado ≠ proyectado (ingresos de construcción y
+   activos contractuales); drivers específicos por empresa (RAP,
+   tráfico, tarifas, garantías, concesión, sin biblioteca universal
+   cerrada); detección de incoherencias sin decisión automática. Ninguna
+   de estas cuatro reglas generó cambio de especificación — se
+   registran con el nivel de evidencia más alto disponible hasta ahora,
+   sin convertirse en ley universal. **Cautela añadida por este caso**:
+   detectar una aparente contradicción ≠ demostrar que existe una
+   contradicción — puede ser necesario comprender antes `scope` y
+   `purpose` (R8).
+2. **R3, en su núcleo conceptual, también pasa a `PATRÓN OBSERVADO EN
+   CINCO CASOS`**, pero el diseño de `assumption_relations` sigue
+   `INSUFICIENTEMENTE VALIDADO` — ISA aporta evidencia de relaciones
+   temporales, condicionales, regulatorias y reestimables, no solo de
+   cadenas más largas o con causalidad inversa. **Cautela explícita**:
+   no convertir `assumption_relations` en un grafo causal ingenuo tipo
+   A → B. **No se rediseña en esta actualización.**
+3. **R4 (formulación de §21/§22) se mantiene sin cambios** — *"una
+   partida o variable material puede necesitar descomposición según la
+   dimensión que explique su comportamiento económico"* — ahora `PATRÓN
+   OBSERVADO EN CINCO CASOS`. ISA aporta las dimensiones negocio, país,
+   régimen regulatorio, contrato, concesión y proyecto, y una cautela
+   nueva sin convertirla en estructura: *"la descomposición debería
+   detenerse cuando una granularidad adicional deja de modificar
+   materialmente la interpretación económica necesaria para el
+   propósito del análisis"* (ver §5, fila `account_components`).
+4. **R5 se profundiza, sin nuevo enum**: ISA aporta ejemplos
+   especialmente claros mediante deuda en distintos niveles, leases,
+   activos contractuales, efectivo restringido, y estructuras
+   societarias.
+5. **`purpose` (§5.2) sube nuevamente de nivel de evidencia**: pasa de
+   "necesidad conceptual respaldada por múltiples casos, todavía menos
+   madura que `scope`" (Caso 04) a **necesidad conceptual fuertemente
+   respaldada por múltiples casos, todavía menos madura que `scope`**
+   (Caso 05) — evidencia: WACC/tasas regulatorias, tasas usadas en
+   mediciones contables, información segmentada de administración, y
+   métricas contractuales. **`scope` se mantiene sin cambio de nivel**
+   — ISA no aportó evidencia independiente nueva que lo eleve más allá
+   de lo ya alcanzado en el Caso 03, aunque sí añade la cautela de que
+   un problema de `scope` no obliga a modelar siempre todos los niveles
+   posibles. No se fusionan.
+6. **Comparabilidad/perímetro histórico cambia de estado** (§20): de
+   `PROBLEMA DEMOSTRADO EN MÚLTIPLES ECONOMÍAS; EVIDENCIA TODAVÍA
+   INSUFICIENTE PARA DISEÑAR UNA SOLUCIÓN GENERAL` (Caso 04) a
+   `PROBLEMA FUERTEMENTE DEMOSTRADO EN MÚLTIPLES ECONOMÍAS; EVIDENCIA
+   SUFICIENTE PARA EXIGIR TRATAMIENTO METODOLÓGICO, TODAVÍA
+   INSUFICIENTE PARA DISEÑAR UNA REPRESENTACIÓN GENERAL` (Caso 05) —
+   evidencia concentrada dentro de una sola entidad: consolidación sin
+   100% económico, NCI material, JVs/asociadas fuera de consolidación
+   línea por línea, y diferencias entre control y porcentaje económico.
+   **Sigue sin crearse `case_perimeter` ni ninguna estructura** — exigir
+   tratamiento metodológico no equivale a una solución de diseño
+   disponible.
+7. **Candidatos actualizados de forma desigual — resultados positivos y
+   negativos** (§20): **Candidato A — neteo**: sin evidencia
+   independiente nueva en este caso, se mantiene sin elevar.
+   **Candidato B — ciclo de vida económico**: sube a `PATRÓN OBSERVADO
+   EN TRES CASOS DE NATURALEZA ECONÓMICA MUY DISTINTA — FORMULACIÓN
+   GENERAL AÚN ABIERTA` (Ecopetrol, Grupo Éxito, ISA), con la cautela de
+   que el ciclo de un activo/proyecto/contrato no determina
+   automáticamente el ciclo de vida de la compañía que lo posee.
+   **Candidato C — atribución temporal/corte de conocimiento**:
+   reforzado, sin elevar el estado. **Candidato D — derechos
+   económicos/propiedad dinámica**: ISA aporta evidencia de que control
+   ≠ porcentaje económico, pero no de la parte dinámica/contractual
+   específica del candidato — se mantiene sin elevar. **Candidato E —
+   base de medición/régimen monetario**: sube a `PATRÓN OBSERVADO EN DOS
+   CASOS DE NATURALEZA ECONÓMICA DISTINTA — FORMULACIÓN GENERAL AÚN
+   ABIERTA`, con la cautela de que puede estar agrupando fenómenos
+   metodológicamente distintos.
+8. **Nueva observación registrada — ISA-F, explícitamente NO un
+   candidato formal** (§20): "el reconocimiento, titularidad o control
+   de un recurso no implica necesariamente que esté económicamente
+   disponible para cualquier propósito" (evidencia: efectivo
+   restringido). Estado `EVIDENCIA FUERTE EN ISA — VALIDAR ANTES DE
+   ELEVAR A CANDIDATO TRANSVERSAL`. **No se crea `availability`, enum,
+   campo, schema, ni automatización.**
+9. **Resultados negativos explícitos de este caso**: supplier financing
+   **no** recibió evidencia suficiente en ISA — la evidencia transversal
+   sigue apoyada en Tecnoglass, Terpel y Grupo Éxito, sin cambio de
+   estado (`PROBLEMA FUERTEMENTE REFORZADO — CRITERIOS DE
+   RECLASIFICACIÓN TODAVÍA ABIERTOS`). Leases se refuerza (segunda
+   instancia de doble rol arrendatario/arrendador) sin cambio de estado
+   (`PROBLEMA DEMOSTRADO — TRATAMIENTO DE VALORACIÓN NO
+   GENERALIZADO`).
+10. **Profundización conceptual, sin cambio, de las Decisiones 2 y 4 del
+    Bloque 1B** (`docs/velarix/bloque-1b-metodologia/DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`):
+    la Decisión 2 (estructura de capital observada) añade la cautela de
+    que, antes de usar una estructura observada, puede importar
+    determinar a qué `scope` pertenece, sin evidencia para concluir
+    universalmente que cada proyecto necesita su propio WACC. La
+    Decisión 4 (horizonte explícito de 5 años) se refuerza con la
+    distinción vida física ≠ vida contractual ≠ horizonte explícito ≠
+    vida de la empresa ≠ perpetuidad, y con la pregunta abierta —no
+    resuelta aquí— de qué significa "estado estable" para una compañía
+    con activos finitos y capacidad de reinversión potencialmente
+    continua. **Ninguna de las dos decisiones cambia.**
+
+**Explícitamente no confirmado por este caso** (queda fuera, sin
+agregarse a la especificación): ninguna cifra de ISA se incorporó como
+default, benchmark ni referencia metodológica de Velarix —de hecho, el
+material de trabajo de este caso no incluyó cifras financieras
+específicas—; ningún negocio o driver de ISA (transmisión, concesiones
+viales, TIC) se declaró requisito universal para otras empresas; no se
+decidió el nombre, tipo ni estructura final de `scope` ni de `purpose`;
+no se rediseñó `assumption_relations`; no se creó ninguna estructura
+para comparabilidad/perímetro histórico pese al cambio de estado; no se
+crearon `economic_period`, `economic_lifecycle`, `measurement_basis`,
+`availability`, `case_perimeter` ni ninguna entidad `contracts`
+universal; no se declaró obligatoria ninguna metodología de suma de
+partes (SOTP), múltiples DCF, múltiples WACC, múltiples g ni múltiples
+horizontes; no se calculó WACC; no se aprobó horizonte ni g; no se
+modificaron las Decisiones 2 ni 4 del Bloque 1B más allá de su
+profundización conceptual. Todo lo anterior requiere más casos y/o
+criterio experto antes de precisarse (ver
+`docs/velarix/casos/05-isa/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
+
+**Conclusión de esta actualización, consistente con
+`CASO-05-ISA-V0.md` §36**: el Expediente V1 sobrevive conceptualmente al
+Caso 05, pero todavía no está listo para congelarse como arquitectura.
+**Este Caso 05 permanece documentado y contrastado, no formalmente
+cerrado ni congelado** — su cierre, si corresponde, es una ejecución
+posterior tras revisión humana del fundador.
