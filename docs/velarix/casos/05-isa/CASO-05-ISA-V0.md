@@ -1,14 +1,31 @@
 # Caso Público 05 — Interconexión Eléctrica S.A. E.S.P. (ISA) — V0
 
-**Fecha:** 2026-08-12
-**Estado:** análisis manual, versión V0. No es una valoración. No autoriza
-implementación de ningún cambio al Expediente. El reporte de contraste
-(`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma carpeta) tampoco
-constituye autorización de implementación; cualquier implementación
-requiere autorización explícita y separada del fundador. **Este
-documento NO declara el Caso 05 formalmente cerrado ni congelado** — ese
-cierre, si corresponde, será una ejecución posterior tras revisión
-humana de este commit.
+**Fecha:** 2026-08-12 (cierre formal: 2026-08-12, tras revisión humana)
+**Estado: CASO PÚBLICO 05 — ISA: FORMALMENTE CERRADO Y CONGELADO.**
+Versión V0. No es una valoración. No autorizó implementación de ningún
+cambio al Expediente. No produjo Enterprise Value, Equity Value, precio
+por acción, WACC definitivo, g definitiva ni horizonte definitivo. El
+análisis metodológico de este caso terminó: el caso queda cerrado
+**como caso de estudio**, y sus hallazgos metodológicos quedan
+preservados (R1–R8, `scope`, `purpose`, comparabilidad/perímetro,
+Candidatos A–E, observación ISA-F, supplier financing, leases, CAPEX, y
+la profundización de las Decisiones 2 y 4 del Bloque 1B — ver
+§19–§36). No debe reabrirse ni reanalizarse salvo nueva evidencia
+concreta, una contradicción documental real, un fallo concreto, un
+requerimiento nuevo, o una pregunta explícita de Nicolás/fundador.
+
+**Qué significa "formalmente cerrado y congelado"**: el caso de estudio
+y su contraste documental quedan cerrados con la evidencia disponible.
+**Esto no significa** que R1–R8 sean leyes universales, que la
+metodología esté cerrada, que los Bloques 1B ni 1C estén cerrados, que
+el Expediente esté congelado como arquitectura, que los Candidatos A–E
+estén resueltos, que la observación ISA-F sea un Candidato F formal, ni
+que exista autorización de implementación. El reporte de contraste
+(`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma carpeta) queda
+formalmente cerrado junto con este caso, como parte del expediente
+documental del Caso 05, y tampoco constituye autorización de
+implementación; cualquier implementación requiere autorización
+explícita y separada del fundador.
 
 **CASO 05 NO AUTORIZA IMPLEMENTACIÓN.** Ningún hallazgo, hipótesis,
 candidato u observación de este documento constituye autorización para
@@ -1157,6 +1174,13 @@ engine", un algoritmo automático de NCI/JV, ni ningún otro cambio
 runtime. Solo Nicolás/fundador puede autorizar implementación, de forma
 explícita y separada, caso por caso.
 
-**Este documento no declara el Caso 05 formalmente cerrado ni
-congelado.** Esa declaración, si corresponde, es una ejecución posterior
-condicionada a revisión humana de este commit.
+**Este documento declara el Caso Público 05 — ISA FORMALMENTE CERRADO Y
+CONGELADO**, tras la revisión humana correspondiente. Este cierre aplica
+exclusivamente al caso de estudio y a su reporte de contraste — **no
+cierra R1–R8, no cierra la metodología, no cierra los Bloques 1B ni 1C,
+no congela el Expediente como arquitectura, y no cierra ninguno de los
+Candidatos A–E ni eleva la observación ISA-F a Candidato F**, que
+permanecen abiertos como candidatos/observación. El caso no debe
+reabrirse ni reanalizarse salvo nueva evidencia concreta, una
+contradicción documental real, un fallo concreto, un requerimiento
+nuevo, o una pregunta explícita de Nicolás/fundador.

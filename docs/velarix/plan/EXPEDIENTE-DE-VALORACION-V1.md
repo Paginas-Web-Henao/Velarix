@@ -996,8 +996,11 @@ más casos; no autorización de implementación.** Detalle completo del
 caso y del contraste:
 `docs/velarix/casos/05-isa/CASO-05-ISA-V0.md` y
 `docs/velarix/casos/05-isa/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
-**El Caso 05 NO está formalmente cerrado ni congelado** — su cierre, si
-corresponde, es una ejecución posterior tras revisión humana.
+**El Caso 05 — ISA queda FORMALMENTE CERRADO Y CONGELADO como caso de
+estudio**, tras revisión humana — este cierre no cierra R1–R8, no cierra
+la metodología, no cierra los Bloques 1B ni 1C, no congela el Expediente
+como arquitectura, y no cierra ninguno de los Candidatos A–E ni eleva la
+observación ISA-F a Candidato F, que siguen abiertos.
 
 El Caso Público 05 (Interconexión Eléctrica S.A. — ISA, FY2025, con
 información posterior al corte de 2026 documentada por separado) se usó
@@ -1132,6 +1135,8 @@ criterio experto antes de precisarse (ver
 **Conclusión de esta actualización, consistente con
 `CASO-05-ISA-V0.md` §36**: el Expediente V1 sobrevive conceptualmente al
 Caso 05, pero todavía no está listo para congelarse como arquitectura.
-**Este Caso 05 permanece documentado y contrastado, no formalmente
-cerrado ni congelado** — su cierre, si corresponde, es una ejecución
-posterior tras revisión humana del fundador.
+**El Caso 05 queda formalmente cerrado y congelado como caso de
+estudio**, tras revisión humana del fundador — este cierre no cierra
+R1–R8, no cierra la metodología, no cierra los Bloques 1B ni 1C, no
+congela el Expediente como arquitectura, y no cierra ninguno de los
+Candidatos A–E ni la observación ISA-F, que permanecen abiertos.

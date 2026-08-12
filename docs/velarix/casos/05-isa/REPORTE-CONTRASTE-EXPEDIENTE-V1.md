@@ -20,9 +20,13 @@ que el caso que resume, es exclusivamente documental. Ningún cambio
 descrito aquí autoriza crear tablas, migraciones, schemas, UI, motores,
 Edge Functions, automatizaciones ni ningún otro cambio técnico. Solo
 Nicolás/fundador puede autorizar implementación, de forma explícita y
-separada. **Este reporte tampoco declara el Caso 05 formalmente cerrado
-ni congelado** — esa declaración, si corresponde, es una ejecución
-posterior tras revisión humana de este commit.
+separada. **CASO 05 — ISA: FORMALMENTE CERRADO Y CONGELADO.** Este
+reporte queda formalmente cerrado junto con el caso, tras revisión
+humana. El cierre es exclusivamente del caso de estudio y de este
+contraste — **no cierra R1–R8, no cierra la metodología, no cierra los
+Bloques 1B ni 1C, no congela el Expediente
+como arquitectura, y no cierra ninguno de los Candidatos A–E ni eleva la
+observación ISA-F a Candidato F**, que permanecen abiertos.
 
 **Regla rectora de este reporte**: cinco casos muestran patrones más
 resistentes; cinco casos no crean leyes universales. Un caso puede
@@ -265,9 +269,11 @@ Expediente no se declara listo para implementación. Las Decisiones 2 y
 2. Ninguno de los cambios de este reporte autoriza implementación — sigue
    pendiente autorización explícita y separada del fundador
    (`Negocio_Velarix_v4.2.md` §19, regla 19).
-3. Este reporte **no declara el Caso 05 formalmente cerrado ni
-   congelado** — esa declaración, si corresponde, es una ejecución
-   posterior tras revisión humana de este commit.
+3. Este reporte y el Caso 05 quedan **formalmente cerrados y
+   congelados**, tras esta revisión humana (ver encabezado). El cierre
+   no afecta R1–R8, la metodología, los Bloques 1B/1C, el Expediente
+   como arquitectura, los Candidatos A–E, ni la observación ISA-F, que
+   permanecen abiertos.
 4. Las preguntas metodológicas de `CASO-05-ISA-V0.md` §33 (scope,
    purpose, `assumption_relations`, supplier financing, leases,
    comparabilidad/perímetro, los cinco candidatos, la observación ISA-F,
