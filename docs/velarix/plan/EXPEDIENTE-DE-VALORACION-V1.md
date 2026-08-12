@@ -1241,10 +1241,12 @@ más casos; no autorización de implementación.** Detalle completo del
 caso y del contraste:
 `docs/velarix/casos/06-bancolombia/CASO-06-BANCOLOMBIA-V0.md` y
 `docs/velarix/casos/06-bancolombia/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
-**El Caso 06 NO está formalmente cerrado ni congelado** — queda en
-estado `ANÁLISIS DOCUMENTADO — PENDIENTE DE REVISIÓN Y CIERRE FORMAL POR
-EL FUNDADOR`; su cierre, si corresponde, es una ejecución posterior
-autorizada explícitamente por Nicolás.
+**El Caso 06 queda FORMALMENTE CERRADO Y CONGELADO como caso de
+estudio**, tras revisión y autorización explícita de Nicolás/fundador —
+este cierre no cierra R1–R8, no cierra la metodología, no cierra los
+Bloques 1B ni 1C, no congela el Expediente como arquitectura, y no
+cierra ninguno de los Candidatos A–E ni las observaciones ISA-F y
+Bancolombia-G, que siguen abiertos.
 
 El Caso Público 06 (Grupo Cibest/Bancolombia S.A., FY2025, con
 información posterior al corte de 2026 documentada por separado) se usó
@@ -1375,9 +1377,12 @@ más casos y/o criterio experto antes de precisarse (ver
 conceptualmente al Caso 06 — refuerza especialmente su capa universal de
 proceso frente a la arquitectura financiera específica del método y de
 la economía valorada — pero todavía no está listo para congelarse como
-arquitectura. **El Caso 06 NO queda formalmente cerrado ni congelado en
-esta actualización** — permanece `ANÁLISIS DOCUMENTADO — PENDIENTE DE
-REVISIÓN Y CIERRE FORMAL POR EL FUNDADOR`; su cierre y congelamiento
-serán una ejecución posterior si Nicolás lo autoriza tras revisar este
-resultado. Los Casos 07 (Goldman Sachs) y 08 (Munich Re) están
-autorizados, pero no se inician en esta actualización.
+arquitectura. **El Caso 06 queda FORMALMENTE CERRADO Y CONGELADO como
+caso de estudio**, tras revisión y autorización explícita de Nicolás —
+este cierre no cierra R1–R8 como leyes universales, no cierra la
+metodología, no cierra los Bloques 1B ni 1C, no congela el Expediente
+como arquitectura, no cierra ninguno de los Candidatos A–E ni las
+observaciones ISA-F y Bancolombia-G, y no selecciona método de
+valoración final. Los Casos 07 (Goldman Sachs) y 08 (Munich Re) están
+autorizados, pero no se inician en esta actualización — ambos deben
+todavía intentar romper las conclusiones de este caso.

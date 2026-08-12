@@ -22,10 +22,14 @@ que el caso que resume, es exclusivamente documental. Ningún cambio
 descrito aquí autoriza crear tablas, migraciones, schemas, UI, motores,
 Edge Functions, automatizaciones ni ningún otro cambio técnico. Solo
 Nicolás/fundador puede autorizar implementación, de forma explícita y
-separada. **Este reporte tampoco declara el Caso 06 formalmente cerrado
-ni congelado** — el Caso 06 queda `ANÁLISIS DOCUMENTADO — PENDIENTE DE
-REVISIÓN Y CIERRE FORMAL POR EL FUNDADOR`; el cierre, si corresponde, es
-una ejecución posterior autorizada por Nicolás.
+separada. **CASO 06 — GRUPO CIBEST/BANCOLOMBIA S.A.: FORMALMENTE CERRADO
+Y CONGELADO.** Este reporte queda formalmente cerrado junto con el caso,
+tras revisión y autorización explícita del fundador. El cierre es
+exclusivamente del caso de estudio y de este contraste — **no cierra
+R1–R8, no cierra la metodología, no cierra los Bloques 1B ni 1C, no
+congela el Expediente como arquitectura, y no cierra ninguno de los
+Candidatos A–E ni las observaciones ISA-F y Bancolombia-G**, que
+permanecen abiertos.
 
 **Regla rectora de este reporte**: seis casos muestran patrones más
 resistentes; seis casos no crean leyes universales. Un caso puede
@@ -302,11 +306,17 @@ implementación.
 
 ## 14. Estado del caso
 
-**El Caso 06 NO queda formalmente cerrado ni congelado en este
-reporte.** Estado: `ANÁLISIS DOCUMENTADO — PENDIENTE DE REVISIÓN Y
-CIERRE FORMAL POR EL FUNDADOR`. El cierre, si corresponde, es una
-ejecución posterior autorizada explícitamente por Nicolás tras revisar
-este resultado.
+**El Caso 06 queda FORMALMENTE CERRADO Y CONGELADO** en esta ejecución,
+tras revisión y autorización explícita de Nicolás/fundador. El cierre
+aplica exclusivamente al caso de estudio y a este reporte de contraste
+— no cierra R1–R8 como leyes universales, no cierra la metodología, no
+cierra los Bloques 1B ni 1C, no congela el Expediente como
+arquitectura, no cierra ninguno de los Candidatos A–E ni las
+observaciones ISA-F y Bancolombia-G, no selecciona método de valoración
+final, y no autoriza ninguna implementación. El caso no debe reabrirse
+salvo nueva evidencia concreta, una contradicción documental real, un
+fallo concreto, un requerimiento nuevo, o una pregunta explícita de
+Nicolás/fundador.
 
 ## 15. Qué sigue
 
@@ -317,9 +327,11 @@ este resultado.
 2. Ninguno de los cambios de este reporte autoriza implementación — sigue
    pendiente autorización explícita y separada del fundador
    (`Negocio_Velarix_v4.2.md` §19, regla 19).
-3. Este reporte no declara el Caso 06 formalmente cerrado ni congelado
-   — esa declaración, si corresponde, es una ejecución posterior
-   autorizada por Nicolás.
+3. Este reporte y el Caso 06 quedan **formalmente cerrados y
+   congelados**, tras revisión y autorización explícita de Nicolás (ver
+   §14). El cierre no afecta R1–R8, la metodología, los Bloques 1B/1C,
+   el Expediente como arquitectura, los Candidatos A–E, ni las
+   observaciones ISA-F y Bancolombia-G, que permanecen abiertos.
 4. Las preguntas metodológicas de `CASO-06-BANCOLOMBIA-V0.md` §34
    (scope, purpose, `assumption_relations`, método de valoración final,
    tensión WACC/Cost of Equity, comparabilidad/perímetro, los cinco

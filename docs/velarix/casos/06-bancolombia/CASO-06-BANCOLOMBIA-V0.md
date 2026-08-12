@@ -1,16 +1,39 @@
 # Caso Público 06 — Grupo Cibest / Bancolombia S.A. — V0
 
-**Fecha:** 2026-08-12
-**Estado:** análisis manual, versión V0. No es una valoración. No autoriza
-implementación de ningún cambio al Expediente. El reporte de contraste
-(`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma carpeta) tampoco
-constituye autorización de implementación; cualquier implementación
-requiere autorización explícita y separada del fundador. **Este
-documento NO declara el Caso 06 formalmente cerrado ni congelado.** El
-Caso 06 queda en estado `ANÁLISIS DOCUMENTADO — PENDIENTE DE REVISIÓN Y
-CIERRE FORMAL POR EL FUNDADOR`. El cierre y congelamiento serán una
-ejecución posterior si Nicolás lo autoriza después de revisar este
-resultado.
+**Fecha:** 2026-08-12 (cierre formal: 2026-08-12, tras revisión y
+autorización explícita del fundador)
+**Estado: CASO PÚBLICO 06 — GRUPO CIBEST/BANCOLOMBIA S.A.: FORMALMENTE
+CERRADO Y CONGELADO.** Versión V0. No es una valoración. No autorizó
+implementación de ningún cambio al Expediente. No produjo Enterprise
+Value, Equity Value, precio por acción, WACC definitivo, Cost of Equity
+aprobado, g definitiva, ni horizonte definitivo, y no seleccionó método
+de valoración final. El análisis metodológico de este caso terminó:
+Nicolás/fundador revisó el resultado documental y autorizó expresamente
+su cierre y congelamiento. El caso queda cerrado **como caso de
+estudio**, y sus hallazgos metodológicos quedan preservados como
+fotografía metodológica de este caso (R1–R8, `scope`, `purpose`,
+comparabilidad/perímetro, Candidatos A–E, observaciones ISA-F y
+Bancolombia-G, supplier financing, leases, métodos de valoración
+documentados — ver §20–§37). No debe reabrirse ni reanalizarse salvo
+nueva evidencia concreta, una contradicción documental real, un fallo
+concreto, un requerimiento nuevo, o una pregunta explícita de
+Nicolás/fundador — **no** por deseo de mejorar redacción, por una idea
+interesante, por necesidad de "confirmar" Velarix, por nuevas
+preferencias de estilo, ni por deseo de ampliar la investigación sin
+evidencia nueva.
+
+**Este cierre es exclusivamente del Caso 06 como caso de estudio — NO
+cierra R1–R8 como leyes universales, NO cierra la metodología, NO
+cierra los Bloques 1B ni 1C, NO congela el Expediente como arquitectura,
+NO cierra ninguno de los Candidatos A–E ni las observaciones ISA-F y
+Bancolombia-G (que siguen siendo candidatos/observaciones abiertos), NO
+selecciona método de valoración final, NO aprueba WACC, Cost of Equity,
+g ni un horizonte nuevo, y NO autoriza que Goldman Sachs o Munich Re se
+asuman similares a Bancolombia.** El reporte de contraste
+(`REPORTE-CONTRASTE-EXPEDIENTE-V1.md`, esta misma carpeta) queda
+formalmente cerrado junto con este caso, y tampoco constituye
+autorización de implementación; cualquier implementación requiere
+autorización explícita y separada del fundador.
 
 **CASO 06 NO AUTORIZA IMPLEMENTACIÓN.** Ningún hallazgo, hipótesis,
 candidato u observación de este documento constituye autorización para
@@ -1150,13 +1173,35 @@ Munich Re todavía deben intentar romperla.
 
 ## 38. Estado del caso al final de esta ejecución
 
-**Estado: `ANÁLISIS DOCUMENTADO — PENDIENTE DE REVISIÓN Y CIERRE FORMAL
-POR EL FUNDADOR`.**
+**Estado: `CASO PÚBLICO 06 — GRUPO CIBEST/BANCOLOMBIA S.A.: FORMALMENTE
+CERRADO Y CONGELADO`.**
 
-El Caso 06 **no** queda marcado como cerrado. El Caso 06 **no** queda
-marcado como congelado. Esta ejecución no afirma que el fundador haya
-aprobado el cierre. El cierre y congelamiento formal serán una ejecución
-posterior si Nicolás lo autoriza después de revisar este resultado.
+Nicolás/fundador revisó el resultado documental de este caso y autorizó
+explícitamente, en una ejecución separada y posterior a la
+documentación y a la corrección de redacción, su cierre formal y
+congelamiento. El Caso 06 **queda cerrado como caso de estudio** —
+investigación y contraste suficientemente documentados; conclusiones y
+cautelas actuales congeladas como fotografía metodológica de este caso;
+no se amplía Bancolombia dentro de esta primera batería salvo condición
+de reapertura.
+
+**Condiciones de reapertura** (las mismas rectoras usadas en los casos
+previos formalmente cerrados): el Caso 06 solo debe reabrirse ante nueva
+evidencia concreta, una contradicción documental real, un fallo
+concreto, un requerimiento nuevo, o una pregunta explícita de
+Nicolás/fundador. **No debe reabrirse** por deseo de mejorar redacción,
+por la aparición de una idea interesante, por necesidad de "confirmar"
+Velarix, por nuevas preferencias de estilo, ni por deseo de ampliar la
+investigación sin evidencia nueva.
+
+**Este cierre es exclusivamente del Caso 06 como caso de estudio** — no
+cierra R1–R8 como leyes universales, no cierra la metodología, no
+cierra los Bloques 1B ni 1C, no congela el Expediente como arquitectura,
+no cierra ninguno de los Candidatos A–E ni las observaciones ISA-F y
+Bancolombia-G, no selecciona método de valoración final, no aprueba
+WACC, Cost of Equity, g ni un horizonte nuevo, y no autoriza que
+Goldman Sachs o Munich Re se asuman similares a Bancolombia — ambos
+todavía deben intentar romper estas conclusiones.
 
 ## 39. Prohibición explícita de interpretar el documento como autorización de implementación
 
@@ -1179,6 +1224,12 @@ tabla, migración, UI, Edge Function o automatización. Solo
 Nicolás/fundador puede autorizar implementación, de forma explícita y
 separada, caso por caso.
 
-**Este documento no declara el Caso 06 formalmente cerrado ni
-congelado.** El caso queda `ANÁLISIS DOCUMENTADO — PENDIENTE DE REVISIÓN
-Y CIERRE FORMAL POR EL FUNDADOR` (§38).
+**Este documento declara el Caso Público 06 — Grupo Cibest/Bancolombia
+S.A. FORMALMENTE CERRADO Y CONGELADO**, tras revisión y autorización
+explícita del fundador (§38). Este cierre aplica exclusivamente al caso
+de estudio y a su reporte de contraste — **no cierra R1–R8, no cierra
+la metodología, no cierra los Bloques 1B ni 1C, no congela el
+Expediente como arquitectura, no cierra ninguno de los Candidatos A–E
+ni las observaciones ISA-F y Bancolombia-G, no selecciona método de
+valoración final, y no autoriza ninguna implementación**, que permanecen
+abiertos/pendientes según corresponda.
