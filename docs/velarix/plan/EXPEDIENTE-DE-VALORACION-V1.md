@@ -178,7 +178,7 @@ se incorpora aquí porque ese ejercicio demostró que sin esta distinción
 explícita el expediente no puede diferenciar "lo sabemos" de "lo estamos
 asumiendo".
 
-## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Casos 03, 04, 05 y 06 — §22, §23, §24, §25, §26)
+## 5.2 Necesidades conceptuales abiertas sobre un supuesto: alcance y propósito (confirmado por Caso 02, reforzado por Casos 03, 04, 05, 06 y 07 — §22, §23, §24, §25, §26, §27)
 
 `docs/velarix/casos/02-terpel/CASO-02-TERPEL-V0.md` §11 mostró que, en
 una organización con múltiples negocios, países o contratos, un mismo
@@ -244,12 +244,25 @@ MÚLTIPLES CASOS, AÚN MENOS MADURA QUE SCOPE`. El Caso 06 deja explícito
 que un problema de `scope` no implica la obligación de modelar todos
 los niveles posibles.
 
+`docs/velarix/casos/07-goldman-sachs/CASO-07-GOLDMAN-SACHS-V0.md` §22
+(R6) mantiene `scope` sin cambio de nivel formal — Goldman vuelve a
+mostrar diferencias entre holding, banco, broker-dealer, subsidiarias,
+entidades reguladas y negocio consolidado, sin implicar la obligación de
+modelar cada subsidiaria — pero aporta a `purpose` la evidencia más
+fuerte hasta ahora: el mismo instrumento financiero puede significar
+cosas distintas según sea usado para financing, market making, hedge,
+liquidez, client facilitation, o investment. **Estado: `PURPOSE —
+NECESIDAD CONCEPTUAL FUERTEMENTE RESPALDADA POR MÚLTIPLES CASOS; GOLDMAN
+REDUCE MATERIALMENTE LA BRECHA DE MADUREZ FRENTE A SCOPE`** — `purpose`
+se acerca a la madurez de `scope` sin alcanzarla ni fusionarse con él.
+
 Ninguno de los dos nombres, tipos ni estructuras finales queda decidido
 por esta actualización — ver `docs/velarix/casos/02-terpel/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §2 (cambios #2 y #3), `docs/velarix/casos/03-ecopetrol/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §3, `docs/velarix/casos/04-grupo-exito/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
-§3, `docs/velarix/casos/05-isa/REPORTE-CONTRASTE-EXPEDIENTE-V1.md` §6, y
+§3, `docs/velarix/casos/05-isa/REPORTE-CONTRASTE-EXPEDIENTE-V1.md` §6,
 `docs/velarix/casos/06-bancolombia/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
+§3, y `docs/velarix/casos/07-goldman-sachs/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`
 §3.
 
 ## 6. Relaciones principales
@@ -557,16 +570,43 @@ que modifiquen los mismos archivos").
   MÚLTIPLES ECONOMÍAS, AHORA INCLUYENDO UNA INSTITUCIÓN FINANCIERA;
   EVIDENCIA SUFICIENTE PARA EXIGIR TRATAMIENTO METODOLÓGICO, TODAVÍA
   INSUFICIENTE PARA DISEÑAR UNA REPRESENTACIÓN GENERAL` — **sigue sin
-  crearse `case_perimeter` ni ninguna estructura**.
+  crearse `case_perimeter` ni ninguna estructura**. **Caso 07 (§23,
+  §27)** — sobre The Goldman Sachs Group, Inc., segunda institución
+  financiera regulada de la secuencia, deliberadamente elegida para
+  evitar homogeneizar "institución financiera" a partir de un solo
+  ejemplo — aporta tres segmentos reportables (GBM, AWM, Platform
+  Solutions) con drivers, balance y funciones económicas heterogéneas, y
+  una unidad económica adecuada de análisis que puede no coincidir con
+  entidad legal ni segmento contable, y eleva el estado a `PROBLEMA
+  FUERTEMENTE DEMOSTRADO EN MÚLTIPLES ECONOMÍAS Y PROFUNDIZADO DENTRO DE
+  INSTITUCIONES FINANCIERAS; EXISTE EVIDENCIA SUFICIENTE PARA EXIGIR
+  TRATAMIENTO METODOLÓGICO, TODAVÍA INSUFICIENTE PARA DISEÑAR UNA
+  REPRESENTACIÓN GENERAL` — **sigue sin crearse `case_perimeter` ni
+  ninguna estructura**.
 - **Candidatos registrados por Caso 03, actualizados por Casos 04, 05 y
   06, sin arquitectura ni campos** (§23, §24, §25, §26):
   - **Candidato A — neteo de movimientos económicamente distintos**: ni
     Caso 04, ni Caso 05, ni Caso 06 aportaron evidencia independiente
-    fuerte sobre este candidato; se mantiene sin elevar (`EVIDENCIA
-    FUERTE EN ECOPETROL — VALIDAR EN CASOS FUTUROS`). Caso 06 aclara
+    fuerte sobre este candidato; se mantuvo sin elevar (`EVIDENCIA
+    FUERTE EN ECOPETROL — VALIDAR EN CASOS FUTUROS`). Caso 06 aclaró
     explícitamente que la coexistencia normal de activos y pasivos
     financieros en el balance de un banco no equivale, por sí misma, a
-    evidencia de neteo económicamente destructivo.
+    evidencia de neteo económicamente destructivo. **Caso 07** aporta
+    evidencia fuerte independiente: derivados con posición bruta (fair
+    value activos ≈US$360.1B, pasivos ≈US$391.2B), counterparty netting
+    (≈US$261.2B), cash-collateral netting (≈US$46B), y cifra neta
+    reconocida en balance (activos ≈US$53.0B, pasivos ≈US$84.4B) — una
+    secuencia completa bruto → netting → collateral → neto. **Caso 07
+    advierte explícitamente que "el neteo destruye información" no es
+    una formulación suficiente**, porque mostrar solo la cifra bruta
+    también puede inducir una interpretación económica falsa de la
+    exposición. El estado sube a `CANDIDATO A — EVIDENCIA FUERTE
+    INDEPENDIENTE EN ECOPETROL Y GOLDMAN SACHS; LA FORMULACIÓN GENERAL
+    DEBE REFINARSE ANTES DE CUALQUIER ELEVACIÓN`. La pregunta que debe
+    sobrevivir es qué información debe preservarse para reconstruir el
+    puente entre posición bruta → netting jurídicamente/económicamente
+    válido → collateral → mitigantes → exposición económica relevante.
+    **No se eleva formalmente. No se crea R9. No se crea `netting`.**
   - **Candidato B — ciclo de vida económico de un activo o variable**:
     Caso 04 aportó una segunda economía de naturaleza muy distinta
     (ciclo de apertura/remodelación/cierre de tiendas de Grupo Éxito,
@@ -577,9 +617,14 @@ que modifiquen los mismos archivos").
     06** aporta una cuarta instancia, más débil estructuralmente que las
     tres anteriores (vida/vencimiento contractual de activos o pasivos
     financieros ≠ vida económica del portafolio ≠ vida de la compañía)
-    — el estado sube a `PATRÓN OBSERVADO EN CUATRO CASOS DE NATURALEZA
-    ECONÓMICA MUY DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **No se
-    crea `economic_lifecycle`.**
+    — el estado subió a `PATRÓN OBSERVADO EN CUATRO CASOS DE NATURALEZA
+    ECONÓMICA MUY DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **Caso
+    07** aporta una quinta instancia: vida contractual de una posición ≠
+    vida de la relación con cliente ≠ vida del programa/fondo ≠ vida de
+    la franquicia ≠ vida de la empresa, en Goldman Sachs. El estado sube
+    a `PATRÓN OBSERVADO EN CINCO CASOS DE NATURALEZA ECONÓMICA MUY
+    DISTINTA — FORMULACIÓN GENERAL AÚN ABIERTA`. **No se crea
+    `economic_lifecycle`.**
   - **Candidato C — atribución temporal/corte de conocimiento**: Caso 04
     aportó evidencia independiente fuerte; Caso 05 reforzó el problema
     sin elevar el estado, que quedó en `PROBLEMA METODOLÓGICO
@@ -587,9 +632,15 @@ que modifiquen los mismos archivos").
     DE DISEÑAR REPRESENTACIÓN`. **Caso 06** refuerza muy fuertemente el
     problema (reorganización societaria de 2025; acuerdo sobre
     Banistmo, su clasificación al cierre, y sus eventos posteriores) y
-    eleva el estado a `PROBLEMA METODOLÓGICO FUERTEMENTE RESPALDADO POR
+    elevó el estado a `PROBLEMA METODOLÓGICO FUERTEMENTE RESPALDADO POR
     MÚLTIPLES CASOS — REQUIERE DEFINIR PRINCIPIOS ANTES DE DISEÑAR
-    REPRESENTACIÓN`. **No se crea `economic_period`.**
+    REPRESENTACIÓN`. **Caso 07** aporta una nueva economía temporal
+    (secuencias posibles como commitment → execution → recognition →
+    remeasurement → settlement → realization; backlog/pipeline →
+    transaction → completion → fee recognition en investment banking),
+    sin cambio de nivel formal: `PROBLEMA METODOLÓGICO FUERTEMENTE
+    RESPALDADO POR MÚLTIPLES CASOS — GOLDMAN APORTA UNA NUEVA ECONOMÍA
+    TEMPORAL`. **No se crea `economic_period`.**
   - **Candidato D — derechos económicos/propiedad dinámica (nuevo,
     Caso 04)**: la atribución económica puede depender no solo de la
     propiedad actual, sino de derechos u obligaciones contractuales
@@ -601,9 +652,14 @@ que modifiquen los mismos archivos").
     evidencia suficiente para reforzar el componente
     contractual/dinámico** — la reorganización societaria de 2025 es un
     cambio estructural completado, no un derecho contractual dinámico
-    pendiente. Se mantiene sin elevar: `EVIDENCIA FUERTE EN GRUPO ÉXITO
-    — VALIDAR EN CASOS FUTUROS`. **No se crea entidad, tabla, campos, ni
-    modelo automático de valoración de opciones.**
+    pendiente. Se mantuvo sin elevar: `EVIDENCIA FUERTE EN GRUPO ÉXITO
+    — VALIDAR EN CASOS FUTUROS`. **Caso 07 tampoco aportó evidencia
+    suficiente** — derivatives, deferred compensation, RSUs y structured
+    products de Goldman no deben confundirse con el fenómeno específico
+    del candidato. Estado: `EVIDENCIA FUERTE EN GRUPO ÉXITO — GOLDMAN
+    SACHS APORTA EVIDENCIA INSUFICIENTE PARA REFORZAR EL FENÓMENO`. **No
+    se crea entidad, tabla, campos, ni modelo automático de valoración de
+    opciones.**
   - **Candidato E — base de medición/régimen monetario (nuevo,
     Caso 04)**: Caso 05 aportó evidencia independiente de naturaleza
     distinta (moneda funcional, indexación, coberturas, medición
@@ -613,22 +669,37 @@ que modifiquen los mismos archivos").
     amortizado, FVOCI, FVTPL, impairment/ECL como "base de medición";
     moneda funcional y exposición FX como "régimen monetario"), pero
     **tensiona la formulación general en vez de simplemente
-    reforzarla**: el estado pasa a `EVIDENCIA ADICIONAL FUERTE, PERO LA
+    reforzarla**: el estado pasó a `EVIDENCIA ADICIONAL FUERTE, PERO LA
     FORMULACIÓN GENERAL SE VUELVE MENOS ESTABLE: "BASE DE MEDICIÓN" Y
     "RÉGIMEN MONETARIO / MONEDA" PUEDEN SER FENÓMENOS RELACIONADOS PERO
-    METODOLÓGICAMENTE DISTINTOS`. **No se divide todavía en E1/E2. No se
-    crea `measurement_basis`, enum monetario, ni campos.**
+    METODOLÓGICAMENTE DISTINTOS`. **Caso 07** fortalece extraordinariamente
+    "base de medición" (fair value profundamente integrado en trading,
+    derivatives, investments, ciertas financiaciones; Level 1/2/3 como
+    distintas fuentes/observabilidad de inputs), sin aportar evidencia
+    equivalente nueva para "régimen monetario/moneda" — el estado pasa a
+    `EVIDENCIA MUY FUERTE ADICIONAL EN GOLDMAN SACHS, PERO LA
+    FORMULACIÓN GENERAL SE VUELVE AÚN MENOS ESTABLE; LA HIPÓTESIS DE QUE
+    BASE DE MEDICIÓN Y RÉGIMEN MONETARIO SON FENÓMENOS DISTINTOS SE
+    FORTALECE`. **No se divide todavía en E1/E2. No se crea
+    `measurement_basis`, enum monetario, ni campos. Munich Re debe
+    tensionarlo.**
   - **Observación ISA-F (nueva, Caso 05, explícitamente NO un candidato
     formal)**: "el reconocimiento, titularidad o control de un recurso
     no implica necesariamente que esté económicamente disponible para
     cualquier propósito" — evidencia original: efectivo restringido en
     ISA. **Caso 06** refuerza con un mecanismo distinto: cash contable ≠
     automáticamente cash disponible para net debt o distribución
-    (liquidez prudencial bancaria) — el estado sube a `OBSERVACIÓN
+    (liquidez prudencial bancaria) — el estado subió a `OBSERVACIÓN
     TRANSVERSAL FUERTEMENTE REFORZADA EN DOS ECONOMÍAS RADICALMENTE
     DISTINTAS — ISA Y BANCOLOMBIA — MANTENER ABIERTA PARA VALIDACIÓN EN
-    CASOS 07–08 ANTES DE DECIDIR SU ELEVACIÓN`. **Sigue sin convertirse
-    en Candidato F. No se crea `availability`, enum, campo, schema, ni
+    CASOS 07–08 ANTES DE DECIDIR SU ELEVACIÓN`. **Caso 07** añade
+    dimensión contractual, de collateral, de reuse/repledge, de
+    liquidez y de regulación (Global Core Liquid Assets promedio
+    ≈US$466B durante 2025) — el estado sube a `OBSERVACIÓN TRANSVERSAL
+    FUERTEMENTE REFORZADA EN TRES ECONOMÍAS RADICALMENTE DISTINTAS —
+    ISA, BANCOLOMBIA Y GOLDMAN SACHS — MANTENER ABIERTA HASTA MUNICH RE
+    ANTES DE DECIDIR SU ELEVACIÓN`. **Sigue sin convertirse en Candidato
+    F. No se crea `availability`, enum, campo, schema, ni
     automatización.**
   - **Observación Bancolombia-G (nueva, Caso 06, explícitamente NO un
     candidato formal)**: "la generación de utilidad o la existencia de
@@ -640,17 +711,43 @@ que modifiquen los mismos archivos").
     riesgo → posible capital excedentario → capacidad de distribución de
     la subsidiaria → recursos recibidos por el holding → obligaciones
     propias del holding → capacidad final de distribución). Estado
-    `EVIDENCIA FUERTE EN BANCOLOMBIA — OBSERVACIÓN SECTORIAL; VALIDAR
-    ANTES DE ELEVAR A CANDIDATO TRANSVERSAL`. **No se llama "Candidato
-    G". No se fusiona todavía con la observación ISA-F** — ambas tratan
-    disponibilidad/capacidad de recursos, pero por mecanismos distintos.
-    Munich Re (Caso 08, autorizado, no iniciado) es la prueba futura más
-    relevante identificada para esta observación. **No se crea
-    `capital_bridge`, `regulatory_capital`, `distributable_capital`,
-    campos, tablas, ni reglas automáticas.**
+    original `EVIDENCIA FUERTE EN BANCOLOMBIA — OBSERVACIÓN SECTORIAL;
+    VALIDAR ANTES DE ELEVAR A CANDIDATO TRANSVERSAL`. **Caso 07** produce
+    evidencia independiente: los ≈US$16.78B devueltos a accionistas de
+    Goldman en 2025 coexisten con requerimientos de CET1, RWA y
+    Supplementary Leverage Ratio que condicionan cuánto capital puede
+    liberarse para distribución — mecanismo distinto del puente banco
+    operativo → holding de Bancolombia, con la misma estructura
+    conceptual. Estado: `EVIDENCIA FUERTE INDEPENDIENTE EN DOS
+    INSTITUCIONES FINANCIERAS CON ECONOMÍAS MATERIALMENTE DISTINTAS —
+    BANCOLOMBIA Y GOLDMAN SACHS — MANTENER COMO OBSERVACIÓN ABIERTA
+    HASTA MUNICH RE ANTES DE DECIDIR SI ES SECTORIAL O MÁS
+    TRANSVERSAL`. **No se llama "Candidato G". No se fusiona todavía con
+    la observación ISA-F** — ambas tratan disponibilidad/capacidad de
+    recursos, pero por mecanismos distintos. Munich Re (Caso 08,
+    autorizado, no iniciado) es la prueba futura más relevante
+    identificada para esta observación. **No se crea `capital_bridge`,
+    `regulatory_capital`, `distributable_capital`, campos, tablas, ni
+    reglas automáticas.**
+  - **Nueva observación registrada por el Caso 07 — compensación como
+    posible variable económica endógena (explícitamente NO un candidato
+    formal)**: Goldman reportó ≈US$18.9B en compensation and benefits
+    durante 2025, proporción material de ingresos y de operating
+    expenses, con parte del incremento atribuido por la propia compañía
+    a mejor operating performance — sugiriendo una relación posible
+    revenue/performance ↔ compensation → margin, que puede ser
+    condicional, discrecional, diferida, variable por negocio, cíclica, y
+    afectada por stock-based/deferred compensation. Estado:
+    `OBSERVACIÓN GOLDMAN — COMPENSACIÓN COMO POSIBLE VARIABLE ECONÓMICA
+    ENDÓGENA`. **`EVIDENCIA INSUFICIENTE PARA CREAR CANDIDATO`. No se
+    llama "Candidato H" ni "Goldman-H". No se crea `compensation
+    model`.** Pregunta abierta: si es simplemente R3, driver R7,
+    fenómeno sectorial de negocios intensivos en capital humano, o algo
+    nuevo — sin resolver en esta actualización.
 
-  Todos los candidatos y las observaciones ISA-F y Bancolombia-G
-  requieren más casos y, después, criterio experto antes de precisarse.
+  Todos los candidatos y las observaciones ISA-F, Bancolombia-G y la
+  observación de compensación de Goldman requieren más casos y, después,
+  criterio experto antes de precisarse.
 - **Cautelas conceptuales adicionales aportadas por el Caso 05, sin
   cambio de especificación** (§22, §25):
   - **R3**: no convertir `assumption_relations` en un grafo causal
@@ -692,6 +789,31 @@ que modifiquen los mismos archivos").
     `scope`) antes de seleccionar método — necesidad metodológica, **no**
     diseño de datos. **No se crea `valuation_method` field, enum,
     selector, ni "method engine".**
+- **Cautelas conceptuales adicionales aportadas por el Caso 07, sin
+  cambio de especificación** (§20, §27):
+  - **Heterogeneidad económica intra-organizacional**: una institución
+    financiera no constituye necesariamente una sola economía financiera
+    homogénea — la arquitectura financiera adecuada puede variar incluso
+    entre actividades que coexisten dentro de la misma organización
+    (advisory, market making, financing, asset management, wealth,
+    investment activities, en Goldman Sachs). Más descomposición no
+    equivale automáticamente a mejor valoración; existen
+    interdependencias económicas entre negocios. **Esto es una
+    `INFERENCIA METODOLÓGICA`, no R9. No se crea `industry_type`, `bank
+    mode`, ni enum de institución financiera.**
+  - **Evidencia bruto/netting/collateral/neto**: donde existen
+    instrumentos financieros materiales, puede ser necesario preservar la
+    secuencia completa entre posición bruta, netting jurídicamente
+    válido, collateral, y cifra neta reconocida, en lugar de asumir que
+    cualquiera de esas magnitudes por sí sola explica la exposición
+    económica relevante — evidencia: derivados de Goldman Sachs (§16,
+    §27). **No se crea `netting`, modelo de collateral, ni campos.**
+  - **Purpose reduce su brecha de madurez frente a scope**: el mismo
+    instrumento financiero puede significar cosas distintas según su
+    propósito económico (financing, market making, hedge, liquidez,
+    client facilitation, investment) — evidencia más fuerte hasta ahora
+    sobre `purpose` (§5.2, §27). **No se fusiona `purpose` con `scope`.
+    No se crean campos ni enums.**
 
 ---
 
@@ -1386,3 +1508,191 @@ observaciones ISA-F y Bancolombia-G, y no selecciona método de
 valoración final. Los Casos 07 (Goldman Sachs) y 08 (Munich Re) están
 autorizados, pero no se inician en esta actualización — ambos deben
 todavía intentar romper las conclusiones de este caso.
+
+---
+
+## 27. Refinamientos documentales derivados del Caso 07 (The Goldman Sachs Group, Inc.) — 2026-08-12
+
+**CASO 07 NO AUTORIZA IMPLEMENTACIÓN.** Ni el Caso 01, ni el Caso 02, ni
+el Caso 03, ni el Caso 04, ni el Caso 05, ni el Caso 06, ni el Caso 07,
+ni ninguno de sus reportes de contraste, ni esta actualización del
+Expediente, constituyen autorización para implementar ninguna estructura
+técnica (tablas, SQL, migraciones, schemas, UI, motores, Edge Functions,
+automatizaciones, persistencia, coherence engine, decomposition engine,
+grafo causal, `case_perimeter`, `netting`, modelo de collateral,
+`economic_period`, `economic_lifecycle`, `measurement_basis`,
+`availability`, `regulatory_capital`, `capital_bridge`,
+`distributable_capital`, `valuation_method`, un "bank mode", un enum de
+institución financiera, un modelo de compensación, o cualquier cambio
+runtime). Solo Nicolás/fundador puede autorizar implementación, de forma
+explícita y separada.
+
+**Estado: especificación conceptual sujeta a validación adicional con
+más casos; no autorización de implementación.** Detalle completo del
+caso y del contraste:
+`docs/velarix/casos/07-goldman-sachs/CASO-07-GOLDMAN-SACHS-V0.md` y
+`docs/velarix/casos/07-goldman-sachs/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`.
+**El Caso 07 NO queda formalmente cerrado ni congelado en esta
+actualización** — permanece `ANÁLISIS DOCUMENTADO — PENDIENTE DE
+REVISIÓN Y CIERRE FORMAL POR EL FUNDADOR`; su cierre formal requiere
+revisión, posibles correcciones, y autorización explícita y separada de
+Nicolás/fundador, en una ejecución posterior, siguiendo el mismo patrón
+usado en los Casos 03, 04, 05 y 06.
+
+El Caso Público 07 (The Goldman Sachs Group, Inc., FY2025) se usó como
+séptima economía — la segunda institución financiera regulada de la
+secuencia, deliberadamente elegida para evitar que "institución
+financiera" se convirtiera en una categoría económica homogénea a partir
+de un solo ejemplo (Bancolombia) — **para intentar romper Velarix, no
+para confirmarlo**. **Siete casos muestran patrones más resistentes;
+siete casos no crean leyes universales.** El estudio manual de Goldman
+Sachs aportó evidencia que reforzó, elevó, tensionó, mantuvo sin cambio,
+o resultó insuficiente para lo siguiente, ahora incorporado en §5.2 y
+§20:
+
+1. **R1, R2, R4 (formulación base), R7 y R8 pasan a `PATRÓN OBSERVADO EN
+   SIETE CASOS`** — reaparecen de forma transversal e idéntica en
+   Tecnoglass, Terpel, Ecopetrol, Grupo Éxito, ISA, Bancolombia y Goldman
+   Sachs: contabilidad ≠ economía (repos, derivatives, collateral,
+   trading assets/liabilities, securities financing y financing con
+   clasificación contable correcta que no determina, por sí sola, su
+   interpretación para valoración); observado ≠ normalizado ≠ proyectado
+   (markets revenue, advisory, underwriting, incentive fees, investment
+   results, compensation); descomposición según dimensión económica
+   relevante (drivers distintos entre advisory, underwriting, FICC,
+   Equities, financing, AWM, wealth, lending, investments); drivers
+   específicos por empresa (deal activity, client activity, volatility,
+   spreads, financing balances, AUS/AUM, entre otros, sin biblioteca
+   universal cerrada); detección de incoherencias sin decisión
+   automática. Ninguna de estas cinco reglas generó cambio de
+   especificación.
+2. **R3, en su núcleo conceptual, también pasa a `PATRÓN OBSERVADO EN
+   SIETE CASOS`**, con el diseño de `assumption_relations` **aún más
+   insuficientemente validado** — Goldman aporta evidencia de relaciones
+   circulares, regulatorias, condicionales, no lineales y mediadas por
+   decisiones humanas entre actividad, revenues, balance, financing,
+   funding, risk, capital, liquidez y compensación. **No se rediseña en
+   esta actualización.**
+3. **R5 se profundiza, sin nuevo enum**: Goldman aporta la instancia de
+   "conozco la posición bruta, el netting, el collateral y la cifra neta
+   de un derivado, pero todavía no sé automáticamente qué magnitud
+   representa mejor la exposición económica relevante".
+4. **`scope` y `purpose` (§5.2) reciben tratamiento desigual**: `scope`
+   se mantiene sin cambio de nivel formal; `purpose` recibe la evidencia
+   más fuerte hasta ahora y **reduce materialmente su brecha de madurez
+   frente a `scope`**, sin fusionarse con él ni crear campos ni enums.
+5. **Comparabilidad/perímetro histórico cambia de estado** (§20): de
+   `PROBLEMA FUERTEMENTE DEMOSTRADO EN MÚLTIPLES ECONOMÍAS, AHORA
+   INCLUYENDO UNA INSTITUCIÓN FINANCIERA; EVIDENCIA SUFICIENTE PARA
+   EXIGIR TRATAMIENTO METODOLÓGICO, TODAVÍA INSUFICIENTE PARA DISEÑAR
+   UNA REPRESENTACIÓN GENERAL` (Caso 06) a la misma formulación **ahora
+   profundizada dentro de instituciones financieras** — tres segmentos
+   reportables heterogéneos (GBM, AWM, Platform Solutions) y una unidad
+   económica adecuada de análisis que puede no coincidir con entidad
+   legal ni segmento contable. **Sigue sin crearse `case_perimeter` ni
+   ninguna estructura.**
+6. **Candidatos actualizados de forma desigual — resultados positivos y
+   negativos** (§20): **Candidato A — neteo**: sube de "evidencia fuerte
+   en Ecopetrol" a `EVIDENCIA FUERTE INDEPENDIENTE EN ECOPETROL Y
+   GOLDMAN SACHS`, con advertencia explícita de que su formulación
+   general debe refinarse antes de cualquier elevación (la secuencia
+   bruto → netting → collateral → neto de los derivados de Goldman).
+   **Candidato B — ciclo de vida económico**: sube a cinco casos de
+   naturaleza económica muy distinta (Ecopetrol, Grupo Éxito, ISA,
+   Bancolombia, Goldman Sachs). **Candidato C — atribución
+   temporal/corte de conocimiento**: se mantiene "fuertemente
+   respaldado", con Goldman aportando una nueva economía temporal
+   (commitment → execution → recognition → remeasurement → settlement →
+   realization). **Candidato D — derechos económicos/propiedad
+   dinámica**: sin evidencia nueva en tres casos consecutivos (ISA,
+   Bancolombia, Goldman Sachs), se mantiene sin elevar. **Candidato E —
+   base de medición/régimen monetario**: recibe evidencia muy fuerte
+   adicional en "base de medición" (fair value, Level 1/2/3), sin
+   evidencia equivalente en "régimen monetario/moneda" — la formulación
+   general se vuelve **aún menos estable**, y la hipótesis de que son
+   fenómenos distintos se fortalece. **No se divide todavía en E1/E2.**
+7. **Observación ISA-F sube de nivel**: de `OBSERVACIÓN TRANSVERSAL
+   FUERTEMENTE REFORZADA EN DOS ECONOMÍAS RADICALMENTE DISTINTAS — ISA Y
+   BANCOLOMBIA` a `OBSERVACIÓN TRANSVERSAL FUERTEMENTE REFORZADA EN TRES
+   ECONOMÍAS RADICALMENTE DISTINTAS — ISA, BANCOLOMBIA Y GOLDMAN SACHS —
+   MANTENER ABIERTA HASTA MUNICH RE ANTES DE DECIDIR SU ELEVACIÓN`
+   (evidencia: dimensión contractual, de collateral, reuse/repledge,
+   liquidez y regulación; Global Core Liquid Assets ≈US$466B). **Sigue
+   sin convertirse en Candidato F.**
+8. **Observación Bancolombia-G sube de nivel**: de `EVIDENCIA FUERTE EN
+   BANCOLOMBIA — OBSERVACIÓN SECTORIAL` a `EVIDENCIA FUERTE INDEPENDIENTE
+   EN DOS INSTITUCIONES FINANCIERAS CON ECONOMÍAS MATERIALMENTE
+   DISTINTAS — BANCOLOMBIA Y GOLDMAN SACHS — MANTENER COMO OBSERVACIÓN
+   ABIERTA HASTA MUNICH RE ANTES DE DECIDIR SI ES SECTORIAL O MÁS
+   TRANSVERSAL` (evidencia: retorno de capital a accionistas ≈US$16.78B
+   condicionado por CET1, RWA y Supplementary Leverage Ratio). **Sigue
+   sin llamarse "Candidato G". Sigue sin fusionarse con ISA-F.**
+9. **Nueva observación registrada — compensación de Goldman,
+   explícitamente NO un candidato formal** (§20): compensación como
+   posible variable económica endógena (≈US$18.9B en 2025, relación
+   posible con revenue/performance). Estado `OBSERVACIÓN GOLDMAN —
+   COMPENSACIÓN COMO POSIBLE VARIABLE ECONÓMICA ENDÓGENA`.
+   `EVIDENCIA INSUFICIENTE PARA CREAR CANDIDATO`. **No se llama
+   "Candidato H" ni "Goldman-H". No se crea `compensation model`.**
+10. **Resultados negativos explícitos de este caso**: supplier financing
+    resultó irrelevante para Goldman como empresa valorada, sin cambio de
+    estado (`PROBLEMA FUERTEMENTE REFORZADO — CRITERIOS DE
+    RECLASIFICACIÓN TODAVÍA ABIERTOS`, apoyado en Tecnoglass, Terpel y
+    Grupo Éxito). Leases no recibió evidencia suficientemente nueva para
+    sumar instancia, sin cambio de estado (`PROBLEMA DEMOSTRADO —
+    TRATAMIENTO DE VALORACIÓN NO GENERALIZADO`).
+11. **Seis resultados metodológicos documentados, sin resolver, sin
+    cambiar decisiones aprobadas**: Residual Income/Excess Return
+    (candidato metodológico muy fuerte), FCFE adaptado a capital
+    (candidato fuerte), DDM/distribuciones potenciales (candidato
+    fuerte), SOTP (candidato fuerte y más relevante que en Bancolombia),
+    FCFF/WACC convencional (no adecuado como default del grupo
+    consolidado), y Enterprise Value (no adecuado como arquitectura
+    universal del grupo, potencialmente útil en determinados `scope`s —
+    pregunta abierta). Goldman refuerza la tensión WACC/Cost of Equity
+    sin resolverla. **Ninguna Decisión aprobada del Bloque 1B cambia**
+    (Decisión 1 — supuestos de WACC; Decisión 2 — estructura de capital
+    observada; Decisión 4 — horizonte explícito de 5 años). **No se
+    calculó WACC, Cost of Equity, g, FCFF, FCFE, ni ninguna valoración.**
+
+**Explícitamente no confirmado por este caso** (queda fuera, sin
+agregarse a la especificación): ninguna cifra de Goldman se incorporó
+como default, benchmark ni referencia metodológica de Velarix; ningún
+negocio, driver, ni método de valoración específico de Goldman se
+declaró requisito universal para otras empresas, bancos o instituciones
+financieras; no se decidió el nombre, tipo ni estructura final de
+`scope` ni de `purpose`; no se rediseñó `assumption_relations`; no se
+creó ninguna estructura para comparabilidad/perímetro histórico pese al
+cambio de estado; no se crearon `economic_period`, `economic_lifecycle`,
+`measurement_basis`, `availability`, `case_perimeter`, `netting`, modelo
+de collateral, `regulatory_capital`, `capital_bridge`,
+`distributable_capital`, `valuation_method`, `compensation model`, ni
+ninguna entidad `bank_mode`/enum de institución financiera; no se
+declaró obligatoria ninguna metodología de valoración (Residual Income,
+FCFE, DDM, SOTP, ni la secuencia FCFF/WACC/CAPEX/NWC/EV/net debt/Equity
+Value); no se seleccionó método final de valoración para Goldman Sachs;
+no se eleva formalmente el Candidato A pese a la evidencia fuerte
+independiente; no se eleva la observación ISA-F a Candidato F; no se
+crea "Candidato G" para Bancolombia-G; no se divide el Candidato E; no se
+crea "Candidato H" para la observación de compensación; no se cerraron
+los Bloques 1B ni 1C; no se modificó ninguna Decisión financiera
+aprobada del Bloque 1B. Todo lo anterior requiere más casos y/o criterio
+experto antes de precisarse (ver
+`docs/velarix/casos/07-goldman-sachs/REPORTE-CONTRASTE-EXPEDIENTE-V1.md`).
+
+**Conclusión de esta actualización, consistente con
+`CASO-07-GOLDMAN-SACHS-V0.md` §42**: el Expediente V1 sobrevive
+conceptualmente al Caso 07 — refuerza especialmente su capa universal de
+proceso frente a la arquitectura financiera específica del método y de
+la economía valorada, ahora con evidencia de que esa heterogeneidad
+puede existir incluso dentro de una misma organización — pero todavía no
+está listo para congelarse como arquitectura. **El Caso 07 NO queda
+formalmente cerrado ni congelado en esta actualización** — permanece
+`ANÁLISIS DOCUMENTADO — PENDIENTE DE REVISIÓN Y CIERRE FORMAL POR EL
+FUNDADOR`; este estado no cierra R1–R8 como leyes universales, no cierra
+la metodología, no cierra los Bloques 1B ni 1C, no congela el Expediente
+como arquitectura, no cierra ninguno de los Candidatos A–E ni las
+observaciones ISA-F y Bancolombia-G, y no selecciona método de
+valoración final. El Caso 08 (Munich Re) está autorizado, pero no se
+inicia en esta actualización — debe todavía intentar romper las
+conclusiones de este caso.
