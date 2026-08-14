@@ -225,7 +225,7 @@ carpeta, sin excepción.
 ## 13. Documentos de esta consolidación
 
 - [`01-REGISTRO-FENOMENOS-Y-MATRIZ-V1.md`](./01-REGISTRO-FENOMENOS-Y-MATRIZ-V1.md) — Phenomenon Registry (46 fenómenos con ID estable) y matriz Case × Phenomenon.
-- [`02-REGISTRO-EVIDENCIA-V1.md`](./02-REGISTRO-EVIDENCIA-V1.md) — Registro de evidencia material (Evidence IDs E-01-xxx a E-08-xxx) que sustenta el Phenomenon Registry.
+- [`02-REGISTRO-EVIDENCIA-V1.md`](./02-REGISTRO-EVIDENCIA-V1.md) — Registro de evidencia material (Evidence IDs con formato E-01-001 hasta E-08-022) que sustenta el Phenomenon Registry.
 - [`03-GENEALOGIAS-Y-GAPS-V1.md`](./03-GENEALOGIAS-Y-GAPS-V1.md) — Evolution ledger de los fenómenos más desarrollados y trece traceability gaps obligatorios.
 - [`04-BACKLOG-Y-PUENTE-1B-1C-V1.md`](./04-BACKLOG-Y-PUENTE-1B-1C-V1.md) — Backlog metodológico con códigos M-A a M-J y los siete frentes de diseño autorizados para estudio futuro en 1B/1C.
 

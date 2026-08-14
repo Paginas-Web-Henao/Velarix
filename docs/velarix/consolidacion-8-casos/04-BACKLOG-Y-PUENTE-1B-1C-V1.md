@@ -35,13 +35,16 @@ Phenomenon Registry — no deben confundirse entre sí.
 
 ### M-A — Formalizar en metodología
 
-R1, R2, R4 (formulación base), R5, R7, R8, R3 (núcleo conceptual), NWC
-(guardrail: no universal, no eliminado), CAPEX (separación conceptual
-de reinversión), REINVESTMENT, DEBT (guardrail), NET-DEBT (guardrail,
-no eliminado), CASH-LIQUIDITY (distinciones), CAPITAL (distinciones),
-CB (como principio condicional), STEADY-STATE (el principio, no un
-significado único), PROCESS-ARCH (arquitectura universal del proceso ≠
-arquitectura financiera del método).
+R1, R2, R4 (formulación base), R5, R7, R8, R3 (núcleo conceptual), CA
+(principio conceptual: preservar trazablemente el puente entre magnitud
+bruta y exposición económica relevante), NWC (guardrail: no universal,
+no eliminado), CAPEX (formalización posterior a la separación
+conceptual — ver M-H), REINVESTMENT (formalización posterior a la
+separación conceptual — ver M-H), DEBT (guardrail), NET-DEBT
+(guardrail, no eliminado), CASH-LIQUIDITY (distinciones), CAPITAL
+(distinciones), CB (como principio condicional), STEADY-STATE (el
+principio, no un significado único), PROCESS-ARCH (arquitectura
+universal del proceso ≠ arquitectura financiera del método).
 
 ### M-B — Llevar a diseño 1B/1C
 
@@ -52,8 +55,7 @@ económica), y gobierno/trazabilidad de selección de método
 
 ### M-C — Concepto / decisión humana sin estructura
 
-METHOD-EV (Enterprise Value, condicionado por scope), DISCOUNT-RATE
-(WACC/Cost of Equity — tensión sin resolver).
+DISCOUNT-RATE (WACC/Cost of Equity — tensión sin resolver).
 
 ### M-D — Alerta / pregunta
 
@@ -62,32 +64,53 @@ R8 (como mecanismo), SUPPLIER-FIN, LEASES.
 ### M-E — Más evidencia
 
 R3 (representación general de `assumption_relations`), CA (mecánica
-específica: netting/collateral/reinsurance), CD (derechos económicos /
+específica: netting/collateral/reinsurance/retrocession — antes de
+diseñar cualquier representación general), CD (derechos económicos /
 propiedad dinámica).
 
 ### M-F — Sectorial / condicionado
 
-METHOD-FCFF, METHOD-DCF-SCOPE, METHOD-RI, METHOD-FCFE, METHOD-POTDIST,
+METHOD-EV (Enterprise Value — no arquitectura universal obligatoria,
+puede ser útil en determinados scopes; no eliminado, no aprobado
+universalmente), METHOD-FCFF, METHOD-DCF-SCOPE, METHOD-RI, METHOD-FCFE,
+METHOD-DDM (como método/enfoque potencial — condicionado, no
+descartado; ver M-I para la abstracción literal), METHOD-POTDIST,
 METHOD-SOTP, CG (puente capital / capacidad de distribución, Capa B).
 
 ### M-G — Fusionar
 
-OBS-GS-COMP (con R3 o R7, condicionalmente); OBS-MUNICH-EXPOSURE (con
-CA y/o R3/CG, condicionalmente).
+OBS-GS-COMP (con R3 o R7, condicionalmente).
 
 ### M-H — Dividir
 
 CE-HIST → MEASUREMENT-BASIS / MONETARY-REGIME (conceptualmente, sin
 IDs técnicos definitivos ni implementación).
 
+OBS-MUNICH-EXPOSURE → dividida conceptualmente, sin sobrevivir como
+candidato independiente: **Parte 1** (gross → mitigants → retained/
+economic exposure) se relaciona principalmente con `CA`; **Parte 2**
+(exposure/risk → required capital) se relaciona principalmente con `R3`
+y, cuando afecta capacidad de distribución prudencial, con `CG`. No se
+crea Candidato H.
+
+CAPEX/REINVESTMENT (histórico compuesto, tratados como sinónimo
+aproximado hasta el Caso 05) → divididos conceptualmente desde el Caso
+06: CAPEX ≠ totalidad de la reinversión económica. Después de la
+separación, ambos fenómenos quedan diferenciados y cada uno recibe
+disposición `M-A` propia (ver arriba) — la división en sí misma es el
+evento `M-H`; la formalización posterior de cada fenómeno separado es
+`M-A`.
+
 ### M-I — Descartar abstracción
 
-METHOD-DDM literal (dividendos históricos = capacidad sostenible de
-distribución) — reemplazado conceptualmente por METHOD-POTDIST. La
-segunda abstracción descartada explícitamente por esta consolidación es
-**la arquitectura financiera universal aplicable a todas las empresas**
-(ver `00-INDICE-Y-SINTESIS-MAESTRA-V1.md` §6) — no un fenómeno del
-registro, sino el marco central que esta consolidación descarta.
+METHOD-DDM literal (dividendos históricos/payout histórico =
+capacidad sostenible de distribución) — únicamente esa lectura literal,
+no el método DDM como candidato (que permanece `M-F`, ver arriba) —
+reemplazada conceptualmente por METHOD-POTDIST. La segunda abstracción
+descartada explícitamente por esta consolidación es **la arquitectura
+financiera universal aplicable a todas las empresas** (ver
+`00-INDICE-Y-SINTESIS-MAESTRA-V1.md` §6) — no un fenómeno del registro,
+sino el marco central que esta consolidación descarta.
 
 ### M-J — No decidir todavía
 
@@ -459,10 +482,13 @@ métodos considerados → compatibilidad/incompatibilidad → evidencia →
 limitaciones → método finalmente aprobado → aprobador.
 
 **B. Casos que lo soportan**: C06 (formulación explícita, cinco métodos
-documentados para Bancolombia sin aprobar ninguno), C07 (seis
-resultados de métodos documentados para Goldman), C08 (diez resultados
-de métodos documentados para Munich Re — el nivel de documentación
-metodológica más profundo de la serie).
+documentados para Bancolombia sin aprobar ninguno), C07 (seis métodos
+documentados para Goldman), C08 (ocho métodos más dos evaluaciones de
+tasa de descuento —Cost of Equity y WACC— documentados para Munich Re
+— el nivel de documentación metodológica más profundo de la serie; no
+se trata de "diez métodos", ya que Cost of Equity y WACC son inputs
+metodológicos/tasa de descuento, no métodos de valoración en sí
+mismos).
 
 **C. Casos que limitan o matizan la generalización**: los Casos 01–05
 no enfrentaron explícitamente la pregunta de selección de método entre
@@ -509,18 +535,18 @@ AUTORIZADA.
 | Elemento | Disposición | Estado consolidado |
 |---|---|---|
 | NWC | M-A | No universal obligatorio; material en economías industriales/retail, no en core bancario/asegurador. |
-| CAPEX | M-A | Manifestación contable de inversión en determinadas economías; no totalidad de la reinversión. |
-| REINVESTMENT | M-A | Separado conceptualmente de CAPEX desde C06; sin fórmula universal. |
+| CAPEX | M-H (separación) → M-A | Dividido conceptualmente de REINVESTMENT desde C06; manifestación contable de inversión en determinadas economías; no totalidad de la reinversión. |
+| REINVESTMENT | M-H (separación) → M-A | Separado conceptualmente de CAPEX desde C06; sin fórmula universal. |
 | DEBT | M-A | Financial liability ≠ automáticamente deuda económica externa; institución financiera ≠ automáticamente sin deuda. |
 | NET-DEBT | M-A | No métrica universal obligatoria ni puente EV→Equity Value obligatorio; puede ser válido según scope/método/economía. |
 | CASH-LIQUIDITY | M-A | Cuatro/más distinciones (contable/liquidez/excedentario/distribuible; IFRS equity/eligible own funds/SCR/distributable excess). |
 | CAPITAL | M-A | Book equity ≠ capital regulatorio ≠ capital requerido ≠ capital excedentario ≠ capital distribuible. |
-| METHOD-EV | M-C | No arquitectura universal obligatoria; puede ser útil en determinados scopes. |
+| METHOD-EV | M-F | No arquitectura universal obligatoria; puede ser útil en determinados scopes; no eliminado, no aprobado universalmente. |
 | METHOD-FCFF | M-F | No default universal consolidado; especialmente no apropiado en las tres instituciones prudenciales; no eliminado. |
 | METHOD-DCF-SCOPE | M-F | DCF ≠ FCFF industrial; conceptualmente respaldado como posibilidad, no obligatorio por scope. |
 | METHOD-RI | M-F | Candidato muy fuerte en Bancolombia, Goldman Sachs y Munich Re; no aprobado. |
 | METHOD-FCFE | M-F | Candidato fuerte en familia prudencial; no aprobado. |
-| METHOD-DDM | M-I | DDM literal descartado como abstracción suficiente; ver METHOD-POTDIST. |
+| METHOD-DDM | M-F (método); M-I (solo la abstracción literal) | DDM como método/enfoque potencial permanece condicionado, no descartado; únicamente su lectura literal (dividendo/payout histórico = capacidad sostenible de distribución) se descarta como abstracción — ver METHOD-POTDIST. |
 | METHOD-POTDIST | M-F | Candidato muy fuerte en familia prudencial; no aprobado. |
 | METHOD-SOTP | M-F | Candidato fuerte/muy fuerte según economía; segmentos contables ≠ unidades obligatorias de valoración. |
 | DISCOUNT-RATE | M-C | WACC no universal, no eliminado; Cost of Equity conceptualmente natural en métodos directos de equity, no aprobado. |

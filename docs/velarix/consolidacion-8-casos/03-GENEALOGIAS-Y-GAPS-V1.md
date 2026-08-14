@@ -473,7 +473,11 @@ ambos conceptos.
 
 **Cómo se preserva en trazabilidad**: el Phenomenon Registry mantiene
 `CAPEX` y `REINVESTMENT` como fenómenos separados desde el Caso 06 en
-adelante, vinculados mediante `related_phenomena`.
+adelante, vinculados mediante `related_phenomena`. La separación en sí
+misma se registra con disposición `M-H — DIVIDIR` (Caso 06, evento ya
+ejecutado documentalmente); la formalización posterior de cada
+fenómeno ya separado recibe disposición `M-A` independiente — ver
+`04-BACKLOG-Y-PUENTE-1B-1C-V1.md` §2.
 
 ---
 

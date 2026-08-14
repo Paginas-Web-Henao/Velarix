@@ -6,7 +6,7 @@ selecciona método de valoración. NO reabre Bloque 1E. Ver
 `00-INDICE-Y-SINTESIS-MAESTRA-V1.md` para el contexto completo de esta
 consolidación.
 **Fuente de evidencia**: `02-REGISTRO-EVIDENCIA-V1.md` (evidence IDs
-E-01-xxx a E-08-xxx) y los 16 documentos congelados de los Casos 01–08.
+formato E-01-001 hasta E-08-022) y los 16 documentos congelados de los Casos 01–08.
 
 ---
 
@@ -516,11 +516,11 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_generality**: Capa C
 - **related_phenomena**: REINVESTMENT
 - **possible_overlap**: Con REINVESTMENT — separación conceptual formal desde C06.
-- **current_status**: `CAPEX = % de ingresos` NO ES METODOLOGÍA DEFENDIBLE — reforzado de forma independiente en los ocho casos
+- **current_status**: `CAPEX = % de ingresos` NO ES METODOLOGÍA DEFENDIBLE — reforzado de forma independiente en los ocho casos. CAPEX y REINVESTMENT eran tratados como sinónimo aproximado hasta el Caso 05; el evento `M-H — DIVIDIR` (Caso 06) los separa conceptualmente — ver genealogía en `03-GENEALOGIAS-Y-GAPS-V1.md`.
 - **open_questions**: ¿Qué taxonomía (mantenimiento/crecimiento/eficiencia/estratégico/regulatorio) es necesaria caso por caso, sin ser universal?
 - **wrong_implementation_risk**: Taxonomía universal obligatoria de CAPEX, o fórmula `CAPEX = % revenue`.
 - **non_representation_risk**: Confundir clasificación contable de un desembolso (ej. aporte a JV en vez de CAPEX de PP&E) con ausencia de inversión económica real.
-- **disposition**: M-A — FORMALIZAR (separación conceptual)
+- **disposition**: M-H — DIVIDIR (separación de REINVESTMENT, evento ya ejecutado documentalmente en C06); M-A — FORMALIZAR el concepto ya separado
 - **implementation_status**: NOT_AUTHORIZED
 
 ### REINVESTMENT — Reinversión económica
@@ -529,16 +529,16 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Qué recursos económicos deben comprometerse para sostener crecimiento/capacidad. CAPEX contable ≠ necesariamente totalidad de la reinversión; capital regulatorio ≠ necesariamente totalidad de la reinversión.
 - **object_type**: guardrail financiero, separado conceptualmente de CAPEX
 - **origin_case**: C06 (separación formal); expandido en C07
-- **origin_evidence_id**: E-06-003 (origen de la separación); E-07 (Goldman amplía vías: capital regulatorio, tecnología, talento, fundraising, plataformas, adquisiciones)
+- **origin_evidence_id**: E-06-003 (origen de la separación); E-07-009 (Goldman amplía vías: capital regulatorio, tecnología, talento, fundraising, plataformas, adquisiciones)
 - **origin_epistemic_class**: IA
 - **current_generality**: Capa B (en instituciones financieras prudenciales) / Capa C (en otras economías)
 - **related_phenomena**: CAPEX, CG
 - **possible_overlap**: Con CAPEX (ver arriba) y con CG (retención de capital como forma de reinversión bancaria/aseguradora).
-- **current_status**: SEPARACIÓN CONCEPTUAL FORMALIZADA — sin fórmula universal
+- **current_status**: SEPARACIÓN CONCEPTUAL FORMALIZADA (evento `M-H`, C06) — sin fórmula universal para el concepto ya separado
 - **open_questions**: ¿Cómo se documenta la reinversión cuando excede el CAPEX contable, sin crear una fórmula automática?
 - **wrong_implementation_risk**: Fórmula que combine automáticamente CAPEX contable y retención de capital regulatorio en una única métrica de "reinversión".
 - **non_representation_risk**: Asumir que el CAPEX contable agota la reinversión económica relevante, subestimando la capacidad de crecimiento real.
-- **disposition**: M-A — FORMALIZAR separación conceptual
+- **disposition**: M-H — DIVIDIR (separación de CAPEX, evento ya ejecutado documentalmente en C06); M-A — FORMALIZAR el concepto ya separado
 - **implementation_status**: NOT_AUTHORIZED
 
 ### DEBT — Deuda
@@ -547,7 +547,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Financial liability ≠ automáticamente deuda económica externa a la operación. Tampoco: institución financiera = sin deuda.
 - **object_type**: guardrail financiero
 - **origin_case**: C06 (formulación explícita mediante depósitos); reforzado en C07 (financing como operación) y C08 (insurance liabilities ≠ corporate debt, pero Munich Re sí tiene strategic debt real)
-- **origin_evidence_id**: E-06-001; E-07 (financing como operación); E-08 (insurance liabilities ≠ strategic debt)
+- **origin_evidence_id**: E-06-001; E-07-010 (financing como operación); E-08-012 (insurance liabilities ≠ strategic debt)
 - **origin_epistemic_class**: IA
 - **current_generality**: Capa B (instituciones financieras) / Capa C (otras economías)
 - **related_phenomena**: NET-DEBT, LEASES, SUPPLIER-FIN
@@ -565,7 +565,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Net debt convencional no es métrica universal obligatoria ni puente EV→Equity Value obligatorio. Puede ser válido según scope/método/economía.
 - **object_type**: guardrail financiero
 - **origin_case**: C01 (mención inicial); refutación de universalidad en C06, reforzada en C07 y C08
-- **origin_evidence_id**: E-06-001; E-07 (net debt convencional no interpretable en ciertos scopes); E-08 (net debt convencional no obligatorio y potencialmente engañoso a nivel consolidado)
+- **origin_evidence_id**: E-06-001; E-07-011 (net debt convencional no interpretable en ciertos scopes); E-08-012 (net debt convencional no obligatorio y potencialmente engañoso a nivel consolidado)
 - **origin_epistemic_class**: IA
 - **current_generality**: Capa C (aplicable según scope; problemático como default consolidado en instituciones financieras)
 - **related_phenomena**: DEBT, CASH-LIQUIDITY
@@ -583,7 +583,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Deben preservarse las distinciones: cash contable ≠ liquidez ≠ cash excedentario ≠ disponibilidad económica ≠ recurso distribuible.
 - **object_type**: guardrail financiero, distinciones conceptuales
 - **origin_case**: C06 (formulación de las cuatro nociones bancarias); reforzado por C05 (ISA-F) y C08 (Munich Re: IFRS equity ≠ Solvency II eligible own funds ≠ SCR ≠ distributable excess)
-- **origin_evidence_id**: E-06-005; E-05-001 (relacionado, CF); E-08 (régimen dual IFRS/Solvency II)
+- **origin_evidence_id**: E-06-005; E-05-001 (relacionado, CF); E-08-013 (régimen dual IFRS/Solvency II)
 - **origin_epistemic_class**: DC
 - **current_generality**: Capa B (instituciones financieras) / Capa C (otras economías)
 - **related_phenomena**: CF, CG, CAPITAL
@@ -619,16 +619,16 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: No es arquitectura universal obligatoria; puede ser útil en determinados scopes.
 - **object_type**: método de valoración, no aprobado
 - **origin_case**: C06 (evaluado por primera vez explícitamente como no adecuado para default bancario); reforzado en C07 y C08
-- **origin_evidence_id**: E-06 (§25 A del caso); E-07 (§32 F); E-08 (§27 A)
+- **origin_evidence_id**: E-06-010 (§25 A del caso); E-07-012 (§32 F); E-08-014 (§27 A)
 - **origin_epistemic_class**: IM
-- **current_generality**: Capa C
+- **current_generality**: Capa C (condicionado por scope)
 - **related_phenomena**: METHOD-FCFF, METHOD-DCF-SCOPE
 - **possible_overlap**: Con METHOD-FCFF (par metodológico tradicional).
 - **current_status**: NO ADECUADO COMO ARQUITECTURA UNIVERSAL DEL GRUPO CONSOLIDADO EN INSTITUCIONES FINANCIERAS PRUDENCIALES; POTENCIALMENTE ÚTIL EN DETERMINADOS SCOPES — pregunta abierta
 - **open_questions**: ¿En qué scopes específicos EV mantiene utilidad dentro de un grupo con instituciones financieras?
 - **wrong_implementation_risk**: Selección automática de EV como método por defecto.
 - **non_representation_risk**: Eliminar EV como opción de Velarix pese a seguir siendo apropiado en Tecnoglass, Terpel, Grupo Éxito.
-- **disposition**: M-C — CONCEPTO / DECISIÓN HUMANA SIN ESTRUCTURA
+- **disposition**: M-F — SECTORIAL / CONDICIONADO
 - **implementation_status**: NOT_AUTHORIZED
 
 ### METHOD-FCFF — FCFF / WACC convencional
@@ -637,7 +637,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: No es default universal consolidado, especialmente no apropiado como default en los tres casos prudenciales. DCF ≠ FCFF industrial — no se elimina FCFF ni WACC.
 - **object_type**: método de valoración, no aprobado
 - **origin_case**: C06; reforzado en C07 y C08
-- **origin_evidence_id**: E-06 (§25 A); E-07 (§32 E); E-08 (§27 C)
+- **origin_evidence_id**: E-06-010 (§25 A); E-07-013 (§32 E); E-08-015 (§27 C)
 - **origin_epistemic_class**: IM
 - **current_generality**: Capa C
 - **related_phenomena**: METHOD-EV, METHOD-DCF-SCOPE, DISCOUNT-RATE
@@ -655,7 +655,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Discounted cash-flow approaches pueden ser económicamente útiles en determinados scopes, sin implicar que cada scope necesite un DCF ni que DCF equivalga a FCFF industrial.
 - **object_type**: método de valoración, conceptualmente respaldado
 - **origin_case**: C08 (formulación explícita: "DCF ≠ FCFF industrial")
-- **origin_evidence_id**: E-08 (§27 C)
+- **origin_evidence_id**: E-08-015 (§27 C)
 - **origin_epistemic_class**: IM
 - **current_generality**: Capa C
 - **related_phenomena**: METHOD-FCFF
@@ -673,7 +673,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Conecta book equity (u otra base de capital) con la capacidad de generar retornos por encima o por debajo del Cost of Equity.
 - **object_type**: método de valoración, candidato fuerte, no aprobado
 - **origin_case**: C06 ("candidato metodológico más fuerte del caso")
-- **origin_evidence_id**: E-06-007 (origen); E-07 (Goldman, candidato muy fuerte por ROE/book value); E-08 (Munich Re, candidato muy fuerte)
+- **origin_evidence_id**: E-06-007 (origen); E-07-014 (Goldman, candidato muy fuerte por ROE/book value); E-08-016 (Munich Re, candidato muy fuerte)
 - **origin_epistemic_class**: IM
 - **current_generality**: Capa B — familia: instituciones financieras prudencialmente reguladas
 - **related_phenomena**: DISCOUNT-RATE, CAPITAL
@@ -691,7 +691,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Puede interpretar conceptualmente la reinversión mediante el capital retenido necesario para soportar crecimiento y riesgo.
 - **object_type**: método de valoración, candidato fuerte, no aprobado
 - **origin_case**: C06
-- **origin_evidence_id**: E-06 (§25 C); E-07 (Goldman: reinversión más amplia, no fórmula bancaria simplista); E-08 (Munich Re: equity reinvestment ≠ retained earnings ≠ cambio en eligible own funds/SCR)
+- **origin_evidence_id**: E-06-011 (§25 C); E-07-015 (Goldman: reinversión más amplia, no fórmula bancaria simplista); E-08-017 (Munich Re: equity reinvestment ≠ retained earnings ≠ cambio en eligible own funds/SCR)
 - **origin_epistemic_class**: IM
 - **current_generality**: Capa B
 - **related_phenomena**: METHOD-RI, REINVESTMENT, CG
@@ -706,19 +706,19 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 ### METHOD-DDM — Dividend Discount Model
 
 - **current_name**: DDM
-- **current_formulation**: Método potencial, pero DDM literal (solo dividendos históricos/payout histórico) es demasiado estrecho como abstracción de capacidad sostenible de distribución.
-- **object_type**: método de valoración, descartado como abstracción literal
-- **origin_case**: C06 (candidato fuerte); descartado como literal en C07 (recompras >> dividendos) y C08 ("DEMASIADO ESTRECHO")
-- **origin_evidence_id**: E-06 (§25 D); E-07-005 (recompras US$12.36B vs. dividendos US$4.42B); E-08 (§27 F)
+- **current_formulation**: DDM como método/enfoque de valoración de equity permanece candidato condicionado (Capa B), sin aprobar ni descartar. Distinto de eso: la abstracción literal "dividendo histórico / payout histórico = capacidad sostenible de distribución" se descarta explícitamente.
+- **object_type**: método de valoración, candidato condicionado (método); abstracción literal descartada (lectura específica)
+- **origin_case**: C06 (candidato fuerte, como método); su lectura literal se muestra insuficiente en C07 (recompras >> dividendos) y se descarta explícitamente en C08 ("DEMASIADO ESTRECHO")
+- **origin_evidence_id**: E-06-012 (§25 D, origen del método como candidato); E-07-005 (recompras US$12.36B vs. dividendos US$4.42B, evidencia contra la lectura literal); E-08-018 (§27 F, "DDM literal: DEMASIADO ESTRECHO")
 - **origin_epistemic_class**: IM
 - **current_generality**: Capa B
 - **related_phenomena**: METHOD-POTDIST
-- **possible_overlap**: Total con METHOD-POTDIST, que lo reemplaza como abstracción más amplia.
-- **current_status**: DDM literal DEMASIADO ESTRECHO; evolucionó hacia METHOD-POTDIST — ver genealogía GAP-11
-- **open_questions**: Ninguna nueva; resuelto conceptualmente por la evolución hacia Potential Distributions.
-- **wrong_implementation_risk**: Proyectar mecánicamente el payout histórico como capacidad sostenible de distribución.
-- **non_representation_risk**: Mantener DDM como único marco de distribuciones, ignorando buybacks y capital requerido.
-- **disposition**: M-I — DESCARTAR ABSTRACCIÓN (DDM literal); ver METHOD-POTDIST
+- **possible_overlap**: Con METHOD-POTDIST, que absorbe y amplía lo que la lectura literal de DDM no capturaba (buybacks, capital requerido, buffers) — DDM como método no se elimina ni se fusiona con Potential Distributions, ambos permanecen candidatos distintos.
+- **current_status**: DDM COMO MÉTODO: CANDIDATO CONDICIONADO, NO APROBADO NI DESCARTADO. Su lectura literal (dividendo/payout histórico = capacidad sostenible de distribución) queda DESCARTADA COMO ABSTRACCIÓN — ver genealogía GAP-11
+- **open_questions**: ¿En qué scope o economía DDM (no literal) sigue siendo un método preferible frente a Potential Distributions?
+- **wrong_implementation_risk**: Proyectar mecánicamente el payout histórico como capacidad sostenible de distribución (lectura literal); o, en el extremo opuesto, tratar DDM como método completamente eliminado de Velarix.
+- **non_representation_risk**: Mantener la lectura literal de DDM como único marco de distribuciones, ignorando buybacks y capital requerido.
+- **disposition**: M-F — SECTORIAL / CONDICIONADO (DDM como método); M-I — DESCARTAR ABSTRACCIÓN (únicamente la lectura literal dividendo/payout histórico = capacidad sostenible de distribución)
 - **implementation_status**: NOT_AUTHORIZED
 
 ### METHOD-POTDIST — Potential Distributions
@@ -745,7 +745,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Candidato fuerte/muy fuerte según economía, pero puede destruir diversificación, interdependencias, asignación de capital, transferencias y sinergias; segmentos contables ≠ unidades obligatorias de valoración.
 - **object_type**: método de valoración, candidato condicional, no aprobado
 - **origin_case**: C06 (candidato a evaluar por materialidad); reforzado en C07 (candidato fuerte y más relevante que en Bancolombia) y C08 (candidato muy fuerte, con riesgo de un SOTP ingenuo)
-- **origin_evidence_id**: E-06 (§25 E); E-07-008; E-08-009
+- **origin_evidence_id**: E-06-013 (§25 E); E-07-008; E-08-009
 - **origin_epistemic_class**: IM
 - **current_generality**: Capa C (según economía)
 - **related_phenomena**: R4, PERIMETER, ANALYSIS-UNIT
@@ -763,7 +763,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: WACC no es input universal obligatorio; no está eliminado. Cost of Equity es conceptualmente natural en métodos directos de equity, no aprobado.
 - **object_type**: decisión/concepto humano, sin estructura
 - **origin_case**: C06 (tensión documentada por primera vez); reforzado en C07 y C08
-- **origin_evidence_id**: E-06 (§26); E-07 (§32 G); E-08 (§27 I, J)
+- **origin_evidence_id**: E-06-014 (§26); E-07-016 (§32 G); E-08-019 (§27 I, J)
 - **origin_epistemic_class**: IM
 - **current_generality**: Capa A (principio) / Capa C (tasa concreta)
 - **related_phenomena**: METHOD-RI, METHOD-FCFE
@@ -780,13 +780,13 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_name**: Selección y gobierno de método de valoración
 - **current_formulation**: Debe preservarse trazabilidad de: objeto económico valorado → scope → purpose → perímetro → unidad económica → métodos considerados → compatibilidad/incompatibilidad → evidencia → limitaciones → método finalmente aprobado → aprobador.
 - **object_type**: necesidad de gobierno/trazabilidad, no un método en sí
-- **origin_case**: C06 (formulación explícita); reforzado en C07 y C08
-- **origin_evidence_id**: E-06 (§30); E-07 (§9 del reporte de contraste, punto 11 "NO DEBE RESOLVERSE TODAVÍA"); E-08 (§30, punto 29 de la lista para consolidación)
+- **origin_case**: C06 (formulación explícita, origen); confirmado sin expansión de diseño en C07 y C08
+- **origin_evidence_id**: E-06-015 (§30, origen); E-07-017 (§9 del reporte de contraste, punto 11 "NO DEBE RESOLVERSE TODAVÍA" — continuidad, no expansión); E-08-020 (§30, punto 29 de la lista para consolidación — continuidad, no expansión)
 - **origin_epistemic_class**: IM
 - **current_generality**: Capa A
 - **related_phenomena**: SCOPE, PURPOSE, ANALYSIS-UNIT, todos los METHOD-*
 - **possible_overlap**: Estructural con todos los métodos — es el marco que los organiza, no un método adicional.
-- **current_status**: NECESIDAD METODOLÓGICA RECONOCIDA — NO DEBE RESOLVERSE TODAVÍA
+- **current_status**: NECESIDAD METODOLÓGICA RECONOCIDA EN C06 — NO DEBE RESOLVERSE TODAVÍA. C07 y C08 confirman la necesidad sin aportar diseño adicional (evidencia de continuidad, no de refuerzo independiente fuerte)
 - **open_questions**: Diseño completo pendiente para 1B/1C.
 - **wrong_implementation_risk**: `valuation_method` field, enum, selector automático, o "method engine".
 - **non_representation_risk**: Aprobar un método sin trazabilidad de por qué era compatible con la economía y el objeto valorado.
@@ -799,7 +799,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Decisión vigente: 5 años fijos por ahora (Decisión 4 del Bloque 1B). Horizonte explícito ≠ vida contractual ≠ vida económica ≠ vida de empresa ≠ perpetuidad.
 - **object_type**: decisión vigente, no autorizada a cambiar en esta consolidación
 - **origin_case**: C01 (primera tensión conceptual); Decisión 4 preexistente al Caso 01; profundizada en C05, C06, C07, C08
-- **origin_evidence_id**: E-05 (§20, tensión explícita); E-06 (§28); E-07 (§33); E-08 (§28)
+- **origin_evidence_id**: E-05-008 (§20, tensión explícita); E-06-016 (§28); E-07-018 (§33); E-08-021 (§28)
 - **origin_epistemic_class**: DC/IM
 - **current_generality**: Capa A (principio) — decisión vigente Capa C
 - **related_phenomena**: CB, STEADY-STATE, G
@@ -817,7 +817,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Steady state ≠ resultados idénticos todos los años. Debe representar una configuración económica sostenible/coherente y puede ser through-the-cycle. La definición concreta depende de economía + objeto + método.
 - **object_type**: principio a formalizar
 - **origin_case**: C01 (tensión inicial); profundizado en C05 (activos finitos + reinversión continua), C06 (convergencia ROE→Cost of Equity), C07 (normalized through-cycle profitability), C08 (through-the-cycle en seguros/reaseguros)
-- **origin_evidence_id**: E-05 (§20); E-06 (§28); E-07 (§33); E-08 (§28)
+- **origin_evidence_id**: E-05-008 (§20); E-06-016 (§28); E-07-018 (§33); E-08-021 (§28)
 - **origin_epistemic_class**: IM
 - **current_generality**: Capa A (principio) / Capa C (significado concreto por economía)
 - **related_phenomena**: HORIZON, G, CB
@@ -853,7 +853,7 @@ Cada entrada sigue el esquema: `phenomenon_id`, `current_name`,
 - **current_formulation**: Ver §4 de `00-INDICE-Y-SINTESIS-MAESTRA-V1.md` — inferencia metodológica central de esta consolidación.
 - **object_type**: inferencia metodológica de más alto nivel
 - **origin_case**: C06 (formulación explícita); reforzada en C07 (heterogeneidad intra-organizacional) y C08 (cierre de la primera batería)
-- **origin_evidence_id**: E-06 (§29); Caso 07 §36; Caso 08 §7
+- **origin_evidence_id**: E-06-017 (§29); E-07-019 (§36); E-08-022 (§7)
 - **origin_epistemic_class**: IM
 - **current_generality**: Capa A
 - **related_phenomena**: todos — es el principio organizador de la consolidación completa
@@ -885,12 +885,12 @@ evidencia.
 |---|---|---|---|---|---|---|---|---|
 | R1 | OR·E-01-001 | SF·E-02-004 | SF·E-03-006 | SF | SF | SF·E-06-001 | SF·E-07-001 | SF·E-08-010 |
 | R2 | OR·E-01-002 | SF·E-02-004 | SF·E-03-003 | SF | SF | SF | SF | SF·E-08-010 |
-| R3 | OR·E-01-003 | EX·E-02-005 | SF·E-03-006 | SF+CT | SF+CT | SF+CT | SF+CT·E-07 | SF+CT |
+| R3 | OR·E-01-003 | EX·E-02-005 | SF·E-03-006 | SF+CT | SF+CT | SF+CT | SF+CT·E-07-020 | SF+CT |
 | R4 | OR·E-01-004 | RF·E-02-001 | EX·E-03-007 | SF+CT | SF·E-05-005 | SF | SF | SF·E-08-010 |
 | R5 | OR·E-01-005 | SF | EX·(matiz) | SF | SF | SF | SF | SF |
 | R6-HIST | OR·E-01-006 | MG·(scope/purpose empieza) | — | — | — | — | — | — |
 | SCOPE | — | OR·E-02-002 | SF·E-03-005 | WF | WF | SF·E-06-006 | WF | SF |
-| PURPOSE | — | OR·E-02-003 | WF | SF·E-04-006 | WF | SF | SF·E-07-003 | SF |
+| PURPOSE | — | OR·E-02-003 | EI·E-03-009 | SF·E-04-006 | WF | SF | SF·E-07-003 | SF |
 | PERIMETER | — | EI·E-02-006 | OR·E-03-004 | SF·E-04-005 | SF·E-05-004 | SF·E-06-009 | SF·E-07-006 | SF·E-08-008 |
 | ANALYSIS-UNIT | — | — | — | — | — | OR·E-06-006 | SF·E-07-006 | SF·E-08-008 |
 | R7 | OR·E-01-007 | SF·E-02-008 | SF | SF | SF | SF | SF | SF |
@@ -902,11 +902,11 @@ evidencia.
 | CE-HIST | — | — | — | OR·E-04-002 | SF+SP·E-05-003 | SF+SP·E-06-008 | SF+SP·E-07-002 | SF+SP·E-08-004 |
 | MEASUREMENT-BASIS | — | — | — | — | — | WF | SF·E-07-002 | SF·E-08-004 |
 | MONETARY-REGIME | — | — | — | OR | SF·E-05-003 | WF | EI | WF |
-| CF | — | — | — | — | OR·E-05-001 | SF·E-06-005 | SF | SF+OR(elevación)·E-08-005 |
-| CG | — | — | — | — | — | OR·E-06-004 | SF·E-07-005 | SF+OR(elevación)·E-08-006 |
+| CF | — | — | — | — | OR·E-05-001 | SF·E-06-005 | SF | SF+EX·E-08-005 |
+| CG | — | — | — | — | — | OR·E-06-004 | SF·E-07-005 | SF+EX·E-08-006 |
 | OBS-GS-COMP | — | — | — | — | — | — | OR·E-07-004 | EI·E-08-011 |
 | OBS-MUNICH-EXPOSURE | — | — | — | — | — | — | — | OR·E-08-007 |
-| SUPPLIER-FIN | OR·E-01-009 | SF·E-02-007 | NR | SF·E-04-007 | EI | NR·E-06 | NR | NR |
+| SUPPLIER-FIN | OR·E-01-009 | SF·E-02-007 | NR | SF·E-04-007 | EI | NR·E-06-018 | NR | NR |
 | LEASES | WF | NR | NR | OR(doble rol)·E-04-008 | SF·E-05-006 | SF | EI | EI |
 | NWC | WF | NR | NR | NR | NR | CT·E-06-002 | SF | SF |
 | CAPEX | WF | SF | SF | SF | SF+RF·E-05-007 | SF+EX | SF | SF |
@@ -924,7 +924,7 @@ evidencia.
 | METHOD-POTDIST | — | — | — | — | — | — | OR·E-07-005 | SF·E-08-009 |
 | METHOD-SOTP | — | — | — | — | — | WF | SF·E-07-008 | SF·E-08-009 |
 | DISCOUNT-RATE | ND | ND | ND | ND | ND | OR·(tensión) | CT | CT |
-| METHOD-SELECTION | — | — | — | — | — | OR | ND | ND |
+| METHOD-SELECTION | — | — | — | — | — | OR·E-06-015 | WF·E-07-017 | WF·E-08-020 |
 | HORIZON | WF | ND | ND | ND | CT·(ISA) | ND | ND | ND |
 | STEADY-STATE | WF | ND | ND | ND | CT | SF | SF | SF |
 | G | WF | ND | ND | ND | ND | ND | ND | ND |

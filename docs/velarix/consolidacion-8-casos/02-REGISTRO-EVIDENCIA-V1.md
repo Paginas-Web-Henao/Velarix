@@ -412,6 +412,20 @@ congelados — estos son la fuente autoritativa de esta consolidación.
 - **analyst_interpretation**: Refuerza R1 con un mecanismo adicional (invisibilidad intragrupo), sin crear candidato independiente.
 - **limitations**: Sin cifras específicas del detalle intragrupo.
 
+### E-03-009
+- **case_id**: C03
+- **source_document**: `CASO-03-ECOPETROL-V0.md`
+- **section**: §17 (R6)
+- **source_locator**: "`purpose` (propósito original de un supuesto) permanece: `PREGUNTA CONCEPTUAL ABIERTA — EVIDENCIA MENOR QUE SCOPE` — este caso no aportó evidencia directa nueva sobre propósito original de una cifra específica"
+- **evidence_summary**: El propio Caso 03 declara explícitamente que no aportó evidencia directa nueva sobre `purpose`, a diferencia de `scope`, que sí se elevó en este mismo caso (E-03-005).
+- **epistemic_class**: EVI
+- **phenomenon_id**: PURPOSE
+- **effect**: INSUFFICIENT
+- **independence_class**: N/A
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Ecopetrol refuerza fuertemente `scope` (E-03-005) pero no `purpose` — ambas necesidades se mantienen explícitamente separadas y sin fusionarse, con niveles de evidencia distintos en este mismo caso.
+- **limitations**: Ausencia de evidencia, no evidencia de ausencia — un caso futuro podría aportar evidencia directa de `purpose` en un contexto similar (grupo consolidado con NCI) sin que este documento lo anticipe.
+
 ---
 
 ## 4. Caso 04 — Grupo Éxito
@@ -630,6 +644,20 @@ congelados — estos son la fuente autoritativa de esta consolidación.
 - **analyst_interpretation**: Quinto caso independiente reforzando que CAPEX = % de ingresos no es metodología defendible.
 - **limitations**: No propone taxonomía nueva de CAPEX.
 
+### E-05-008
+- **case_id**: C05
+- **source_document**: `CASO-05-ISA-V0.md`
+- **section**: §20
+- **source_locator**: "vida física del activo ≠ vida contractual ≠ horizonte explícito ≠ vida de la empresa ≠ perpetuidad... un portafolio de activos/concesiones finitos, dentro de una empresa que puede seguir reinvirtiendo y obteniendo nuevos proyectos, no encaja naturalmente en la idea de '5 años y luego estado estable'"
+- **evidence_summary**: Primera tensión formal y con ejemplo concreto entre la Decisión 4 (horizonte fijo de 5 años) y la evidencia metodológica acumulada: ISA tiene activos/concesiones finitos pero capacidad de reinversión potencialmente continua.
+- **epistemic_class**: IA
+- **phenomenon_id**: HORIZON, STEADY-STATE
+- **effect**: TENSION
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Primer ejemplo concreto de por qué el horizonte fijo no debe asumirse como arquitectura universal futura, sin que ello autorice cambiar la Decisión 4 en este caso.
+- **limitations**: No se resuelve la pregunta abierta en el propio Caso 05; no se aprueba horizonte ni g.
+
 ---
 
 ## 6. Caso 06 — Grupo Cibest / Bancolombia S.A.
@@ -760,6 +788,132 @@ congelados — estos son la fuente autoritativa de esta consolidación.
 - **analyst_interpretation**: Amplía el rango de economías donde reaparece el problema de perímetro.
 - **limitations**: Sin representación general de diseño.
 
+### E-06-010
+- **case_id**: C06
+- **source_document**: `CASO-06-BANCOLOMBIA-V0.md`
+- **section**: §25 A
+- **source_locator**: "EV / FCFF + WACC convencional: NO ADECUADO COMO DEFAULT PARA EL CORE BANCARIO"
+- **evidence_summary**: Enterprise Value y FCFF/WACC convencional evaluados conjuntamente como método (misma subsección del caso) y ambos resultan no adecuados como default para el core bancario, sin quedar prohibidos ni eliminados.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-EV, METHOD-FCFF
+- **effect**: ORIGIN (primera evaluación explícita de EV y FCFF como métodos frente a una economía financiera prudencial)
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Explícitamente "no escribir 'FCFF está prohibido para bancos' ni 'Enterprise Value no existe para bancos'" — la conclusión es solo que no deben asumirse automáticamente como default.
+- **limitations**: Evaluación conjunta en una sola subsección del caso; Goldman Sachs y Munich Re las separan en subsecciones distintas.
+
+### E-06-011
+- **case_id**: C06
+- **source_document**: `CASO-06-BANCOLOMBIA-V0.md`
+- **section**: §25 C
+- **source_locator**: "FCFE adaptado a capital: CANDIDATO FUERTE"
+- **evidence_summary**: FCFE adaptado a capital puede interpretar conceptualmente la reinversión bancaria mediante el capital retenido necesario para soportar crecimiento y riesgo.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-FCFE
+- **effect**: ORIGIN
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Primer candidato metodológico de equity directo adaptado a capital regulatorio.
+- **limitations**: Ninguna fórmula aprobada; requiere supuestos de crecimiento, RWA, capital requerido, buffers.
+
+### E-06-012
+- **case_id**: C06
+- **source_document**: `CASO-06-BANCOLOMBIA-V0.md`
+- **section**: §25 D
+- **source_locator**: "DDM / dividendos potenciales: CANDIDATO FUERTE. Pero: dividendo observado ≠ automáticamente dividendo sostenible o distribuible"
+- **evidence_summary**: DDM se documenta como candidato fuerte, con la cautela explícita de que no debe proyectarse mecánicamente el payout histórico.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-DDM
+- **effect**: ORIGIN
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Origen de METHOD-DDM como candidato — la evolución posterior hacia Potential Distributions (C07/C08) no invalida esta evaluación inicial de DDM como método potencial.
+- **limitations**: No aprobado; la cautela sobre dividendo observado ≠ sostenible ya anticipa la insuficiencia de la lectura literal.
+
+### E-06-013
+- **case_id**: C06
+- **source_document**: `CASO-06-BANCOLOMBIA-V0.md`
+- **section**: §25 E
+- **source_locator**: "SOTP (suma de partes): CANDIDATO A EVALUAR POR MATERIALIDAD"
+- **evidence_summary**: SOTP puede ser relevante dado que Grupo Cibest puede incluir Bancolombia S.A., otras entidades financieras y negocios no financieros bajo el mismo holding.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-SOTP
+- **effect**: ORIGIN
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Primera evaluación de SOTP como candidato condicionado por materialidad, no obligatorio.
+- **limitations**: "Más granularidad ≠ automáticamente mejor valoración" — cautela explícita desde el origen.
+
+### E-06-014
+- **case_id**: C06
+- **source_document**: `CASO-06-BANCOLOMBIA-V0.md`
+- **section**: §26
+- **source_locator**: "Bancolombia aporta evidencia de que WACC no debería asumirse como input obligatorio de toda valoración... el Cost of Equity puede ser la tasa relevante"
+- **evidence_summary**: Origen de la tensión metodológica WACC vs. Cost of Equity, documentada sin resolver y sin modificar la Decisión 1 del Bloque 1B.
+- **epistemic_class**: IM
+- **phenomenon_id**: DISCOUNT-RATE
+- **effect**: ORIGIN
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Primera instancia donde se cuestiona explícitamente la obligatoriedad universal de WACC como input de toda valoración.
+- **limitations**: Tensión enviada a revisión posterior a los ocho casos; no se aprueba Cost of Equity ni un WACC nuevo.
+
+### E-06-015
+- **case_id**: C06
+- **source_document**: `CASO-06-BANCOLOMBIA-V0.md`
+- **section**: §30
+- **source_locator**: "el Expediente queda conceptualmente incompleto si presupone que 'la empresa' es siempre un objeto suficientemente preciso para valorar"
+- **evidence_summary**: Necesidad de establecer explícitamente qué interés económico se intenta valorar, y de documentar qué métodos fueron considerados, por qué uno es compatible y otro no, y qué método aprueba finalmente el experto.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-SELECTION
+- **effect**: ORIGIN
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Origen explícito de la necesidad de gobierno/trazabilidad de selección de método, distinta de la aprobación de cualquier método concreto.
+- **limitations**: "Esto es una necesidad metodológica, no un diseño de datos" — no se crea `valuation_method` field, enum, selector, ni "method engine".
+
+### E-06-016
+- **case_id**: C06
+- **source_document**: `CASO-06-BANCOLOMBIA-V0.md`
+- **section**: §28
+- **source_locator**: "'estado estable' puede relacionarse con la convergencia de los retornos económicos (ej. ROE convergiendo hacia el Cost of Equity)... no con la desaparición física de la entidad"
+- **evidence_summary**: Primera institución financiera con un significado de "estado estable" distinto del industrial (convergencia ROE→Cost of Equity y crecimiento sostenible del balance).
+- **epistemic_class**: IM
+- **phenomenon_id**: HORIZON, STEADY-STATE
+- **effect**: DEEPEN
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Refuerza que el horizonte fijo de 5 años (Decisión 4) no cambia, mientras el significado de "estado estable" se profundiza conceptualmente.
+- **limitations**: No se aprueba horizonte nuevo ni g; no se cambia la Decisión 4.
+
+### E-06-017
+- **case_id**: C06
+- **source_document**: `CASO-06-BANCOLOMBIA-V0.md`
+- **section**: §29
+- **source_locator**: "ARQUITECTURA UNIVERSAL DEL PROCESO DE VALORACIÓN ≠ ARQUITECTURA FINANCIERA ESPECÍFICA DEL MÉTODO Y DE LA ECONOMÍA VALORADA"
+- **evidence_summary**: Formulación explícita, por primera vez, de la distinción entre la capa universal de proceso del Expediente y la arquitectura financiera específica del método/economía.
+- **epistemic_class**: IM
+- **phenomenon_id**: PROCESS-ARCH
+- **effect**: ORIGIN
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Origen de la inferencia metodológica central de toda esta consolidación.
+- **limitations**: No se convierte en `industry_type`, `bank_mode`, `financial_institution` enum, ni arquitectura técnica nueva.
+
+### E-06-018
+- **case_id**: C06
+- **source_document**: `CASO-06-BANCOLOMBIA-V0.md`
+- **section**: §23
+- **source_locator**: "que Bancolombia financie a sus clientes o a empresas no constituye automáticamente supplier financing de Bancolombia como empresa valorada — es la actividad ordinaria de un banco"
+- **evidence_summary**: Primera instancia donde el propio caso concluye irrelevancia/evidencia insuficiente de supplier financing para la empresa valorada, distinguiéndolo de la actividad ordinaria del negocio.
+- **epistemic_class**: IA
+- **phenomenon_id**: SUPPLIER-FIN
+- **effect**: INSUFFICIENT (irrelevancia para este caso específico, no degradación del fenómeno transversal)
+- **independence_class**: N/A
+- **materiality_note**: N/A.
+- **analyst_interpretation**: No se usa este caso para reforzar la evidencia transversal de supplier financing, que sigue apoyada principalmente en Tecnoglass, Terpel y Grupo Éxito.
+- **limitations**: Irrelevancia específica de Bancolombia como empresa valorada; no implica que supplier financing sea irrelevante en otras instituciones financieras.
+
 ---
 
 ## 7. Caso 07 — The Goldman Sachs Group, Inc.
@@ -875,6 +1029,174 @@ congelados — estos son la fuente autoritativa de esta consolidación.
 - **materiality_note**: N/A.
 - **analyst_interpretation**: Refuerza el guardrail de que segmentos contables no son automáticamente unidades obligatorias de valoración.
 - **limitations**: No se hace obligatorio; no se aprueba como método.
+
+### E-07-009
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §29
+- **source_locator**: "la reinversión puede involucrar capital regulatorio, capacidad de balance, tecnología, talento, advisors, capacidades, fundraising, plataformas, y adquisiciones"
+- **evidence_summary**: Goldman amplía las vías de reinversión económica observadas en Bancolombia (retención de capital) hacia un conjunto más amplio y menos formulaico.
+- **epistemic_class**: IA
+- **phenomenon_id**: REINVESTMENT, CAPEX
+- **effect**: EXPANSION
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: "Esto refina una posible extrapolación excesiva del Caso 06" — Goldman evita que la separación CAPEX/reinversión se reduzca a una fórmula bancaria simplista de capital retenido.
+- **limitations**: No se crea fórmula automática que combine CAPEX contable y vías de reinversión ampliadas.
+
+### E-07-010
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §10
+- **source_locator**: "FICC Financing + Equities Financing generaron aproximadamente US$11.4B durante 2025... en Goldman, financiación no equivale automáticamente a actividad externa a la operación"
+- **evidence_summary**: Financing es una fuente material y relativamente durable de ingresos, sin que esto implique que todo pasivo financiero de Goldman sea operativo (ni lo contrario).
+- **epistemic_class**: HD (cifra) + IA (conclusión)
+- **phenomenon_id**: DEBT
+- **effect**: REINFORCE (segunda institución financiera con evidencia de que la clasificación de deuda requiere interpretación económica caso por caso)
+- **independence_class**: IND
+- **materiality_note**: FICC Financing + Equities Financing ≈US$11.4B en 2025.
+- **analyst_interpretation**: "No concluir que todo pasivo financiero de Goldman es operativo. Tampoco concluir lo contrario."
+- **limitations**: Clasificación caso por caso, sin regla general resuelta.
+
+### E-07-011
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §31
+- **source_locator**: "net debt convencional no parece medida económicamente adecuada como default para Goldman consolidado. Puede reaparecer en un scope específico si la economía lo justifica"
+- **evidence_summary**: Segunda institución financiera (tras Bancolombia) donde net debt convencional se refuta como default consolidado, sin eliminarse como concepto.
+- **epistemic_class**: IA
+- **phenomenon_id**: NET-DEBT
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Construida a partir de §10 (financing puede ser operación) y §13–§14 (repos/collateral) — refuerza R6 (scope importa para saber si net debt aplica).
+- **limitations**: No se elimina net debt de Velarix; puede seguir siendo apropiado en scopes específicos.
+
+### E-07-012
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §32 F
+- **source_locator**: "Enterprise Value: NO ADECUADO COMO ARQUITECTURA UNIVERSAL DEL GRUPO. POTENCIALMENTE ÚTIL EN DETERMINADOS SCOPES. PREGUNTA ABIERTA"
+- **evidence_summary**: Segunda institución financiera donde Enterprise Value se evalúa explícitamente como no adecuado a nivel de grupo consolidado, sin descartarse en scopes específicos.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-EV
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: A diferencia de Bancolombia (evaluación conjunta EV+FCFF en §25 A), Goldman separa la evaluación de EV (F) de FCFF (E) en subsecciones distintas.
+- **limitations**: Pregunta abierta explícita sobre qué scopes mantienen la utilidad de EV.
+
+### E-07-013
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §32 E
+- **source_locator**: "FCFF / WACC convencional: NO ADECUADO COMO DEFAULT DEL GRUPO CONSOLIDADO. Esto no significa que FCFF esté prohibido"
+- **evidence_summary**: Segunda institución financiera reforzando que FCFF/WACC convencional no es default adecuado a nivel consolidado.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-FCFF
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Consistente con la refutación de universalidad ya iniciada en Bancolombia (E-06-010).
+- **limitations**: No se elimina FCFF ni WACC.
+
+### E-07-014
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §32 A
+- **source_locator**: "Residual Income / Excess Return: CANDIDATO METODOLÓGICO MUY FUERTE. Goldman reporta y gestiona métricas como ROE, book value, y returns through-the-cycle"
+- **evidence_summary**: Segunda institución financiera confirmando Residual Income como candidato muy fuerte, por razones económicas distintas a Bancolombia (ROE/book value de una firma de mercados, no NIM).
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-RI
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: "Residual Income es candidato fuerte en Goldman por razones distintas... de las que lo hicieron candidato fuerte en Bancolombia" (§35, punto 8) — refuerzo con mecanismo económico distinto, no repetición del mismo mecanismo.
+- **limitations**: No aprobado; riesgos de base de capital, buybacks, fair value, intangibles.
+
+### E-07-015
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §32 B
+- **source_locator**: "FCFE adaptado a capital: CANDIDATO FUERTE. Pero no debe usarse una fórmula bancaria simplista"
+- **evidence_summary**: Segunda institución financiera confirmando FCFE adaptado a capital como candidato fuerte, con reinversión dependiente de credit risk, market risk, operational risk, RWA, leverage, stress requirements.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-FCFE
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Amplía la noción de reinversión bancaria más allá de la fórmula simple de Bancolombia.
+- **limitations**: No se aprueba ningún motor ni fórmula.
+
+### E-07-016
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §32 G
+- **source_locator**: "Goldman refuerza la tensión: WACC no debe asumirse como input obligatorio de toda valoración. Si se valora equity directamente, Cost of Equity puede ser relevante"
+- **evidence_summary**: Segunda institución financiera reforzando la tensión WACC/Cost of Equity, sin aprobar ninguno ni cambiar la Decisión 1 del Bloque 1B.
+- **epistemic_class**: IM
+- **phenomenon_id**: DISCOUNT-RATE
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Consistente con el origen de la tensión en Bancolombia (E-06-014).
+- **limitations**: No se aprueba Cost of Equity ni un WACC nuevo.
+
+### E-07-017
+- **case_id**: C07
+- **source_document**: `REPORTE-CONTRASTE-EXPEDIENTE-V1.md` (Caso 07)
+- **section**: §9, punto 11
+- **source_locator**: "Selección de método: NO DEBE RESOLVERSE TODAVÍA — §30 (Caso 06) ya registra la necesidad conceptual de documentar método considerado/aprobado sin crear `valuation_method`; Goldman no exige ir más allá"
+- **evidence_summary**: El propio reporte de contraste del Caso 07 evalúa explícitamente que la necesidad de gobierno/trazabilidad de método (originada en Bancolombia) sigue vigente sin requerir diseño adicional a partir de Goldman.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-SELECTION
+- **effect**: REINFORCE (continuidad metodológica, no expansión del diseño)
+- **independence_class**: PART
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Goldman confirma la necesidad sin aportar un mecanismo nuevo que profundice el diseño más allá de lo ya registrado por Bancolombia.
+- **limitations**: Evidencia de continuidad, no de expansión — no debe leerse como refuerzo fuerte independiente adicional al de origen.
+
+### E-07-018
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §33
+- **source_locator**: "estado estable ≠ resultados idénticos cada año. Para una firma expuesta a mercados puede importar normalized through-cycle profitability, business mix sostenible, capital intensity sostenible, crecimiento sostenible, ROE sostenible, Cost of Equity, y persistencia/convergencia de excess returns"
+- **evidence_summary**: Tercer significado sectorial de "estado estable" (tras el industrial y el bancario tradicional): normalized through-cycle profitability de una firma de mercados.
+- **epistemic_class**: IM
+- **phenomenon_id**: HORIZON, STEADY-STATE
+- **effect**: DEEPEN
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: La Decisión 4 (horizonte fijo de 5 años) no cambia; se profundiza únicamente el significado de estado estable.
+- **limitations**: No se aprueba horizonte nuevo ni g.
+
+### E-07-019
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §36
+- **source_locator**: "la arquitectura financiera específica puede variar incluso entre actividades materialmente distintas que coexisten dentro de una misma organización"
+- **evidence_summary**: Refuerzo de PROCESS-ARCH con un mecanismo nuevo respecto de Bancolombia: la heterogeneidad puede existir incluso intra-organizacionalmente (GBM vs. AWM vs. Platform Solutions), no solo entre organizaciones distintas.
+- **epistemic_class**: IM
+- **phenomenon_id**: PROCESS-ARCH
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Sin cambio de nivel formal respecto al Caso 06; aporta un mecanismo adicional (heterogeneidad intra-organizacional).
+- **limitations**: No se eleva a R9; no se crea `industry_type`, `bank_mode` ni `financial_institution` enum.
+
+### E-07-020
+- **case_id**: C07
+- **source_document**: `CASO-07-GOLDMAN-SACHS-V0.md`
+- **section**: §22 (R3)
+- **source_locator**: "Goldman introduce relaciones entre actividad, revenues, balance, financing, funding, risk, capital, liquidez y compensación — muchas pueden ser circulares, regulatorias, condicionales, no lineales, o mediadas por decisiones humanas"
+- **evidence_summary**: Segunda institución financiera (tras Bancolombia) aportando evidencia de que las relaciones entre supuestos pueden ser circulares y mediadas por decisiones humanas, no solo cadenas o bidireccionalidad simple.
+- **epistemic_class**: IA
+- **phenomenon_id**: R3
+- **effect**: DEEPEN (el diseño de `assumption_relations` queda "aún más insuficientemente validado, no menos")
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Refuerza la cautela explícita de no convertir `assumption_relations` en un grafo causal ingenuo A→B.
+- **limitations**: No se rediseña la entidad; ejemplos cualitativos, no exhaustivos.
 
 ---
 
@@ -1033,6 +1355,160 @@ congelados — estos son la fuente autoritativa de esta consolidación.
 - **materiality_note**: N/A.
 - **analyst_interpretation**: La observación permanece abierta como pregunta (¿R3? ¿R7? ¿particularidad sectorial de Goldman?), sin resolver.
 - **limitations**: Un solo caso de origen; sin segunda instancia hasta el cierre de la primera batería.
+
+### E-08-012
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §26
+- **source_locator**: "financial liability ≠ automáticamente deuda económica externa a la operación; insurance liabilities ≠ strategic/corporate debt... Munich Re sí tiene strategic debt real"
+- **evidence_summary**: Tercera institución financiera prudencial reforzando que ni todo pasivo financiero es deuda económica externa, ni toda aseguradora carece de deuda económica relevante; net debt convencional no debe ser métrica universal obligatoria pero tampoco se afirma "aseguradora = sin deuda económica relevante".
+- **epistemic_class**: IA (relación) + HD (existencia de strategic debt)
+- **phenomenon_id**: DEBT, NET-DEBT
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: Sin cifra específica de strategic debt en el material de trabajo.
+- **analyst_interpretation**: Una sola subsección del caso cubre deuda y net debt conjuntamente, a diferencia de Goldman Sachs donde se documentan por separado (§10 y §31).
+- **limitations**: No se crea fórmula automática de clasificación de deuda.
+
+### E-08-013
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §8
+- **source_locator**: "cash ≠ liquidity ≠ distributable resources... IFRS equity ≠ Solvency II eligible own funds ≠ SCR ≠ distributable excess"
+- **evidence_summary**: Tercera institución financiera prudencial con un régimen dual de reporte (IFRS/Solvency II) que produce hasta cuatro magnitudes distintas de "recurso disponible" para el mismo Grupo.
+- **epistemic_class**: DC
+- **phenomenon_id**: CASH-LIQUIDITY
+- **effect**: REINFORCE (mecanismo distinto al de Bancolombia: régimen dual de reporte, no solo liquidez prudencial)
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Extiende las cuatro nociones bancarias de cash/liquidez (E-06-005) a un régimen dual de reporte específico de seguros/reaseguros.
+- **limitations**: No se crean campos `excess_cash` ni `distributable_cash`.
+
+### E-08-014
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §27 A
+- **source_locator**: "Enterprise Value consolidado: NO ADECUADO COMO ARQUITECTURA UNIVERSAL DEL GRUPO. Puede existir utilidad en determinados scopes"
+- **evidence_summary**: Tercera institución financiera confirmando que Enterprise Value no es arquitectura universal obligatoria a nivel consolidado.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-EV
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Tercera confirmación independiente (Bancolombia, Goldman Sachs, Munich Re) de la misma conclusión con mecanismos económicos distintos en cada caso.
+- **limitations**: Pregunta abierta sobre scopes específicos donde EV mantiene utilidad.
+
+### E-08-015
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §27 C
+- **source_locator**: "FCFF / WACC consolidado: NO ADECUADO COMO DEFAULT. Pero: DCF ≠ FCFF industrial — Munich Re aporta evidencia de que discounted cash-flow approaches pueden ser económicamente útiles en determinados scopes. No se afirma 'DCF no sirve para aseguradoras'"
+- **evidence_summary**: Tercera institución financiera reforzando que FCFF/WACC consolidado no es default adecuado, con la distinción explícita más clara de la serie entre FCFF industrial y el enfoque DCF en general.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-FCFF, METHOD-DCF-SCOPE
+- **effect**: REINFORCE + REFORMULATION (separación explícita DCF ≠ FCFF industrial)
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Es la formulación más clara de la serie de por qué la evidencia negativa contra FCFF no debe leerse como evidencia negativa contra DCF en general — ver GAP-10 en `03-GENEALOGIAS-Y-GAPS-V1.md`.
+- **limitations**: No se elimina FCFF ni WACC; no se implica que cada scope necesite un DCF.
+
+### E-08-016
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §27 D
+- **source_locator**: "Residual Income / Excess Return: CANDIDATO MUY FUERTE. Problema abierto: ¿qué base de capital es económicamente adecuada?"
+- **evidence_summary**: Tercera institución financiera confirmando Residual Income como candidato muy fuerte, con problema abierto propio (IFRS equity, adjusted equity, eligible own funds, SCR, CSM).
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-RI
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Tercera economía financiera prudencial distinta confirmando el mismo candidato con problema de base de capital propio.
+- **limitations**: No se asume que IFRS book equity resuelve el problema.
+
+### E-08-017
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §27 E
+- **source_locator**: "FCFE adaptado a capital: CANDIDATO FUERTE. Problema abierto: definir equity reinvestment — equity reinvestment ≠ retained earnings ≠ cambio en IFRS equity ≠ cambio en eligible own funds ≠ cambio en SCR"
+- **evidence_summary**: Tercera institución financiera confirmando FCFE adaptado a capital, con la definición de "equity reinvestment" como problema abierto propio y más granular que en Bancolombia/Goldman.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-FCFE
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Refuerza REINVESTMENT como concepto separado de CAPEX, con una quinta magnitud posible (cambio en SCR) no vista en los casos anteriores.
+- **limitations**: No se aprueba fórmula.
+
+### E-08-018
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §27 F
+- **source_locator**: "DDM literal (solo dividendos): DEMASIADO ESTRECHO"
+- **evidence_summary**: Tercera y más explícita instancia de que DDM literal (basado mecánicamente en dividendos/payout histórico) es una abstracción insuficiente, distinta de DDM como método potencial.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-DDM
+- **effect**: DEGRADED (de la lectura literal, no del método como candidato)
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Formulación más explícita de la serie sobre por qué DDM literal se descarta como abstracción, mientras Potential Distributions (E-07-005, E-08-009) permanece como el candidato vigente.
+- **limitations**: No descarta DDM como concepto — descarta únicamente su lectura literal basada en payout histórico.
+
+### E-08-019
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §27 I, J
+- **source_locator**: "Cost of Equity: CONCEPTUALMENTE NATURAL PARA MÉTODOS DIRECTOS DE EQUITY. No aprobado... WACC: NO UNIVERSAL. No se elimina para todo scope"
+- **evidence_summary**: Tercera institución financiera reforzando la tensión WACC/Cost of Equity, con la formulación más explícita de la serie sobre qué no se aprueba (beta, ERP, country risk, tasa).
+- **epistemic_class**: IM
+- **phenomenon_id**: DISCOUNT-RATE
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Cierre de la primera batería sin resolver la tensión, consistente con Bancolombia (E-06-014) y Goldman Sachs (E-07-016).
+- **limitations**: Explícitamente "no beta aprobada, no ERP aprobado, no country risk aprobado, no tasa aprobada".
+
+### E-08-020
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §30
+- **source_locator**: "la futura consolidación transversal... deberá revisar explícitamente: ... 21. Cost of Equity. 22. Residual Income. 23. FCFE. 24. Potential Distributions. 25. SOTP... 29. Arquitectura universal del proceso vs. arquitectura financiera específica"
+- **evidence_summary**: Lista de veintinueve puntos que Munich Re explícitamente envía a la consolidación transversal, incluyendo la selección de método de valoración para instituciones financieras prudencialmente reguladas.
+- **epistemic_class**: IM
+- **phenomenon_id**: METHOD-SELECTION
+- **effect**: REINFORCE (continuidad metodológica, consistente con la nota de E-07-017)
+- **independence_class**: PART
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Munich Re no resuelve la necesidad de gobierno de método — la registra explícitamente como agenda para la consolidación, que es precisamente lo que este documento y `04-BACKLOG-Y-PUENTE-1B-1C-V1.md` ejecutan como Frente 7.
+- **limitations**: "Esta consolidación NO se realiza en esta ejecución" (Caso 08, §30) — la consolidación referida es la ejecutada en esta carpeta, posterior al cierre del Caso 08.
+
+### E-08-021
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §28
+- **source_locator**: "para insurance/reinsurance, estado estable debe interpretarse through-the-cycle — no significa cero catástrofes, cero reserve development, investment returns idénticos, ni combined ratio idéntico"
+- **evidence_summary**: Cuarto significado sectorial de "estado estable" (industrial, bancario, banca de inversión, seguros/reaseguros): through-the-cycle sin catástrofes/reserve development/retornos idénticos.
+- **epistemic_class**: IM
+- **phenomenon_id**: HORIZON, STEADY-STATE
+- **effect**: DEEPEN
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Cierre de la primera batería con cuatro significados sectoriales distintos de "estado estable" documentados, sin cambiar la Decisión 4.
+- **limitations**: No se aprueba nueva g; no se cambia la Decisión 4.
+
+### E-08-022
+- **case_id**: C08
+- **source_document**: `CASO-08-MUNICH-RE-V0.md`
+- **section**: §7
+- **source_locator**: "arquitectura universal del proceso de valoración ≠ arquitectura financiera universal del método... la unidad económicamente adecuada de análisis puede no coincidir con entidad legal, segmento contable, ni máxima granularidad disponible"
+- **evidence_summary**: Cierre de la primera batería reforzando PROCESS-ARCH con la tercera institución financiera prudencial, consistente con el hallazgo central del Caso 07.
+- **epistemic_class**: IM
+- **phenomenon_id**: PROCESS-ARCH
+- **effect**: REINFORCE
+- **independence_class**: IND
+- **materiality_note**: N/A.
+- **analyst_interpretation**: Explícitamente "no se eleva a R9" en el propio Caso 08.
+- **limitations**: No se crea arquitectura técnica nueva.
 
 ---
 
