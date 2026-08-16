@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
+import { matchAccount, normalizeLabel } from "../_shared/account-taxonomy.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 
@@ -103,56 +104,9 @@ Recibes una cuenta ambigua con contexto. Devuelve JSON:
 }`;
 
 // ═══════════════════════════════════════════════════════════════
-// LOCAL TAXONOMY (rule-based first pass)
-// ═══════════════════════════════════════════════════════════════
-
-const TAXONOMY: Record<string, Record<string, string[]>> = {
-  income_statement: {
-    revenue: ["ventas", "ventas netas", "ingresos", "ingresos operacionales", "ingresos de actividades ordinarias", "revenue", "sales", "net sales", "ingresos netos", "ingresos brutos", "ingresos por servicios"],
-    cost_of_sales: ["costo de ventas", "costos de ventas", "costo directo", "cogs", "cost of sales", "costo de produccion", "costo de mercancia vendida"],
-    opex: ["gastos operativos", "gastos operacionales", "gastos de administracion", "gastos administrativos", "gastos de ventas", "operating expenses", "sg&a", "opex", "gastos de administracion y ventas", "gastos generales", "gastos de personal", "otros gastos de administracion", "otros gastos de administracion y ventas", "otros gastos operativos"],
-    da: ["depreciacion", "amortizacion", "depreciacion y amortizacion", "d&a", "depreciation", "depreciaciones", "depreciacion de equipos", "depreciacion de equipos de oficina", "depreciacion del periodo"],
-    ebit: ["ebit", "utilidad operativa", "utilidad operacional", "resultado operacional", "utilidad de operacion"],
-    interest_expense: ["intereses", "gasto financiero", "gastos financieros", "interest expense", "gasto de intereses", "intereses pagados", "costos financieros"],
-    taxes: ["impuestos", "impuesto de renta", "provision de impuestos", "impuesto de renta y complementarios", "impuesto diferido"],
-    net_income: ["utilidad neta", "utilidad del ejercicio", "resultado del periodo", "net income", "resultado neto", "ganancia o perdida del ejercicio"],
-  },
-  balance_sheet: {
-    cash: ["caja", "efectivo", "disponible", "cash", "efectivo y equivalentes", "caja y bancos", "bancos", "caja general", "cdt", "certificados de deposito"],
-    accounts_receivable: ["cartera", "clientes", "cuentas por cobrar", "receivables", "deudores", "deudores comerciales"],
-    inventory: ["inventario", "inventarios", "existencias", "inventory"],
-    ppe: ["propiedad planta y equipo", "activos fijos", "pp&e", "equipos", "maquinaria", "maquinaria y equipo"],
-    total_assets: ["total activos", "total activo", "total del activo", "total assets", "activo total", "total general activo", "total activo neto"],
-    accounts_payable: ["proveedores", "cuentas por pagar", "payables"],
-    current_financial_debt: ["deuda financiera cp", "obligaciones financieras corrientes", "obligaciones financieras cp", "obligaciones bancarias cp"],
-    long_term_financial_debt: ["deuda financiera lp", "deuda de largo plazo", "obligaciones financieras lp", "obligaciones bancarias lp"],
-    total_liabilities: ["total pasivos", "total pasivo", "total liabilities"],
-    equity: ["patrimonio", "patrimonio neto", "total patrimonio", "capital contable", "equity"],
-  },
-};
-
-function normalizeLabel(label: string): string {
-  let s = label.toLowerCase().trim();
-  s = s.replace(/^\d{4,6}[\s\-\.]+/, "").trim();
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s&/]/g, "").replace(/\s+/g, " ");
-}
-
-function matchAccount(label: string): { canonical: string | null; category: string; score: number } {
-  const normalized = normalizeLabel(label);
-  for (const [category, accounts] of Object.entries(TAXONOMY)) {
-    for (const [canonical, synonyms] of Object.entries(accounts)) {
-      for (const synonym of synonyms) {
-        const normalizedSyn = normalizeLabel(synonym);
-        if (normalized === normalizedSyn) return { canonical, category, score: 0.95 };
-        if (normalized.includes(normalizedSyn) || normalizedSyn.includes(normalized)) return { canonical, category, score: 0.82 };
-      }
-    }
-  }
-  return { canonical: null, category: "unknown", score: 0.30 };
-}
-
-// ═══════════════════════════════════════════════════════════════
 // MAIN HANDLER
+// (TAXONOMY, normalizeLabel, matchAccount -> ver ../_shared/account-taxonomy.ts.
+// Bug 1: exact match ahora tiene precedencia global sobre substring.)
 // ═══════════════════════════════════════════════════════════════
 
 serve(async (req) => {
