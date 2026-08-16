@@ -7,6 +7,7 @@ import { computeInputFingerprint } from "../_shared/calculation-fingerprint.ts";
 import { buildCalculationVersionInfo } from "../_shared/calculation-versioning.ts";
 import { buildMissingProvenance, type CalculationProvenance } from "../_shared/calculation-provenance.ts";
 import { resolveEffectiveMoneda, resolveEffectiveFactorConversion } from "../_shared/canonical-input-normalization.ts";
+import { resolveStructuredInput } from "../_shared/structured-input-resolution.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -92,7 +93,23 @@ serve(async (req) => {
 
     if (!analysis) throw new Error("Analysis not found");
 
-    const input = analysis.input_payload;
+    // Hallazgo B: `structured_inputs.input_payload` es la fuente canónica
+    // del input estructurado (ver `_shared/structured-input-resolution.ts`
+    // para la evidencia completa). Antes, esta función solo leía
+    // `analyses.input_payload`, una copia que `build-structured-input`
+    // invocado directamente nunca sincronizaba (bug de integración, no del
+    // motor).
+    const { data: structuredInputRow } = await supabase
+      .from("structured_inputs")
+      .select("input_payload")
+      .eq("analysis_id", analysis_id)
+      .maybeSingle();
+
+    const resolution = resolveStructuredInput({
+      structuredInputPayload: structuredInputRow?.input_payload,
+      analysisInputPayload: analysis.input_payload,
+    });
+    const input = resolution.payload as any;
     if (!input || !input.income_statement?.revenue) {
       throw new Error("No hay input_payload con revenue. Ejecuta build-structured-input primero.");
     }
