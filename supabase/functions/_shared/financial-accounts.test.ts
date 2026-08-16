@@ -97,3 +97,53 @@ describe("sumAccountValue — BL-02", () => {
     expect(sumAccountValue(rows, "revenue")).toBe(100);
   });
 });
+
+// Bug 2 — política provisional de base_period. Estas pruebas usan
+// exactamente `sumAccountValue(rows, canonical, basePeriod)` como lo hacen
+// ahora validate-analysis, build-structured-input y continuar-tras-revision
+// tras resolver un `base_period` explícito con `resolveBasePeriod`.
+describe("sumAccountValue con base_period explícito — Bug 2", () => {
+  it("A. un solo período: revenue 2025=500, base_period=2025 -> 500", () => {
+    const rows: HomologatedAccountRow[] = [{ canonical_account: "revenue", value: 500, period: "2025" }];
+    expect(sumAccountValue(rows, "revenue", "2025")).toBe(500);
+  });
+
+  it("B. subcuentas del mismo período: opex A 2025=30 + opex B 2025=20 -> 50", () => {
+    const rows: HomologatedAccountRow[] = [
+      { canonical_account: "opex", value: 30, period: "2025" },
+      { canonical_account: "opex", value: 20, period: "2025" },
+    ];
+    expect(sumAccountValue(rows, "opex", "2025")).toBe(50);
+  });
+
+  it("C. dos años: revenue 2024=400, revenue 2025=500, base_period=2025 -> 500, NUNCA 900", () => {
+    const rows: HomologatedAccountRow[] = [
+      { canonical_account: "revenue", value: 400, period: "2024" },
+      { canonical_account: "revenue", value: 500, period: "2025" },
+    ];
+    expect(sumAccountValue(rows, "revenue", "2025")).toBe(500);
+    expect(sumAccountValue(rows, "revenue", "2025")).not.toBe(900);
+  });
+
+  it("D. subcuentas en dos años: opex 2024(20+30)=50, opex 2025(25+35)=60, base_period=2025 -> 60, NUNCA 110", () => {
+    const rows: HomologatedAccountRow[] = [
+      { canonical_account: "opex", value: 20, period: "2024" },
+      { canonical_account: "opex", value: 30, period: "2024" },
+      { canonical_account: "opex", value: 25, period: "2025" },
+      { canonical_account: "opex", value: 35, period: "2025" },
+    ];
+    expect(sumAccountValue(rows, "opex", "2024")).toBe(50);
+    expect(sumAccountValue(rows, "opex", "2025")).toBe(60);
+    expect(sumAccountValue(rows, "opex", "2025")).not.toBe(110);
+  });
+
+  it("E. legacy null: sin período explícito, sigue funcionando sin pasar basePeriod", () => {
+    const rows: HomologatedAccountRow[] = [{ canonical_account: "revenue", value: 500 }];
+    expect(sumAccountValue(rows, "revenue")).toBe(500);
+  });
+
+  it("F. cuenta ausente en el período base: devuelve null, no cero", () => {
+    const rows: HomologatedAccountRow[] = [{ canonical_account: "revenue", value: 500, period: "2025" }];
+    expect(sumAccountValue(rows, "long_term_financial_debt", "2025")).toBeNull();
+  });
+});

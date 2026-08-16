@@ -21,7 +21,22 @@
 // `source_row_ids_status: "missing"` — no una lista vacía sin explicar
 // por qué. Ver `docs/velarix/plan/MATRIZ-DE-TRAZABILIDAD.md`.
 
+import type { PeriodSelectionMode } from "./period-resolution.ts";
+
 export type ProvenanceStatus = "missing" | "partial" | "complete";
+
+/**
+ * Trazabilidad de la selección de `base_period` (Bug 2 / política
+ * provisional de períodos). `null` cuando no se resolvió ningún período
+ * (p. ej. `buildMissingProvenance`, que no tiene acceso a las filas de
+ * `account_homologations`) — nunca se simula un período que no se
+ * resolvió realmente.
+ */
+export interface PeriodSelectionProvenance {
+  base_period: string | null;
+  selection_mode: PeriodSelectionMode;
+  available_periods: string[];
+}
 
 /** Cifras priorizadas para trazabilidad en este bloque (ver instrucción de cierre técnico, sección 5). */
 export const TRACEABLE_FIELDS = [
@@ -85,6 +100,7 @@ export interface CalculationProvenance {
   fields: Record<TraceableField, FieldProvenance>;
   overall_status: ProvenanceStatus;
   warnings: string[];
+  period_selection: PeriodSelectionProvenance | null;
 }
 
 /**
@@ -140,6 +156,7 @@ export function buildCalculationProvenance(params: {
   monedaDocumento: string | null;
   factorConversion: number;
   builtAt?: string;
+  periodSelection?: PeriodSelectionProvenance | null;
 }): CalculationProvenance {
   const fields = {} as Record<TraceableField, FieldProvenance>;
   for (const field of TRACEABLE_FIELDS) {
@@ -184,6 +201,7 @@ export function buildCalculationProvenance(params: {
     fields,
     overall_status: overallStatus,
     warnings,
+    period_selection: params.periodSelection ?? null,
   };
 }
 

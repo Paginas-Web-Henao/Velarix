@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
+import { resolveBasePeriod } from "../_shared/period-resolution.ts";
 import { canContinueAfterReview, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 
@@ -145,13 +146,43 @@ serve(async (req) => {
       );
     }
 
+    // 3b. Bug 2 — política provisional de base_period: mismo resolver puro
+    // que usan validate-analysis y build-structured-input, no una política
+    // distinta. Si es ambiguo, no se continúa automáticamente.
+    const periodResolution = resolveBasePeriod(cuentas.map((c: any) => c.period ?? null));
+    if (!periodResolution.ok) {
+      await supabase.from("analyses").update({ status: "validacion_bloqueada" }).eq("id", analysis_id);
+      await supabase.from("audit_events").insert({
+        analysis_id,
+        user_id: actor?.userId || null,
+        event_type: "periodo_base_ambiguo",
+        event_detail: periodResolution.reason ?? "Período base ambiguo — requiere revisión humana.",
+        component: "continuar-tras-revision",
+        metadata: { available_periods: periodResolution.availablePeriods, selection_mode: periodResolution.selectionMode },
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: "PERIOD_AMBIGUOUS",
+            message: "Período base ambiguo — requiere revisión humana antes de continuar.",
+            detail: periodResolution.reason,
+            available_periods: periodResolution.availablePeriods,
+          },
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const basePeriod = periodResolution.basePeriod;
+
     // 4. Build structured input from corrected homologations
     // BL-02: antes tomaba la primera fila con `.find()` sin siquiera
     // filtrar `value != null`, y devolvía 0 en vez de distinguir ausencia
     // real. Ahora usa el módulo puro compartido (suma todas las
-    // subcuentas del mismo `canonical_account`).
+    // subcuentas del mismo `canonical_account`), limitada al `base_period`
+    // ya resuelto arriba.
     const getValue = (canonical: string): number | null =>
-      sumAccountValue(cuentas as HomologatedAccountRow[], canonical);
+      sumAccountValue(cuentas as HomologatedAccountRow[], canonical, basePeriod ?? undefined);
 
     // Campos usados en aritmética directa en este archivo: se coacciona
     // explícitamente `null -> 0` aquí, no dentro del helper compartido
@@ -187,7 +218,8 @@ serve(async (req) => {
       analysis_id,
       sector: analysis.sector,
       expected_growth: analysis.expected_growth || 25,
-      periods: ["2024"],
+      periods: periodResolution.availablePeriods,
+      base_period: basePeriod,
       income_statement: {
         revenue,
         cost_of_sales: costOfSales,

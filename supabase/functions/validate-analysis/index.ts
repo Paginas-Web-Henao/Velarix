@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { sumAccountValue, hasAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
+import { resolveBasePeriod } from "../_shared/period-resolution.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
 
@@ -25,15 +26,18 @@ interface ValidationResult {
 
 // BL-02: reemplaza el `.find()` que tomaba solo la primera subcuenta
 // coincidente por la consolidación real (suma) del módulo compartido.
-function getVal(accounts: HomologatedAccountRow[], canonical: string): number | null {
-  return sumAccountValue(accounts, canonical);
+// Bug 2: `period` ahora es obligatorio (el `base_period` ya resuelto por
+// `resolveBasePeriod`) — nunca se busca implícitamente `period === null`
+// mientras existan períodos explícitos en los datos.
+function getVal(accounts: HomologatedAccountRow[], canonical: string, basePeriod: string | null): number | null {
+  return sumAccountValue(accounts, canonical, basePeriod ?? undefined);
 }
 
-function hasAccount(accounts: HomologatedAccountRow[], canonical: string): boolean {
-  return hasAccountValue(accounts, canonical);
+function hasAccount(accounts: HomologatedAccountRow[], canonical: string, basePeriod: string | null): boolean {
+  return hasAccountValue(accounts, canonical, basePeriod ?? undefined);
 }
 
-function evaluate(accounts: any[], documents: any[], periods: string[]): ValidationResult[] {
+function evaluate(accounts: any[], documents: any[], periods: string[], basePeriod: string | null): ValidationResult[] {
   const r: ValidationResult[] = [];
 
   // ── DOC rules ──
@@ -53,7 +57,7 @@ function evaluate(accounts: any[], documents: any[], periods: string[]): Validat
 
   // ── MAP rules ──
   const hasIncomeStatement = documents.some((d: any) => d.doc_type_declared === "estado_resultados" || d.doc_type_declared === "mixto");
-  const revenueFound = hasAccount(accounts, "revenue");
+  const revenueFound = hasAccount(accounts, "revenue", basePeriod);
 
   // MAP_001: Revenue — WARNING if no income statement loaded
   if (hasIncomeStatement) {
@@ -63,29 +67,29 @@ function evaluate(accounts: any[], documents: any[], periods: string[]): Validat
   }
 
   // MAP_002: Cash — WARNING, not critical
-  r.push({ code: "MAP_002", severity: "media", description: "Caja identificada", passed: hasAccount(accounts, "cash"), detail: !hasAccount(accounts, "cash") ? "No se identificó caja. Se usará valor cero." : null, blocking: false });
+  r.push({ code: "MAP_002", severity: "media", description: "Caja identificada", passed: hasAccount(accounts, "cash", basePeriod), detail: !hasAccount(accounts, "cash", basePeriod) ? "No se identificó caja. Se usará valor cero." : null, blocking: false });
 
   // MAP_003: Debt — informative
-  const hasDebt = hasAccount(accounts, "current_financial_debt") || hasAccount(accounts, "long_term_financial_debt");
+  const hasDebt = hasAccount(accounts, "current_financial_debt", basePeriod) || hasAccount(accounts, "long_term_financial_debt", basePeriod);
   r.push({ code: "MAP_003", severity: "informativa", description: "Deuda financiera identificada", passed: hasDebt, detail: !hasDebt ? "No se identificó deuda financiera." : null, blocking: false });
 
   // MAP_004: Equity — WARNING
-  r.push({ code: "MAP_004", severity: "media", description: "Patrimonio identificado", passed: hasAccount(accounts, "equity"), detail: !hasAccount(accounts, "equity") ? "No se identificó patrimonio." : null, blocking: false });
+  r.push({ code: "MAP_004", severity: "media", description: "Patrimonio identificado", passed: hasAccount(accounts, "equity", basePeriod), detail: !hasAccount(accounts, "equity", basePeriod) ? "No se identificó patrimonio." : null, blocking: false });
 
   // MAP_005: Total assets — WARNING
-  r.push({ code: "MAP_005", severity: "informativa", description: "Total activos identificado", passed: hasAccount(accounts, "total_assets"), detail: !hasAccount(accounts, "total_assets") ? "No se identificó total activos. Se calculará por suma de componentes." : null, blocking: false });
+  r.push({ code: "MAP_005", severity: "informativa", description: "Total activos identificado", passed: hasAccount(accounts, "total_assets", basePeriod), detail: !hasAccount(accounts, "total_assets", basePeriod) ? "No se identificó total activos. Se calculará por suma de componentes." : null, blocking: false });
 
   // MAP_006: Total liabilities — WARNING
-  r.push({ code: "MAP_006", severity: "media", description: "Total pasivos identificado", passed: hasAccount(accounts, "total_liabilities"), detail: !hasAccount(accounts, "total_liabilities") ? "No se identificó total pasivos." : null, blocking: false });
+  r.push({ code: "MAP_006", severity: "media", description: "Total pasivos identificado", passed: hasAccount(accounts, "total_liabilities", basePeriod), detail: !hasAccount(accounts, "total_liabilities", basePeriod) ? "No se identificó total pasivos." : null, blocking: false });
 
   // MAP_007: EBIT derivable
-  const hasEBIT = hasAccount(accounts, "ebit") || (hasAccount(accounts, "revenue") && (hasAccount(accounts, "cost_of_sales") || hasAccount(accounts, "opex")));
+  const hasEBIT = hasAccount(accounts, "ebit", basePeriod) || (hasAccount(accounts, "revenue", basePeriod) && (hasAccount(accounts, "cost_of_sales", basePeriod) || hasAccount(accounts, "opex", basePeriod)));
   r.push({ code: "MAP_007", severity: "informativa", description: "EBIT derivable", passed: hasEBIT, detail: !hasEBIT ? "EBIT no derivable. Algunos KPIs estarán incompletos." : null, blocking: false });
 
   // ── BAL rules — NEVER BLOCKING ──
-  const totalAssets = getVal(accounts, "total_assets");
-  const totalLiab = getVal(accounts, "total_liabilities");
-  const equity = getVal(accounts, "equity");
+  const totalAssets = getVal(accounts, "total_assets", basePeriod);
+  const totalLiab = getVal(accounts, "total_liabilities", basePeriod);
+  const equity = getVal(accounts, "equity", basePeriod);
 
   if (totalAssets != null && totalLiab != null && equity != null) {
     const diff = Math.abs(totalAssets - (totalLiab + equity));
@@ -110,16 +114,16 @@ function evaluate(accounts: any[], documents: any[], periods: string[]): Validat
   r.push({ code: "BAL_002", severity: "media", description: "Total activos mayor a cero", passed: totalAssets == null || totalAssets > 0, detail: totalAssets != null && totalAssets <= 0 ? "Total activos es cero o negativo." : null, blocking: false });
   r.push({ code: "BAL_003", severity: "informativa", description: "Patrimonio positivo", passed: equity == null || equity > 0, detail: equity != null && equity <= 0 ? "Patrimonio es cero o negativo." : null, blocking: false });
 
-  const cash = getVal(accounts, "cash");
+  const cash = getVal(accounts, "cash", basePeriod);
   r.push({ code: "BAL_005", severity: "informativa", description: "Caja no negativa", passed: cash == null || cash >= 0, detail: cash != null && cash < 0 ? "Caja con valor negativo (posible sobregiro)." : null, blocking: false });
 
   // ── IS rules ──
-  const revenue = getVal(accounts, "revenue");
+  const revenue = getVal(accounts, "revenue", basePeriod);
   r.push({ code: "IS_001", severity: "media", description: "Ingresos mayores a cero", passed: revenue == null || revenue > 0, detail: revenue != null && revenue <= 0 ? "Ingresos son cero o negativos." : null, blocking: false });
 
-  r.push({ code: "IS_005", severity: "informativa", description: "Gastos financieros identificados", passed: getVal(accounts, "interest_expense") != null, detail: getVal(accounts, "interest_expense") == null ? "No se identificaron gastos financieros." : null, blocking: false });
+  r.push({ code: "IS_005", severity: "informativa", description: "Gastos financieros identificados", passed: getVal(accounts, "interest_expense", basePeriod) != null, detail: getVal(accounts, "interest_expense", basePeriod) == null ? "No se identificaron gastos financieros." : null, blocking: false });
 
-  r.push({ code: "IS_006", severity: "informativa", description: "Impuestos identificados", passed: getVal(accounts, "taxes") != null, detail: getVal(accounts, "taxes") == null ? "Impuestos no identificados. Se usará tasa corporativa de referencia." : null, blocking: false });
+  r.push({ code: "IS_006", severity: "informativa", description: "Impuestos identificados", passed: getVal(accounts, "taxes", basePeriod) != null, detail: getVal(accounts, "taxes", basePeriod) == null ? "Impuestos no identificados. Se usará tasa corporativa de referencia." : null, blocking: false });
 
   // ── PER rules — NEVER BLOCKING ──
   r.push({ code: "PER_001", severity: "media", description: "Al menos un período completo", passed: periods.length >= 1, detail: periods.length === 0 ? "No hay períodos contables." : null, blocking: false });
@@ -158,9 +162,34 @@ serve(async (req) => {
     }
 
     const { data: documents } = await supabase.from("documents").select("*").eq("analysis_id", analysis_id);
-    const periods = [...new Set(accounts.filter((a: any) => a.period).map((a: any) => a.period))].sort();
 
-    const results = evaluate(accounts, documents || [], periods);
+    // Bug 2 — política provisional de base_period: se resuelve un único
+    // período base ANTES de leer ninguna cifra financiera. Si es ambiguo,
+    // la validación financiera no se ejecuta como si los datos fueran
+    // correctos — se bloquea de forma explícita y trazable.
+    const periodResolution = resolveBasePeriod(accounts.map((a: any) => a.period ?? null));
+    if (!periodResolution.ok) {
+      await supabase.from("analyses").update({ status: "validacion_bloqueada", validation_status: "bloqueado" }).eq("id", analysis_id);
+      await supabase.from("audit_events").insert({
+        analysis_id, event_type: "periodo_base_ambiguo",
+        event_detail: periodResolution.reason ?? "Período base ambiguo — requiere revisión humana.",
+        component: "validate-analysis", user_id: user.id,
+        metadata: { available_periods: periodResolution.availablePeriods, selection_mode: periodResolution.selectionMode },
+      });
+      return new Response(JSON.stringify({
+        success: false,
+        error: {
+          code: "PERIOD_AMBIGUOUS",
+          message: "Período base ambiguo — requiere revisión humana antes de continuar.",
+          detail: periodResolution.reason,
+          available_periods: periodResolution.availablePeriods,
+        },
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const basePeriod = periodResolution.basePeriod;
+    const periods = periodResolution.availablePeriods;
+
+    const results = evaluate(accounts, documents || [], periods, basePeriod);
 
     // Count issues — only DOC rules can block now
     let hasCritical = false;

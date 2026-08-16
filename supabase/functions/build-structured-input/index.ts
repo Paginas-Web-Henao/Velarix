@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
+import { resolveBasePeriod } from "../_shared/period-resolution.ts";
 import { computeTotalConversionFactor, normalizeCurrencyCode } from "../_shared/currency.ts";
 import { buildCalculationProvenance, type HomologationReference } from "../_shared/calculation-provenance.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
@@ -40,8 +41,12 @@ const TRM = 4080;
 // `canonical_account`, no tomar solo la primera con `.find()`) ahora vive
 // en el módulo puro compartido `_shared/financial-accounts.ts`, usado
 // también por `validate-analysis` y `continuar-tras-revision`.
-function getAccountValue(accounts: HomologatedAccountRow[], canonical: string): number | null {
-  return sumAccountValue(accounts, canonical);
+// Bug 2: `basePeriod` es obligatorio (el `base_period` ya resuelto por
+// `resolveBasePeriod`) — nunca se buscan implícitamente filas con
+// `period === null` mientras existan períodos explícitos en los datos, y
+// nunca se mezclan valores de distintos años.
+function getAccountValue(accounts: HomologatedAccountRow[], canonical: string, basePeriod: string | null): number | null {
+  return sumAccountValue(accounts, canonical, basePeriod ?? undefined);
 }
 
 function buildDefaultSnapshot(sector: string) {
@@ -114,32 +119,51 @@ serve(async (req) => {
       throw new BadRequestError("NO_ACCOUNTS", "No hay cuentas homologadas.");
     }
 
-    const periods = [...new Set(accounts.filter((a: any) => a.period).map((a: any) => a.period))].sort();
+    // Bug 2 — política provisional de base_period: se resuelve un único
+    // período base ANTES de leer ninguna cifra financiera. Si es ambiguo,
+    // no se construye un input estructurado parcialmente arbitrario — se
+    // bloquea de forma explícita y trazable (mismo framework de errores
+    // que NO_ACCOUNTS arriba).
+    const periodResolution = resolveBasePeriod(accounts.map((a: any) => a.period ?? null));
+    if (!periodResolution.ok) {
+      await supabase.from("audit_events").insert({
+        analysis_id, event_type: "periodo_base_ambiguo",
+        event_detail: periodResolution.reason ?? "Período base ambiguo — requiere revisión humana.",
+        component: "build-structured-input", user_id: user.id,
+        metadata: { available_periods: periodResolution.availablePeriods, selection_mode: periodResolution.selectionMode },
+      });
+      throw new BadRequestError(
+        "PERIOD_AMBIGUOUS",
+        periodResolution.reason ?? "Período base ambiguo — requiere revisión humana antes de continuar.",
+      );
+    }
+    const basePeriod = periodResolution.basePeriod;
+    const periods = periodResolution.availablePeriods;
 
-    const revenue = getAccountValue(accounts, "revenue");
-    const costOfSales = getAccountValue(accounts, "cost_of_sales");
-    const opex = getAccountValue(accounts, "opex");
-    const da = getAccountValue(accounts, "da");
-    const interestExpense = getAccountValue(accounts, "interest_expense");
-    const taxes = getAccountValue(accounts, "taxes");
-    const netIncome = getAccountValue(accounts, "net_income");
+    const revenue = getAccountValue(accounts, "revenue", basePeriod);
+    const costOfSales = getAccountValue(accounts, "cost_of_sales", basePeriod);
+    const opex = getAccountValue(accounts, "opex", basePeriod);
+    const da = getAccountValue(accounts, "da", basePeriod);
+    const interestExpense = getAccountValue(accounts, "interest_expense", basePeriod);
+    const taxes = getAccountValue(accounts, "taxes", basePeriod);
+    const netIncome = getAccountValue(accounts, "net_income", basePeriod);
 
-    let ebitda = getAccountValue(accounts, "ebitda");
-    let ebit = getAccountValue(accounts, "ebit");
+    let ebitda = getAccountValue(accounts, "ebitda", basePeriod);
+    let ebit = getAccountValue(accounts, "ebit", basePeriod);
     if (ebitda == null && revenue != null) ebitda = revenue - (costOfSales || 0) - (opex || 0) + (da || 0);
     if (ebit == null && ebitda != null && da != null) ebit = ebitda - da;
 
-    const cash = getAccountValue(accounts, "cash");
-    const accountsReceivable = getAccountValue(accounts, "accounts_receivable");
-    const inventory = getAccountValue(accounts, "inventory");
-    const ppe = getAccountValue(accounts, "ppe");
-    const currentDebt = getAccountValue(accounts, "current_financial_debt");
-    const ltDebt = getAccountValue(accounts, "long_term_financial_debt");
+    const cash = getAccountValue(accounts, "cash", basePeriod);
+    const accountsReceivable = getAccountValue(accounts, "accounts_receivable", basePeriod);
+    const inventory = getAccountValue(accounts, "inventory", basePeriod);
+    const ppe = getAccountValue(accounts, "ppe", basePeriod);
+    const currentDebt = getAccountValue(accounts, "current_financial_debt", basePeriod);
+    const ltDebt = getAccountValue(accounts, "long_term_financial_debt", basePeriod);
     const totalDebt = (currentDebt || 0) + (ltDebt || 0);
-    const equity = getAccountValue(accounts, "equity");
-    const totalAssets = getAccountValue(accounts, "total_assets");
-    const totalLiabilities = getAccountValue(accounts, "total_liabilities");
-    const accountsPayable = getAccountValue(accounts, "accounts_payable");
+    const equity = getAccountValue(accounts, "equity", basePeriod);
+    const totalAssets = getAccountValue(accounts, "total_assets", basePeriod);
+    const totalLiabilities = getAccountValue(accounts, "total_liabilities", basePeriod);
+    const accountsPayable = getAccountValue(accounts, "accounts_payable", basePeriod);
 
     const qualityFlags: string[] = [];
 
@@ -203,7 +227,7 @@ serve(async (req) => {
 
     const validationNotes: string[] = [];
     if (finalTotalAssets != null && finalTotalLiabilities != null && equity != null) validationNotes.push("Ecuación patrimonial validada");
-    if (ebitda != null && getAccountValue(accounts, "ebitda") == null) validationNotes.push("EBITDA calculado desde componentes");
+    if (ebitda != null && getAccountValue(accounts, "ebitda", basePeriod) == null) validationNotes.push("EBITDA calculado desde componentes");
 
     const { data: dbSnapshot } = await supabase
       .from("external_snapshots").select("*")
@@ -245,6 +269,11 @@ serve(async (req) => {
       monedaDocumento: monedaDoc,
       factorConversion: factorTotal,
       builtAt,
+      periodSelection: {
+        base_period: periodResolution.basePeriod,
+        selection_mode: periodResolution.selectionMode,
+        available_periods: periodResolution.availablePeriods,
+      },
     });
 
     const structuredInput = {
@@ -255,6 +284,7 @@ serve(async (req) => {
       moneda_documento: monedaDoc,
       factor_conversion: factorTotal,
       periods,
+      base_period: basePeriod,
       income_statement: { revenue: conv(revenue), cost_of_sales: conv(costOfSales), opex: conv(opex), da: conv(da), ebitda: conv(ebitda), ebit: conv(ebit), interest_expense: conv(interestExpense), taxes: conv(taxes), net_income: conv(netIncome) },
       balance_sheet: { cash: conv(cash), accounts_receivable: conv(accountsReceivable), inventory: conv(inventory), accounts_payable: conv(accountsPayable), ppe: conv(ppe), current_financial_debt: conv(currentDebt), long_term_financial_debt: conv(ltDebt), financial_debt_total: conv(totalDebt), equity: conv(equity), total_assets: conv(finalTotalAssets), total_liabilities: conv(finalTotalLiabilities) },
       quality_flags: qualityFlags,
@@ -278,9 +308,9 @@ serve(async (req) => {
 
     await supabase.from("audit_events").insert({
       analysis_id, event_type: "structured_input_built",
-      event_detail: `Input v2.3: ${qualityFlags.length} flags, ${periods.length} períodos, moneda: ${monedaAnalisis}`,
+      event_detail: `Input v2.3: ${qualityFlags.length} flags, ${periods.length} períodos, base_period: ${basePeriod}, moneda: ${monedaAnalisis}`,
       component: "build-structured-input", user_id: user.id,
-      metadata: { quality_flags: qualityFlags, periods, snapshot_id: snapshotId, version: "2.3", moneda_analisis: monedaAnalisis, moneda_documento: monedaDoc, factor_total: factorTotal },
+      metadata: { quality_flags: qualityFlags, periods, base_period: basePeriod, snapshot_id: snapshotId, version: "2.3", moneda_analisis: monedaAnalisis, moneda_documento: monedaDoc, factor_total: factorTotal },
     });
 
     return new Response(JSON.stringify({
