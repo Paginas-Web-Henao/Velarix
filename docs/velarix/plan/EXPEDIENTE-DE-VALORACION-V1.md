@@ -61,6 +61,29 @@ interpretación pudo registrarse **antes** de cualquier cálculo — es
 decir, los Pasos 1 y 2 de §19 funcionando sobre un caso concreto, no los
 6 pasos completos.
 
+> **Actualización 2026-08-17 — IMPLEMENTADO Y VALIDADO EMPÍRICAMENTE**:
+> el checkpoint mínimo descrito en este §0.1 ya no es solo una condición
+> conceptual. Se implementó como el **Minimum Expediente Checkpoint**
+> (subconjunto mínimo de las entidades de §5 — ver §5 y §19 más abajo
+> para el detalle de qué quedó dentro y qué sigue pendiente) y se validó
+> con un caso sintético contra el proyecto Supabase real: `role=user`
+> intentando crear su propio checkpoint fue denegado por RLS (403); sin
+> el checkpoint sembrado, `ejecutar-calculo` devolvió `HTTP 409
+> MINIMUM_EXPEDIENTE_REQUIRED` sin ejecutar el motor ni producir
+> `calculation_result`; con las cuatro evidencias mínimas sembradas
+> (mismo `analysis_id`, mismo JWT, mismo `structured_input`, sin
+> modificarlo), `ejecutar-calculo` devolvió `HTTP 200` y el motor
+> canónico ejecutó normalmente. Esto **no** equivale a un E2E completo:
+> la cadena validada usó un bypass sintético explícito de
+> `parse-document` (`synthetic_bypass: true`) — `parse-document` real
+> sigue pendiente de la decisión de proveedor de IA. Cadena
+> efectivamente validada: `upload-document` REAL → `parse-document`
+> BYPASS SINTÉTICO → `map-accounts` REAL → `validate-analysis` REAL →
+> `build-structured-input` REAL → **Minimum Expediente guard** REAL →
+> `ejecutar-calculo` REAL. Detalle completo de la implementación y la
+> validación en el historial de sesiones de ingeniería (no duplicado
+> aquí).
+
 ---
 
 ## 1. Objetivo
@@ -150,6 +173,23 @@ esquema existente al implementar.
 | `assumption_relations` | **Nueva, confirmada por Caso 01 (§21)**: relación/dependencia explícita entre dos `case_assumptions` y/o `projection_hypotheses` (ej. "CAPEX de expansión restringe la capacidad que limita a ingresos"), con tipo de relación y razonamiento — para que cambiar un supuesto no ignore lo que depende de él |
 | `coherence_flags` | **Nueva, confirmada por Caso 01, conceptual únicamente (§21, §20)**: señal generada (por regla o por IA-asistida, nunca decisoria) cuando dos elementos del expediente resultan inconsistentes entre sí (ej. ingreso proyectado que excede la capacidad declarada, normalización sin evidencia, supuesto material sin sensibilidad) — el sistema señala, nunca decide ni corrige automáticamente |
 | `expedient_approvals` | Registro de aprobaciones (quién, qué, cuándo, sobre qué versión) |
+
+> **Actualización 2026-08-17 — estado de implementación del subconjunto
+> mínimo**: el **Minimum Expediente Checkpoint** (§0.1) implementó,
+> como subconjunto deliberadamente mínimo de esta tabla, únicamente
+> `valuation_files`, `account_notes` (versión reducida — sin
+> `clasificacion_contable`/`interpretacion_economica` todavía separados,
+> ver §5.1 más abajo) y `expedient_questions`/`expedient_answers`
+> (versión reducida). El contexto se resuelve hoy desde
+> `analyses.company_name`/`analyses.sector` existentes, sin crear
+> `company_context` todavía. **Ninguna otra entidad de esta tabla está
+> implementada**: `account_components`, `evidence_links`,
+> `normalizations`, `projection_hypotheses`, `case_assumptions`,
+> `assumption_relations`, `coherence_flags` y `expedient_approvals`
+> siguen siendo únicamente especificación, no código — no fueron
+> descartadas, siguen perteneciendo al Expediente completo futuro.
+> Implementar el Minimum Checkpoint **no equivale** a completar el Paso
+> 1 ni el Paso 2 de §19 (ver §19 más abajo).
 
 ## 5.1 Clasificación epistémica (transversal, confirmada por Caso 01 — §21)
 
@@ -406,9 +446,24 @@ El Expediente V1 **no reemplaza ni modifica**
 `_shared/financial-methodology.ts` ni `_shared/capital-structure.ts`.
 En esta primera versión:
 
-- El expediente se construye en paralelo al pipeline existente
-  (`build-structured-input` → `ejecutar-calculo`), sin bloquearlo ni
-  alterar su comportamiento actual.
+- El **Expediente completo** se construye en paralelo al pipeline
+  existente (`build-structured-input` → `ejecutar-calculo`), sin
+  bloquearlo ni alterar su comportamiento actual. Esto sigue siendo
+  cierto sin cambios: no exige que todas sus preguntas estén cerradas,
+  no equivale a aprobación financiera final, no equivale a aprobación de
+  WACC/g/horizonte, no equivale a informe profesional listo.
+- **Actualización 2026-08-17**: desde la implementación del **Minimum
+  Expediente Checkpoint** (§0.1), existe una única excepción deliberada
+  y más pequeña a la regla anterior — un subconjunto mínimo (contexto +
+  ≥1 cuenta material + ≥1 ambigüedad + ≥1 tratamiento humano, ver §0.1)
+  que sí condiciona `ejecutar-calculo`: si no está satisfecho, la Edge
+  Function devuelve `HTTP 409 MINIMUM_EXPEDIENTE_REQUIRED` y el motor no
+  se ejecuta. Esto no contradice el punto anterior — el **Expediente
+  completo** (todas las entidades de §5, el ciclo de estados de §7,
+  metodología/WACC/g/horizonte aprobados) sigue siendo enteramente
+  paralelo y no bloqueante; el gate vive únicamente en la capa de
+  orquestación/Edge Function (`ejecutar-calculo/index.ts`), nunca dentro
+  del motor financiero, que no fue modificado.
 - `case_assumptions` puede usar `CANONICAL_METHODOLOGY` como
   **valor de referencia sugerido**, nunca como aplicación automática — el
   valor final que quede en el expediente es una decisión registrada del
@@ -469,8 +524,13 @@ completar la implementación total del expediente (`Negocio_Velarix_v4.2.md`
       aprobación específica (no todo el expediente).
 - [ ] Ningún elemento material queda aprobado sin al menos una evidencia
       vinculada.
-- [ ] El motor de cálculo existente sigue funcionando exactamente igual
-      que antes — el expediente no lo interviene todavía (§13).
+- [ ] El motor de cálculo existente (`canonical-financial-engine.ts`)
+      sigue funcionando exactamente igual que antes — el **Expediente
+      completo** no lo interviene (§13). **Actualización 2026-08-17**:
+      esto sigue siendo cierto para el Expediente completo; el único
+      condicionante de `ejecutar-calculo` implementado es el **Minimum
+      Expediente Checkpoint** (§0.1), un subconjunto mínimo y separado —
+      ver §13 para el detalle exacto de qué cambió y qué no.
 - [ ] **(Confirmado por Caso 01, §21)** Un campo material puede quedar
       marcado explícitamente `desconocido` (§5.1) sin bloquear el resto
       del expediente — no existe ningún relleno automático por defecto.
@@ -492,7 +552,10 @@ completar la implementación total del expediente (`Negocio_Velarix_v4.2.md`
 - Pruebas de trazabilidad: dado un valor final de una cuenta normalizada,
   se puede reconstruir la cadena completa hasta la evidencia original.
 - Prueba de que el motor de cálculo existente no cambia de comportamiento
-  con el expediente presente pero no conectado (§13).
+  con el Expediente completo presente pero no conectado (§13). Esto es
+  distinto de las pruebas ya hechas del Minimum Expediente Checkpoint
+  (§0.1), que sí verifican que `ejecutar-calculo` bloquea/permite según
+  ese subconjunto mínimo — no se duplican aquí.
 
 ## 19. Plan de implementación incremental (referencial, no autorización de inicio)
 
@@ -516,6 +579,18 @@ Cada paso se implementa, prueba y cierra antes de abrir el siguiente —
 mismo principio operativo que la Fase 1 (`fases/FASE-01-EXACTITUD-FINANCIERA.md`,
 "Ningún bloque de esta fase se ejecuta con agentes/sesiones en paralelo
 que modifiquen los mismos archivos").
+
+> **Actualización 2026-08-17**: el **Minimum Expediente Checkpoint**
+> (§0.1) implementó un subconjunto mínimo de `valuation_files` y de
+> `account_notes`/`expedient_questions`/`expedient_answers` (versiones
+> reducidas, ver la nota de §5) — **esto no equivale a que el Paso 1 ni
+> el Paso 2 de arriba estén completos**. Falta, entre otras cosas:
+> `company_context` (Paso 1), `evidence_links` (Paso 2), los campos
+> completos de `account_notes` (`clasificacion_contable`/
+> `interpretacion_economica`, `account_components`) y el ciclo de
+> estados de preguntas más allá de su valor por defecto. El Minimum
+> Checkpoint es un atajo deliberadamente estrecho para habilitar el gate
+> de §0.1, no una implementación adelantada de estos pasos.
 
 ## 20. Explícitamente fuera de alcance de V1
 

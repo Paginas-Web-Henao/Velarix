@@ -2,9 +2,10 @@
 -- + endurecimiento de RLS de manual_reviews (impide autoaprobación a nivel
 -- de base de datos, no solo en la Edge Function).
 --
--- NO APLICADA a Supabase remoto. Migración local, revisada manualmente,
--- pendiente de ejecución explícita por el fundador (`supabase db push` o
--- equivalente) — ver docs/velarix/bloque-1d/REPORTE-IMPLEMENTACION-1D-P0.md.
+-- APLICADA a Supabase remoto. Migration history (`supabase migration list`)
+-- confirma local 20260723090000 = remote 20260723090000 (verificado
+-- 2026-08-17, durante la validación remota del Minimum Expediente
+-- Checkpoint) — ver docs/velarix/bloque-1d/REPORTE-IMPLEMENTACION-1D-P0.md.
 --
 -- Diseño explícitamente evitado: una política RLS que compare OLD/NEW
 -- directamente (Postgres no expone OLD dentro de la expresión de una
