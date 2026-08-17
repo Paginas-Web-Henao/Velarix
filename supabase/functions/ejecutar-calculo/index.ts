@@ -8,6 +8,7 @@ import { buildCalculationVersionInfo } from "../_shared/calculation-versioning.t
 import { buildMissingProvenance, type CalculationProvenance } from "../_shared/calculation-provenance.ts";
 import { resolveEffectiveMoneda, resolveEffectiveFactorConversion } from "../_shared/canonical-input-normalization.ts";
 import { resolveStructuredInput } from "../_shared/structured-input-resolution.ts";
+import { evaluateMinimumExpedienteCheckpoint } from "../_shared/minimum-expediente-checkpoint.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -112,6 +113,73 @@ serve(async (req) => {
     const input = resolution.payload as any;
     if (!input || !input.income_statement?.revenue) {
       throw new Error("No hay input_payload con revenue. Ejecuta build-structured-input primero.");
+    }
+
+    // Minimum Expediente Checkpoint (docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md
+    // §0.1): gate obligatorio del flujo profesional normal, distinto del
+    // Expediente completo (que sigue siendo paralelo/no bloqueante, §13/
+    // §17/§18 sin cambios). Se aplica siempre, sin excepción — no hay
+    // bypass por `isInternalServiceCall` ni por ningún otro flag; los
+    // tests del motor puro (`canonical-financial-engine.golden-cases.test.ts`)
+    // no pasan por aquí porque llaman al motor directamente, sin HTTP.
+    // Política: ausencia legítima de fila (valuation_file inexistente,
+    // 0 account_notes/expedient_questions/expedient_answers) es una
+    // condición normal que resuelve en checkpoint FAIL / 409. Un error
+    // real de la query (`.error` no nulo) es un fallo operacional — se
+    // relanza y cae en el catch general de este handler (500), nunca se
+    // disfraza de "falta revisión humana".
+    const { data: valuationFile, error: valuationFileError } = await supabase
+      .from("valuation_files")
+      .select("id")
+      .eq("analysis_id", analysis_id)
+      .maybeSingle();
+    if (valuationFileError) {
+      throw new Error(`Error consultando valuation_files: ${valuationFileError.message}`);
+    }
+
+    let materialAccountsCount = 0;
+    let ambiguitiesCount = 0;
+    let treatedAmbiguitiesCount = 0;
+
+    if (valuationFile) {
+      const [materialRes, questionsRes, answeredRes] = await Promise.all([
+        supabase.from("account_notes").select("id", { count: "exact", head: true }).eq("valuation_file_id", valuationFile.id),
+        supabase.from("expedient_questions").select("id", { count: "exact", head: true }).eq("valuation_file_id", valuationFile.id),
+        supabase.from("expedient_answers").select("question_id, expedient_questions!inner(valuation_file_id)").eq("expedient_questions.valuation_file_id", valuationFile.id),
+      ]);
+      if (materialRes.error) throw new Error(`Error consultando account_notes: ${materialRes.error.message}`);
+      if (questionsRes.error) throw new Error(`Error consultando expedient_questions: ${questionsRes.error.message}`);
+      if (answeredRes.error) throw new Error(`Error consultando expedient_answers: ${answeredRes.error.message}`);
+      materialAccountsCount = materialRes.count ?? 0;
+      ambiguitiesCount = questionsRes.count ?? 0;
+      treatedAmbiguitiesCount = new Set((answeredRes.data ?? []).map((r: any) => r.question_id)).size;
+    }
+
+    const checkpoint = evaluateMinimumExpedienteCheckpoint({
+      companyName: analysis.company_name,
+      sector: analysis.sector,
+      materialAccountsCount,
+      ambiguitiesCount,
+      treatedAmbiguitiesCount,
+    });
+
+    if (!checkpoint.passed) {
+      await supabase.from("audit_events").insert({
+        analysis_id,
+        user_id: actor?.userId || null,
+        event_type: "minimum_expediente_required",
+        event_detail: `Checkpoint mínimo no satisfecho: faltan ${checkpoint.missing.join(", ")}`,
+        component: "ejecutar-calculo",
+        metadata: { checkpoint },
+      });
+      return new Response(JSON.stringify({
+        success: false,
+        error: {
+          code: "MINIMUM_EXPEDIENTE_REQUIRED",
+          message: "Este análisis todavía no tiene evidencia mínima de revisión humana (contexto, cuenta material, ambigüedad y tratamiento) registrada antes de calcular.",
+          checkpoint,
+        },
+      }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Update status
