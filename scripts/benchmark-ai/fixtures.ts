@@ -46,9 +46,9 @@ const GROUND_TRUTH_ACCOUNTS: ExpectedAccount[] = [
   { id: "revenue", labelSynonyms: ["ingresos", "ventas netas", "ventas"], expectedValue: 5_000_000_000 },
   { id: "cost_of_sales", labelSynonyms: ["costo de ventas", "costo de mercancía vendida", "costo de mercaderia vendida"], expectedValue: 3_000_000_000 },
   { id: "opex", labelSynonyms: ["gastos operativos", "gastos de administración y ventas", "gastos administrativos y de ventas"], expectedValue: 800_000_000 },
-  { id: "da", labelSynonyms: ["depreciación y amortización", "depreciacion y amortizacion", "d&a"], expectedValue: 150_000_000 },
+  { id: "da", labelSynonyms: ["depreciación y amortización", "depreciacion y amortizacion", "d&a", "depreciación y amortización del ejercicio"], expectedValue: 150_000_000 },
   { id: "interest_expense", labelSynonyms: ["gastos financieros", "intereses pagados", "gastos de intereses"], expectedValue: 80_000_000 },
-  { id: "financial_debt_total", labelSynonyms: ["deuda financiera total", "obligaciones financieras", "deuda financiera"], expectedValue: 1_000_000_000 },
+  { id: "financial_debt_total", labelSynonyms: ["deuda financiera total", "obligaciones financieras", "deuda financiera", "obligaciones financieras (corto y largo plazo)"], expectedValue: 1_000_000_000 },
   { id: "cash", labelSynonyms: ["caja", "efectivo", "posición de caja", "caja y equivalentes"], expectedValue: 600_000_000 },
   { id: "equity", labelSynonyms: ["patrimonio", "patrimonio de los accionistas", "patrimonio neto"], expectedValue: 3_000_000_000 },
 ];

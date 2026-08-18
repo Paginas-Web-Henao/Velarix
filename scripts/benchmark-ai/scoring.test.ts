@@ -94,6 +94,57 @@ describe("compareAccounts", () => {
     expect(result.truePositives).toEqual(["opex"]);
     expect(result.valueExactMatches).toEqual(["opex"]);
   });
+
+  // Regresión — hallazgo del primer pilot real (gpt-5.6-terra, noisy_caso_a,
+  // parser_fallback): el modelo devolvió estas dos etiquetas EXACTAS, tal
+  // como aparecen literalmente en FIXTURE_NOISY.source_text, pero el ground
+  // truth no las tenía como sinónimo -> SCORER_FALSE_NEGATIVE (no error del
+  // modelo). Corrección: agregar la forma literal a labelSynonyms.
+
+  it("A — 'Depreciación y amortización del ejercicio' (forma literal de NOISY) matchea da", () => {
+    const result = compareAccounts(FIXTURE_NOISY.accounts, [
+      { original_label: "Depreciación y amortización del ejercicio", values: { col_1: 150_000_000 } },
+    ]);
+    expect(result.truePositives).toEqual(["da"]);
+    expect(result.valueExactMatches).toEqual(["da"]);
+    expect(result.unexpectedAccounts).toEqual([]);
+  });
+
+  it("B — 'Obligaciones financieras (corto y largo plazo)' (forma literal de NOISY) matchea financial_debt_total", () => {
+    const result = compareAccounts(FIXTURE_NOISY.accounts, [
+      { original_label: "Obligaciones financieras (corto y largo plazo)", values: { col_1: 1_000_000_000 } },
+    ]);
+    expect(result.truePositives).toEqual(["financial_debt_total"]);
+    expect(result.valueExactMatches).toEqual(["financial_debt_total"]);
+    expect(result.unexpectedAccounts).toEqual([]);
+  });
+
+  it("C — extracción equivalente de las 8 cuentas del fixture NOISY con sus etiquetas literales: 8 true positives, 0 missing, 0 unexpected, todos los valores exactos", () => {
+    const rows = [
+      { original_label: "Ventas netas", values: { col_1: 5_000_000_000 } },
+      { original_label: "Costo de mercancía vendida", values: { col_1: 3_000_000_000 } },
+      { original_label: "Gastos de administración y ventas", values: { col_1: 800_000_000 } },
+      { original_label: "Depreciación y amortización del ejercicio", values: { col_1: 150_000_000 } },
+      { original_label: "Intereses pagados", values: { col_1: 80_000_000 } },
+      { original_label: "Obligaciones financieras (corto y largo plazo)", values: { col_1: 1_000_000_000 } },
+      { original_label: "Posición de caja", values: { col_1: 600_000_000 } },
+      { original_label: "Patrimonio de los accionistas", values: { col_1: 3_000_000_000 } },
+    ];
+    const result = compareAccounts(FIXTURE_NOISY.accounts, rows);
+    expect(result.truePositives.length).toBe(8);
+    expect(result.missingAccounts).toEqual([]);
+    expect(result.unexpectedAccounts).toEqual([]);
+    expect(result.valueExactMatches.length).toBe(8);
+    expect(result.valueMismatches).toEqual([]);
+  });
+
+  it("D — agregar la forma literal a labelSynonyms NO abre la puerta a substring: una etiqueta que solo CONTIENE el nuevo sinónimo no matchea por substring", () => {
+    const result = compareAccounts(FIXTURE_NOISY.accounts, [
+      { original_label: "Proyección de Obligaciones financieras (corto y largo plazo) para 2026", values: { col_1: 1_000_000_000 } },
+    ]);
+    expect(result.truePositives).not.toContain("financial_debt_total");
+    expect(result.missingAccounts).toContain("financial_debt_total");
+  });
 });
 
 describe("comparePeriods — no depende del orden", () => {
