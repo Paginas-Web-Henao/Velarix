@@ -11,6 +11,7 @@ export default defineConfig({
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
       "supabase/functions/_shared/**/*.{test,spec}.ts",
+      "scripts/benchmark-ai/**/*.{test,spec}.ts",
     ],
   },
   resolve: {

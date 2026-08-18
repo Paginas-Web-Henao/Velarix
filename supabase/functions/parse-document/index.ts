@@ -4,6 +4,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
+import { SYSTEM_CLASSIFIER, SYSTEM_PERIOD_DETECTOR, SYSTEM_PARSER_FALLBACK } from "../_shared/parse-document-prompts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -462,18 +463,9 @@ function detectarEscala(filas: ParsedRow[]): { escala: number; nota: string | nu
 }
 
 // ═══════════════════════════════════════════════════════════════
-// AI SYSTEM PROMPTS
+// AI SYSTEM PROMPTS — compartidos con el benchmark (scripts/benchmark-ai/)
+// vía ../_shared/parse-document-prompts.ts
 // ═══════════════════════════════════════════════════════════════
-
-const SYSTEM_CLASSIFIER = `Eres el clasificador documental de Velarix. Identifica el tipo de documento financiero.
-Tipos: estado_resultados, balance_general, mixto, flujo_de_caja, no_reconocible
-Devuelve JSON: { "tipo_documento": "...", "confianza": 0-1, "evidencias": [], "advertencias": [], "puede_continuar": true/false }`;
-
-const SYSTEM_PERIOD_DETECTOR = `Eres el detector de períodos financieros de Velarix.
-Devuelve JSON: { "periodos": [{"etiqueta": "2024", "tipo": "anual", "columna_indice": 0}], "periodo_mas_reciente": "etiqueta", "cantidad_periodos": número }`;
-
-const SYSTEM_PARSER_FALLBACK = `Eres un extractor de datos financieros. Extrae cuentas contables con valores.
-Devuelve JSON: { "rows": [{"original_label": "...", "values": {"col_1": número}, "es_subtotal": false, "posicion": número}], "column_headers": ["Cuenta", "2024"], "total_rows_extracted": número }`;
 
 function extractJSON(text: string): any {
   try { const m = text.match(/\{[\s\S]*\}/); if (m) return JSON.parse(m[0]); } catch {} return null;
