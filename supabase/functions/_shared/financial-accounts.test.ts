@@ -5,7 +5,7 @@
 // — no una copia de la fórmula.
 
 import { describe, it, expect } from "vitest";
-import { sumAccountValue, hasAccountValue, type HomologatedAccountRow } from "./financial-accounts";
+import { sumAccountValue, sumObservedAccountValue, hasAccountValue, type HomologatedAccountRow } from "./financial-accounts";
 
 describe("sumAccountValue — BL-02", () => {
   it("1. una sola cuenta: devuelve su valor tal cual", () => {
@@ -145,5 +145,59 @@ describe("sumAccountValue con base_period explícito — Bug 2", () => {
   it("F. cuenta ausente en el período base: devuelve null, no cero", () => {
     const rows: HomologatedAccountRow[] = [{ canonical_account: "revenue", value: 500, period: "2025" }];
     expect(sumAccountValue(rows, "long_term_financial_debt", "2025")).toBeNull();
+  });
+});
+
+// Hallazgo BAL_005/cash — sumAccountValue normaliza cash con Math.abs()
+// (cuenta de naturaleza no-negativa, ver ABS_NORMALIZED_ACCOUNTS), lo que
+// hace que un cash negativo en el dato fuente sea indistinguible de una
+// convención de signos. sumObservedAccountValue conserva el signo tal como
+// se capturó, para que validate-analysis (BAL_005) pueda inspeccionarlo sin
+// alterar el valor que consume el cálculo.
+describe("sumObservedAccountValue — hallazgo BAL_005/cash", () => {
+  it("1. cash = -50: observado conserva el signo, normalizado lo vuelve positivo", () => {
+    const rows: HomologatedAccountRow[] = [{ canonical_account: "cash", value: -50 }];
+    expect(sumObservedAccountValue(rows, "cash")).toBe(-50);
+    expect(sumAccountValue(rows, "cash")).toBe(50);
+  });
+
+  it("2. cash +50 y cash -20 (mismo período): observado y normalizado coinciden en +30", () => {
+    const rows: HomologatedAccountRow[] = [
+      { canonical_account: "cash", value: 50 },
+      { canonical_account: "cash", value: -20 },
+    ];
+    expect(sumObservedAccountValue(rows, "cash")).toBe(30);
+    expect(sumAccountValue(rows, "cash")).toBe(30);
+  });
+
+  it("3. cash -50 y cash -30: observado -80, normalizado +80 (nunca +80/-80 mezclados)", () => {
+    const rows: HomologatedAccountRow[] = [
+      { canonical_account: "cash", value: -50 },
+      { canonical_account: "cash", value: -30 },
+    ];
+    expect(sumObservedAccountValue(rows, "cash")).toBe(-80);
+    expect(sumAccountValue(rows, "cash")).toBe(80);
+  });
+
+  it("4. dos períodos: cash 2024=-40, cash 2025=-50, basePeriod=2025 -> observado -50, normalizado +50 (nunca -90/+90)", () => {
+    const rows: HomologatedAccountRow[] = [
+      { canonical_account: "cash", value: -40, period: "2024" },
+      { canonical_account: "cash", value: -50, period: "2025" },
+    ];
+    expect(sumObservedAccountValue(rows, "cash", "2025")).toBe(-50);
+    expect(sumAccountValue(rows, "cash", "2025")).toBe(50);
+    expect(sumObservedAccountValue(rows, "cash", "2025")).not.toBe(-90);
+    expect(sumAccountValue(rows, "cash", "2025")).not.toBe(90);
+  });
+
+  it("5. cuenta ausente: sumObservedAccountValue también devuelve null, no cero (misma política que sumAccountValue)", () => {
+    const rows: HomologatedAccountRow[] = [{ canonical_account: "revenue", value: 100 }];
+    expect(sumObservedAccountValue(rows, "cash")).toBeNull();
+  });
+
+  it("6. cuenta sin normalización (revenue): observado y normalizado son idénticos, ambos conservan el signo", () => {
+    const rows: HomologatedAccountRow[] = [{ canonical_account: "revenue", value: -100 }];
+    expect(sumObservedAccountValue(rows, "revenue")).toBe(-100);
+    expect(sumAccountValue(rows, "revenue")).toBe(-100);
   });
 });

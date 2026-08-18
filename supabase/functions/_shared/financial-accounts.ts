@@ -46,10 +46,12 @@ function toFiniteNumber(raw: number | string | null | undefined): number | null 
 }
 
 /**
- * Suma todas las filas homologadas con el mismo `canonical_account` para
- * un período dado (por defecto, el período "sin especificar" — `null`/
- * `undefined`/cadena vacía se tratan como el mismo período, que es el caso
- * real más común hoy: análisis de un solo año sin columnas comparativas).
+ * Consolidación base compartida por `sumAccountValue` y
+ * `sumObservedAccountValue`: filtra por `canonical_account` + período y
+ * suma con signo, SIN aplicar ninguna normalización de `ABS_NORMALIZED_ACCOUNTS`
+ * todavía. Cada función pública decide después si aplica `Math.abs()` sobre
+ * este total, según qué pregunta responde (valor para cálculo vs. valor
+ * observado tal como se capturó).
  *
  * - Ignora valores `null`, `undefined` o no numéricos.
  * - No usa `.find()`: nunca descarta una fila válida por tomar solo la
@@ -60,7 +62,7 @@ function toFiniteNumber(raw: number | string | null | undefined): number | null 
  *   distinto período NUNCA se suman entre sí (evita mezclar, por ejemplo,
  *   ingresos de 2023 con ingresos de 2024).
  */
-export function sumAccountValue(
+function sumMatchedRows(
   rows: readonly HomologatedAccountRow[],
   canonical: string,
   period?: string | null,
@@ -78,9 +80,51 @@ export function sumAccountValue(
 
   if (matchedValues.length === 0) return null;
 
-  const sum = matchedValues.reduce((acc, v) => acc + v, 0);
+  return matchedValues.reduce((acc, v) => acc + v, 0);
+}
+
+/**
+ * Suma todas las filas homologadas con el mismo `canonical_account` para
+ * un período dado (por defecto, el período "sin especificar" — `null`/
+ * `undefined`/cadena vacía se tratan como el mismo período, que es el caso
+ * real más común hoy: análisis de un solo año sin columnas comparativas).
+ *
+ * Valor NORMALIZADO/EFECTIVO — el que consumen los cálculos: para las
+ * cuentas de `ABS_NORMALIZED_ACCOUNTS` (de naturaleza no-negativa), aplica
+ * `Math.abs()` sobre el total ya sumado, corrigiendo convenciones de signo
+ * inconsistentes del documento fuente. Para inspeccionar el signo tal como
+ * se capturó, usar `sumObservedAccountValue`.
+ */
+export function sumAccountValue(
+  rows: readonly HomologatedAccountRow[],
+  canonical: string,
+  period?: string | null,
+): number | null {
+  const sum = sumMatchedRows(rows, canonical, period);
+  if (sum === null) return null;
 
   return ABS_NORMALIZED_ACCOUNTS.has(canonical) ? Math.abs(sum) : sum;
+}
+
+/**
+ * Igual que `sumAccountValue` (misma consolidación por `canonical_account` +
+ * período, mismos filtros de `null`/no-numéricos, misma política de no
+ * mezclar períodos), pero SIN aplicar `ABS_NORMALIZED_ACCOUNTS` — conserva
+ * el signo real de la suma.
+ *
+ * Valor OBSERVADO — para validación/señal humana, no para cálculo: un signo
+ * negativo puede representar una convención de presentación del documento,
+ * una inconsistencia de captura, o una posición económica real (p. ej.
+ * sobregiro de caja). Este módulo no decide cuál de las tres es — solo
+ * preserva la señal para que una regla de validación o una revisión humana
+ * la interprete.
+ */
+export function sumObservedAccountValue(
+  rows: readonly HomologatedAccountRow[],
+  canonical: string,
+  period?: string | null,
+): number | null {
+  return sumMatchedRows(rows, canonical, period);
 }
 
 /** Equivalente a `sumAccountValue(...) !== null` — reemplaza `hasAccount`. */
