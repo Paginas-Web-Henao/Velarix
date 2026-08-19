@@ -28,10 +28,15 @@ Devuelve JSON: { "periodos": [{"etiqueta": "2024", "tipo": "anual", "columna_ind
     );
   });
 
-  it("SYSTEM_PARSER_FALLBACK es byte-for-byte igual al original", () => {
+  // Actualizado tras el fix del bug de período en AI fallback: se agregó
+  // una línea aclarando el contrato multi-período (ver
+  // parse-document-ai-fallback.ts) — sigue siendo un fijado byte-for-byte,
+  // ahora contra el contenido POST-fix.
+  it("SYSTEM_PARSER_FALLBACK es byte-for-byte igual al contenido actual (post-fix multi-período)", () => {
     expect(SYSTEM_PARSER_FALLBACK).toBe(
       `Eres un extractor de datos financieros. Extrae cuentas contables con valores.
-Devuelve JSON: { "rows": [{"original_label": "...", "values": {"col_1": número}, "es_subtotal": false, "posicion": número}], "column_headers": ["Cuenta", "2024"], "total_rows_extracted": número }`,
+Devuelve JSON: { "rows": [{"original_label": "...", "values": {"col_1": número}, "es_subtotal": false, "posicion": número}], "column_headers": ["Cuenta", "2024"], "total_rows_extracted": número }
+Si hay más de un período, agrega una clave por período en "values" (por ejemplo {"col_1": valor2024, "col_2": valor2025}) y coloca los períodos correspondientes, en el mismo orden, dentro de "column_headers".`,
     );
   });
 });

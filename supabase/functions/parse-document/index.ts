@@ -3,8 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
-import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
+import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { SYSTEM_CLASSIFIER, SYSTEM_PERIOD_DETECTOR, SYSTEM_PARSER_FALLBACK } from "../_shared/parse-document-prompts.ts";
+import { normalizarNumero, explodeAiFallbackRowByPeriod, UnmappedAiColumnError } from "../_shared/parse-document-ai-fallback.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,36 +33,9 @@ function detectarFormato(bytes: Uint8Array, filename: string, mimeType: string |
 }
 
 // ── Number Normalization ──
-function normalizarNumero(valorRaw: string | number | null | undefined): number | null {
-  if (valorRaw === null || valorRaw === undefined || valorRaw === "") return null;
-  if (typeof valorRaw === "number") return isNaN(valorRaw) ? null : valorRaw;
-  const str = String(valorRaw).trim();
-  if (str.startsWith("=")) return null;
-  if (["-", "—", "n/a", "n.a.", "nd", "n.d.", ""].includes(str.toLowerCase())) return null;
-
-  const esNegParentesis = str.startsWith("(") && str.endsWith(")");
-  let s = esNegParentesis ? str.slice(1, -1) : str;
-  s = s.replace(/[$€£]/g, "").replace(/COP|USD|MXN/gi, "").trim();
-
-  let num: number | null = null;
-  if (/^\d{1,3}(\.\d{3})*(,\d{1,2})?$/.test(s)) {
-    num = parseFloat(s.replace(/\./g, "").replace(",", "."));
-  } else if (/^\d{1,3}(,\d{3})*(\.\d{1,2})?$/.test(s)) {
-    num = parseFloat(s.replace(/,/g, ""));
-  } else if (/^\d+([.,]\d{1,2})?$/.test(s)) {
-    num = parseFloat(s.replace(",", "."));
-  } else if (/^\d+(\.\d+)?M$/i.test(s)) {
-    num = parseFloat(s) * 1_000_000;
-  } else if (/^\d+(\.\d+)?K$/i.test(s)) {
-    num = parseFloat(s) * 1_000;
-  } else {
-    const digits = s.replace(/[^0-9.\-]/g, "");
-    num = digits ? parseFloat(digits) : null;
-  }
-
-  if (num === null || isNaN(num)) return null;
-  return esNegParentesis ? -Math.abs(num) : num;
-}
+// normalizarNumero() vive en ../_shared/parse-document-ai-fallback.ts
+// (reubicada desde aquí para que la explosión de columnas de IA la
+// reutilice y quede cubierta por tests) — importada arriba.
 
 // ── Text Normalization ──
 function normalizarTexto(texto: string | null): string {
@@ -558,10 +532,38 @@ serve(async (req) => {
         `Extrae todas las cuentas contables.\n\nContenido:\n${contentForAI.substring(0, 6000)}`, 4000);
       const parsed = parseResult ? extractJSON(parseResult) : null;
       if (parsed?.rows?.length > 0) {
-        filas = parsed.rows.map((row: any, idx: number) => {
-          const firstVal = row.values ? Object.values(row.values)[0] : null;
-          return { posicion: row.posicion || idx, texto: normalizarTexto(row.original_label), valor_raw: firstVal !== null ? String(firstVal) : null, valor: normalizarNumero(firstVal), es_encabezado: firstVal === null, es_comparativo: row.values && Object.keys(row.values).length > 1 } as ParsedRow;
-        });
+        // Bug período AI fallback: una fila IA con varios períodos en
+        // `values` (col_1, col_2, ...) se explota en varias ParsedRow, una
+        // por cuenta × período — mismo modelo que ya usan
+        // extraerExcel/extraerCSV arriba. `column_headers[N]` resuelve a
+        // qué año corresponde cada `col_N`; ver
+        // ../_shared/parse-document-ai-fallback.ts para el detalle
+        // (ausencias no se inventan, columnas sin header fallan cerrado).
+        const columnHeaders: string[] = Array.isArray(parsed.column_headers)
+          ? parsed.column_headers.map((h: unknown) => (h === null || h === undefined ? "" : String(h)))
+          : [];
+        filas = [];
+        try {
+          for (let idx = 0; idx < parsed.rows.length; idx++) {
+            const row = parsed.rows[idx];
+            const posicion = row.posicion || idx;
+            const texto = normalizarTexto(row.original_label);
+            const values: Record<string, unknown> = row.values && typeof row.values === "object" ? row.values : {};
+            const exploded = explodeAiFallbackRowByPeriod(texto, values, columnHeaders);
+            const esComparativo = Object.keys(values).length > 1;
+            for (const { valor, periodo, columna } of exploded) {
+              filas.push({
+                posicion, texto, valor_raw: String(valor), valor, periodo, columna,
+                es_encabezado: false, es_comparativo: esComparativo,
+              } as ParsedRow);
+            }
+          }
+        } catch (e) {
+          if (e instanceof UnmappedAiColumnError) {
+            throw new BadRequestError("AI_FALLBACK_UNMAPPED_COLUMN", e.message);
+          }
+          throw e;
+        }
         metadatos = { ...metadatos, ai_fallback: true, ai_rows: parsed.rows.length, column_headers: parsed.column_headers };
       }
     }
