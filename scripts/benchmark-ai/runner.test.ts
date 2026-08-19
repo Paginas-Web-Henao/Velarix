@@ -47,6 +47,17 @@ describe("buildCombinations", () => {
     expect(combos.length).toBe(BENCHMARK_FIXTURES.length * BENCHMARK_TASKS.length * PROVIDERS.length * 3);
   });
 
+  // Con HARD agregado: 3 fixtures (CLEAN, NOISY, HARD) × 3 tareas × 2
+  // proveedores × 1 run = 18 combinaciones exactas — sin filtros de
+  // provider/fixture/task, sin ampliar CLI (fuera de alcance de esta tarea).
+  it("con --runs 1: 3 fixtures × 3 tasks × 2 providers = 18 combinaciones exactas", () => {
+    expect(BENCHMARK_FIXTURES.length).toBe(3);
+    expect(BENCHMARK_TASKS.length).toBe(3);
+    expect(PROVIDERS.length).toBe(2);
+    const combos = buildCombinations(BENCHMARK_FIXTURES, 1);
+    expect(combos.length).toBe(18);
+  });
+
   it("cada combinación referencia una tarea y un proveedor válidos", () => {
     const combos = buildCombinations(BENCHMARK_FIXTURES, 1);
     for (const c of combos) {

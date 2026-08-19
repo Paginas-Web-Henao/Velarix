@@ -62,6 +62,24 @@ export interface ValueMismatch {
   extracted: number | null;
 }
 
+// ── multi-período (HARD) — ADITIVO, ver ExpectedAccount.expectedValuesByPeriod ──
+
+export type PeriodOutcomeKind = "exact_match" | "mismatch" | "correctly_absent" | "fabricated_absent" | "missing_reported_value";
+
+export interface PeriodValueOutcome {
+  accountId: string;
+  period: string;
+  expected: number | null;
+  returned: number | null;
+  outcome: PeriodOutcomeKind;
+}
+
+export interface UnexpectedColumnValue {
+  accountId: string;
+  columnKey: string;
+  value: unknown;
+}
+
 export interface AccountComparison {
   accountsExpectedCount: number;
   accountsExtractedCount: number;
@@ -72,6 +90,10 @@ export interface AccountComparison {
   valueMismatches: ValueMismatch[];
   /** original_label devueltos por el modelo, tal cual — para revisión humana. */
   labelOutput: string[];
+  /** ADITIVO — un registro por cuenta × período, solo para cuentas con `expectedValuesByPeriod` cuando se pasa `columnHeaders` a compareAccounts(). Vacío para fixtures de un solo período (CLEAN/NOISY). */
+  periodValueOutcomes: PeriodValueOutcome[];
+  /** ADITIVO — `col_N` presente en `values` de una fila ya matcheada sin `columnHeaders[N]` correspondiente. Nunca se descarta en silencio. */
+  unexpectedColumnValues: UnexpectedColumnValue[];
 }
 
 function firstNumericValue(row: ExtractedRow): number | null {
@@ -86,7 +108,81 @@ function firstNumericValue(row: ExtractedRow): number | null {
   return null;
 }
 
-export function compareAccounts(expected: ExpectedAccount[], extractedRows: ExtractedRow[]): AccountComparison {
+function coerceNumeric(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+/** `col_N` (N >= 1) -> índice del header cuyo contenido sea exactamente `period`. Nunca asume que col_1 es un año fijo — se deriva del CONTENIDO de columnHeaders, así headers invertidos (["Cuenta","2025","2024"]) siguen resolviendo correctamente. */
+function colIndexForPeriod(columnHeaders: readonly string[], period: string): number | null {
+  for (let i = 1; i < columnHeaders.length; i++) {
+    if (columnHeaders[i] === period) return i;
+  }
+  return null;
+}
+
+const COL_KEY_RE = /^col_([1-9]\d*)$/;
+
+/**
+ * Compara UNA cuenta ya matcheada, período por período, contra
+ * `expectedValuesByPeriod`. Produce un outcome por cada período esperado
+ * (incluyendo exact_match — no es solo una lista de anomalías, es
+ * trazabilidad completa) y detecta `col_N` sin header correspondiente en
+ * la misma fila.
+ */
+function scoreAccountPeriods(
+  account: ExpectedAccount,
+  row: ExtractedRow,
+  columnHeaders: readonly string[],
+): { outcomes: PeriodValueOutcome[]; unexpectedColumns: UnexpectedColumnValue[] } {
+  const expectedByPeriod = account.expectedValuesByPeriod ?? {};
+  const values: Record<string, unknown> = row.values && typeof row.values === "object" ? row.values : {};
+  const outcomes: PeriodValueOutcome[] = [];
+
+  for (const [period, expected] of Object.entries(expectedByPeriod)) {
+    const colIndex = colIndexForPeriod(columnHeaders, period);
+    const key = colIndex !== null ? `col_${colIndex}` : null;
+    const hasKey = key !== null && Object.prototype.hasOwnProperty.call(values, key) && values[key] !== null;
+    const returned = hasKey ? coerceNumeric(values[key as string]) : null;
+
+    let outcome: PeriodOutcomeKind;
+    if (expected === null) {
+      outcome = returned !== null ? "fabricated_absent" : "correctly_absent";
+    } else if (returned === null) {
+      outcome = "missing_reported_value";
+    } else if (returned === expected) {
+      outcome = "exact_match";
+    } else {
+      outcome = "mismatch";
+    }
+    outcomes.push({ accountId: account.id, period, expected, returned, outcome });
+  }
+
+  // Cualquier col_N con valor presente en la fila sin columnHeaders[N]
+  // correspondiente — dato estructuralmente huérfano, no se descarta en
+  // silencio ni se reasigna a otro período por adivinanza.
+  const unexpectedColumns: UnexpectedColumnValue[] = [];
+  for (const columnKey of Object.keys(values)) {
+    const m = COL_KEY_RE.exec(columnKey);
+    if (!m) continue;
+    const idx = Number(m[1]);
+    if (!columnHeaders[idx]) {
+      unexpectedColumns.push({ accountId: account.id, columnKey, value: values[columnKey] });
+    }
+  }
+
+  return { outcomes, unexpectedColumns };
+}
+
+export function compareAccounts(
+  expected: ExpectedAccount[],
+  extractedRows: ExtractedRow[],
+  columnHeaders?: readonly string[],
+): AccountComparison {
   const labelOutput = extractedRows
     .map((r) => (typeof r.original_label === "string" ? r.original_label : null))
     .filter((l): l is string => l !== null);
@@ -95,6 +191,8 @@ export function compareAccounts(expected: ExpectedAccount[], extractedRows: Extr
   const missingAccounts: string[] = [];
   const valueExactMatches: string[] = [];
   const valueMismatches: ValueMismatch[] = [];
+  const periodValueOutcomes: PeriodValueOutcome[] = [];
+  const unexpectedColumnValues: UnexpectedColumnValue[] = [];
   const matchedRowIndexes = new Set<number>();
 
   for (const account of expected) {
@@ -113,6 +211,16 @@ export function compareAccounts(expected: ExpectedAccount[], extractedRows: Extr
     }
     matchedRowIndexes.add(matchedIndex);
     truePositives.push(account.id);
+
+    if (account.expectedValuesByPeriod && columnHeaders) {
+      const { outcomes, unexpectedColumns } = scoreAccountPeriods(account, extractedRows[matchedIndex], columnHeaders);
+      periodValueOutcomes.push(...outcomes);
+      unexpectedColumnValues.push(...unexpectedColumns);
+      continue;
+    }
+
+    // Camino legacy — CLEAN/NOISY (1 período) y respaldo si compareAccounts()
+    // se invoca sin columnHeaders para una cuenta con expectedValuesByPeriod.
     const extractedValue = firstNumericValue(extractedRows[matchedIndex]);
     if (extractedValue !== null && extractedValue === account.expectedValue) {
       valueExactMatches.push(account.id);
@@ -135,6 +243,8 @@ export function compareAccounts(expected: ExpectedAccount[], extractedRows: Extr
     valueExactMatches,
     valueMismatches,
     labelOutput,
+    periodValueOutcomes,
+    unexpectedColumnValues,
   };
 }
 

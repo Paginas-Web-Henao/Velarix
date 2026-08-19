@@ -131,8 +131,12 @@ export function scoreCombination(combo: BenchmarkCombination, rawText: string | 
   if (combo.task === "parser_fallback") {
     const raw = jsonParseSuccess ? (parsed as ParserFallbackRawOutput) : undefined;
     const rows: ExtractedRow[] = Array.isArray(raw?.rows) ? raw.rows.filter(isExtractedRow) : [];
-    const accounts = compareAccounts(fixture.accounts, rows);
     const columnHeaders: string[] = Array.isArray(raw?.column_headers) ? raw.column_headers.filter((h: unknown): h is string => typeof h === "string") : [];
+    // columnHeaders se pasa a compareAccounts para el scoring multi-período
+    // (HARD) — ver ExpectedAccount.expectedValuesByPeriod en fixtures.ts.
+    // Para CLEAN/NOISY (sin expectedValuesByPeriod) no cambia nada: siguen
+    // el camino legacy exactamente como antes.
+    const accounts = compareAccounts(fixture.accounts, rows, columnHeaders);
     // NO se filtra contra fixture.expected_periods antes de puntuar — eso
     // ocultaría períodos inesperados. Se identifican candidatos de forma
     // explícita e independiente del ground truth, y comparePeriods decide.
