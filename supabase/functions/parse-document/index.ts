@@ -6,11 +6,27 @@ import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-k
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { SYSTEM_CLASSIFIER, SYSTEM_PERIOD_DETECTOR, SYSTEM_PARSER_FALLBACK } from "../_shared/parse-document-prompts.ts";
 import { normalizarNumero, explodeAiFallbackRowByPeriod, UnmappedAiColumnError } from "../_shared/parse-document-ai-fallback.ts";
+import { resolveParseAiConfig, callOpenAiParse, ParseAiConfigError, type ResolvedParseAiConfig } from "../_shared/parse-document-ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// ── Selección de proveedor de IA (classifier, period_detector, parser_fallback) ──
+// Decisión cerrada tras el benchmark Terra vs Sonnet 5 — ver
+// ../_shared/parse-document-ai-provider.ts para el detalle completo
+// (fail-closed, sin fallback automático, sin inferir proveedor por
+// existencia de key). Recibe `config` ya resuelto una sola vez por
+// request (ver el `if (!Deno.env.get("ANTHROPIC_API_KEY"))` más abajo,
+// reemplazado por resolveParseAiConfig) — nunca vuelve a leer env por
+// llamada, y nunca invoca a los dos proveedores para una misma llamada.
+async function callParseAiWith(config: ResolvedParseAiConfig, systemPrompt: string, userPrompt: string, maxTokens: number): Promise<string | null> {
+  if (config.provider === "openai") {
+    return callOpenAiParse(systemPrompt, userPrompt, maxTokens, config);
+  }
+  return callAnthropic(systemPrompt, userPrompt, maxTokens);
+}
 
 // ═══════════════════════════════════════════════════════════════
 // PARSING MODULE — Complete rewrite for Colombian financial docs
@@ -484,7 +500,25 @@ serve(async (req) => {
     const { data: fileData, error: downloadError } = await supabase.storage.from("financial-documents").download(document.storage_path!);
     if (downloadError || !fileData) throw new Error(`Failed to download: ${downloadError?.message}`);
 
-    if (!Deno.env.get("ANTHROPIC_API_KEY")) throw new Error("ANTHROPIC_API_KEY not configured");
+    // Falla cerrado según el proveedor configurado explícitamente —
+    // reemplaza el gate hardcodeado a Anthropic que existía antes de la
+    // integración de Terra. provider=anthropic conserva EXACTAMENTE el
+    // comportamiento previo (mismo mensaje, mismo timing); provider=openai
+    // exige OPENAI_API_KEY/OPENAI_PARSE_MODEL antes de seguir.
+    let parseAiConfig: ResolvedParseAiConfig;
+    try {
+      parseAiConfig = resolveParseAiConfig({
+        provider: Deno.env.get("PARSE_AI_PROVIDER"),
+        openaiApiKey: Deno.env.get("OPENAI_API_KEY"),
+        openaiModel: Deno.env.get("OPENAI_PARSE_MODEL"),
+      });
+    } catch (e) {
+      if (e instanceof ParseAiConfigError) throw new BadRequestError("PARSE_AI_CONFIG_ERROR", e.message);
+      throw e;
+    }
+    if (parseAiConfig.provider === "anthropic" && !Deno.env.get("ANTHROPIC_API_KEY")) {
+      throw new Error("ANTHROPIC_API_KEY not configured");
+    }
 
     const arrayBuffer = await fileData.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
@@ -528,7 +562,7 @@ serve(async (req) => {
       if (!contentForAI || contentForAI.length < 50) {
         contentForAI = new TextDecoder("utf-8", { fatal: false }).decode(bytes).substring(0, 8000);
       }
-      const parseResult = await callAnthropic(SYSTEM_PARSER_FALLBACK,
+      const parseResult = await callParseAiWith(parseAiConfig, SYSTEM_PARSER_FALLBACK,
         `Extrae todas las cuentas contables.\n\nContenido:\n${contentForAI.substring(0, 6000)}`, 4000);
       const parsed = parseResult ? extractJSON(parseResult) : null;
       if (parsed?.rows?.length > 0) {
@@ -610,7 +644,7 @@ serve(async (req) => {
 
     // AI Classification
     const sampleText = filas.slice(0, 30).map(f => `${f.texto}: ${f.valor_raw || "(encabezado)"}`).join("\n");
-    const classifyResult = await callAnthropic(SYSTEM_CLASSIFIER, `Clasifica este documento financiero.\n\nFilas extraídas:\n${sampleText}`, 500);
+    const classifyResult = await callParseAiWith(parseAiConfig, SYSTEM_CLASSIFIER, `Clasifica este documento financiero.\n\nFilas extraídas:\n${sampleText}`, 500);
     const classification = classifyResult ? extractJSON(classifyResult) : null;
     let docType = classification?.tipo_documento || document.doc_type_declared || "no_reconocible";
 
@@ -620,7 +654,7 @@ serve(async (req) => {
     else if (docType === "no_reconocible" && contenido.tieneBalanceGeneral) docType = "balance_general";
 
     // AI Period Detection
-    const periodResult = await callAnthropic(SYSTEM_PERIOD_DETECTOR, `Detecta los períodos.\n\n${sampleText}`, 500);
+    const periodResult = await callParseAiWith(parseAiConfig, SYSTEM_PERIOD_DETECTOR, `Detecta los períodos.\n\n${sampleText}`, 500);
     const periods = periodResult ? extractJSON(periodResult) : null;
     const periodsDetected = periods?.periodos?.map((p: any) => p.etiqueta) || [];
 

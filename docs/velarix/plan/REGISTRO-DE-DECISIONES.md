@@ -535,3 +535,56 @@ esta decisión.
   registro es la confirmación). Los ajustes marcados `REQUIERE EXPERTO`
   en el reporte de contraste requieren, adicionalmente, criterio de un
   revisor financiero externo antes de precisarse.
+
+## D-11 — Selección provisional de proveedor de IA para `parse-document`: Terra (GPT-5.6, reasoning.effort=none)
+
+- **Fecha**: 2026-08-20
+- **Tipo**: decisión técnica operativa (no metodológica financiera), reversible.
+- **Contexto**: benchmark controlado y reproducible del componente de IA
+  de `parse-document` (`scripts/benchmark-ai/`) comparó extracción,
+  clasificación y detección de períodos entre proveedores sobre 3
+  fixtures sintéticos de dificultad creciente: CLEAN, NOISY, y HARD
+  (multi-período 2024/2025, ausencia parcial, negativo entre paréntesis,
+  formatos numéricos mixtos, orden de cuentas no intuitivo, narrativa no
+  financiera, labels estrictos, cero cálculos permitidos). Modelos
+  evaluados: GPT-5.6 Terra (`reasoning.effort=none`), GPT-5.6 Sol
+  (`reasoning.effort=none`), Claude Sonnet 5 (thinking disabled,
+  `effort=low`).
+- **Decisión**: Terra queda como proveedor **primary provisional** de las
+  3 llamadas de IA de `parse-document` (classifier, period_detector,
+  parser_fallback), seleccionable vía `PARSE_AI_PROVIDER=openai`. Claude
+  Sonnet 5 low queda disponible como proveedor explícito alternativo
+  (`PARSE_AI_PROVIDER=anthropic`) — **evaluado, no fallback automático**.
+  GPT-5.6 Sol queda descartado para este workload salvo evidencia futura.
+- **Razón**: en las 3 rondas (CLEAN/NOISY/HARD), Terra y Sonnet 5
+  obtuvieron calidad material equivalente — ninguna diferencia observada
+  que favorezca a uno sobre el otro en exactitud de
+  extracción/clasificación/detección de períodos. Terra tiene menor costo
+  en las rondas comparables. La velocidad no fue criterio de la decisión.
+- **Evidencia**: JSONL oficiales de las 3 rondas preservados **fuera de
+  este repositorio**, en `../benchmark-evidence/...` — no se copian aquí.
+  El harness que los produjo (fixtures, scorer, runner) sí vive en el
+  repo: `scripts/benchmark-ai/`.
+- **Alcance de la decisión**: aplica **únicamente** al workload de IA de
+  `parse-document` probado. No es una afirmación general de que "Terra es
+  mejor modelo" — no se evaluó ningún otro workload de Velarix
+  (narrativa, homologación de cuentas, etc.) con esta metodología.
+- **Consecuencias técnicas**: se agregó
+  `supabase/functions/_shared/parse-document-ai-provider.ts` (selección
+  de proveedor + adapter Terra vía Responses API) y se reemplazó el
+  acoplamiento directo a Anthropic en `parse-document/index.ts` por
+  selección explícita vía `PARSE_AI_PROVIDER`. `anthropic-client.ts` no
+  se modificó — es compartido con `map-accounts` y `generate-narrative`,
+  fuera de alcance. Ningún deploy ni cambio de variables de entorno de
+  producción se ejecutó como parte de esta decisión — fijar
+  `PARSE_AI_PROVIDER=openai` en el entorno real es un paso operativo
+  separado, no cubierto por esta tarea.
+- **Condiciones para reconsiderar**: si al procesar documentos reales
+  (fuera de fixtures sintéticos) aparece evidencia de que Sonnet 5 (o
+  cualquier otro modelo) es materialmente superior para este workload, se
+  documenta como `D-12` y se reevalúa `PARSE_AI_PROVIDER` — no se cambia
+  de proveedor silenciosamente.
+- **Quién debe aprobar**: el fundador debe confirmar el cutover real a
+  `PARSE_AI_PROVIDER=openai` en el entorno de producción antes de que
+  tenga efecto — esta decisión deja el mecanismo listo, pero no lo
+  activa.
