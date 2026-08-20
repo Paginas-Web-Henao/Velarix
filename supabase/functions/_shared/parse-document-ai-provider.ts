@@ -3,9 +3,20 @@
 // decisión cerrada tras el benchmark controlado Terra vs Sonnet 5 (ver
 // commits 5b27fb2 "fix: preserve AI fallback periods" y d923883 "feat:
 // add discriminant AI benchmark fixture"). CLEAN/NOISY/HARD no mostraron
-// diferencia material entre Terra y Sonnet 5; se elige Terra por menor
-// costo en las rondas comparables. Sonnet 5 low queda como alternativa
-// evaluada, no como fallback automático.
+// diferencia material entre Terra y Sonnet 5.
+//
+// CORRECCIÓN (fix: scope Terra provider to parse-document): fc88c11
+// conectaba `PARSE_AI_PROVIDER=anthropic` a `callAnthropic()`
+// (anthropic-client.ts), pero ese cliente tiene el modelo hardcodeado a
+// `claude-opus-4-8` — NO es Sonnet 5 low, el modelo realmente
+// benchmarkeado. Esa ruta habría desplegado un proveedor no validado por
+// este benchmark bajo la apariencia de "la alternativa evaluada". Se
+// corrige acotando el soporte productivo a UN solo proveedor: OpenAI/
+// Terra. Sonnet 5 low sigue siendo la alternativa EVALUADA (ver D-11),
+// pero no está conectada productivamente — no se mantiene una segunda
+// ruta "por si acaso". Si evidencia futura obliga a reconsiderar Terra,
+// Sonnet 5 se conecta entonces de forma explícita, con su modelo/effort
+// correctos.
 //
 // Módulo puro en su lógica de configuración (resolveParseAiConfig): sin
 // Deno, sin red — para poder probarlo con Vitest. La única función que
@@ -13,22 +24,17 @@
 // solo se prueba resolveParseAiConfig(), que corre SIEMPRE antes de
 // cualquier fetch (fail-closed).
 //
-// Deliberadamente NO importa ../_shared/anthropic-client.ts aquí: ese
-// import trae el SDK de Anthropic vía URL de esm.sh, que bloquea la
-// carga del módulo en Vitest (mismo problema ya documentado para
-// parse-document/index.ts en otros módulos de este directorio). El
-// dispatch entre proveedores (callAnthropic vs callOpenAiParse) vive en
-// parse-document/index.ts, que ya es Deno-only y no se prueba de forma
-// directa — anthropic-client.ts NO se modifica: es compartido con
-// map-accounts y generate-narrative, fuera de alcance de esta tarea.
+// Este módulo no importa ni depende de ../_shared/anthropic-client.ts —
+// ese archivo permanece intacto y fuera de alcance, compartido con
+// map-accounts y generate-narrative.
 //
-// Selección EXPLÍCITA vía PARSE_AI_PROVIDER — sin default implícito, sin
-// inferir el proveedor por existencia de una key, sin fallback
-// automático entre proveedores, sin llamar a los dos.
+// Selección EXPLÍCITA vía PARSE_AI_PROVIDER=openai — sin default
+// implícito, sin inferir el proveedor por existencia de una key, sin
+// fallback automático, sin ninguna otra ruta de proveedor.
 
-export type ParseAiProvider = "anthropic" | "openai";
+export type ParseAiProvider = "openai";
 
-const SUPPORTED_PROVIDERS: readonly ParseAiProvider[] = ["anthropic", "openai"];
+const SUPPORTED_PROVIDERS: readonly ParseAiProvider[] = ["openai"];
 
 function isSupportedProvider(value: string | undefined): value is ParseAiProvider {
   return value !== undefined && (SUPPORTED_PROVIDERS as readonly string[]).includes(value);
@@ -48,29 +54,29 @@ export interface ParseAiEnvInput {
   openaiModel: string | undefined;
 }
 
-export type ResolvedParseAiConfig = { provider: "anthropic" } | { provider: "openai"; openaiApiKey: string; openaiModel: string };
+export interface ResolvedParseAiConfig {
+  provider: "openai";
+  openaiApiKey: string;
+  openaiModel: string;
+}
 
 /**
  * Decide el proveedor a partir de `PARSE_AI_PROVIDER` — sin default
  * implícito. Falla cerrado (lanza `ParseAiConfigError`, SIN tocar red) si:
- * - el proveedor no es "anthropic" ni "openai" (incluye no configurado);
- * - provider=openai y falta OPENAI_API_KEY o OPENAI_PARSE_MODEL.
+ * - el proveedor no es exactamente "openai" (incluye "anthropic",
+ *   cualquier otro valor, y no configurado);
+ * - falta OPENAI_API_KEY;
+ * - falta OPENAI_PARSE_MODEL.
  *
- * El camino "anthropic" NO valida aquí ANTHROPIC_API_KEY — esa
- * validación ya existe, sin cambios, dentro de `callAnthropic()`
- * (anthropic-client.ts). Duplicarla aquí arriesgaría que las dos
- * validaciones diverjan; el caller (parse-document/index.ts) sigue
- * comprobando esa key explícitamente antes de proceder, igual que hacía
- * antes de este cambio.
+ * "anthropic" NO es un proveedor soportado aquí — Sonnet 5 low es
+ * alternativa evaluada en el benchmark (ver D-11), no una ruta
+ * productiva conectada. Ver el comentario de cabecera del módulo.
  */
 export function resolveParseAiConfig(env: ParseAiEnvInput): ResolvedParseAiConfig {
   if (!isSupportedProvider(env.provider)) {
     throw new ParseAiConfigError(
-      `PARSE_AI_PROVIDER debe ser uno de: ${SUPPORTED_PROVIDERS.join(", ")} (recibido: ${JSON.stringify(env.provider)}). Configuración requerida explícitamente, sin valor por defecto.`,
+      `PARSE_AI_PROVIDER debe ser exactamente "openai" (recibido: ${JSON.stringify(env.provider)}). Sonnet 5/Anthropic no está conectado productivamente a parse-document — ver D-11. Configuración requerida explícitamente, sin valor por defecto.`,
     );
-  }
-  if (env.provider === "anthropic") {
-    return { provider: "anthropic" };
   }
   if (!env.openaiApiKey) {
     throw new ParseAiConfigError("PARSE_AI_PROVIDER=openai requiere OPENAI_API_KEY configurada.");

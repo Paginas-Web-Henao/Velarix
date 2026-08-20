@@ -550,12 +550,30 @@ esta decisión.
   evaluados: GPT-5.6 Terra (`reasoning.effort=none`), GPT-5.6 Sol
   (`reasoning.effort=none`), Claude Sonnet 5 (thinking disabled,
   `effort=low`).
-- **Decisión**: Terra queda como proveedor **primary provisional** de las
-  3 llamadas de IA de `parse-document` (classifier, period_detector,
-  parser_fallback), seleccionable vía `PARSE_AI_PROVIDER=openai`. Claude
-  Sonnet 5 low queda disponible como proveedor explícito alternativo
-  (`PARSE_AI_PROVIDER=anthropic`) — **evaluado, no fallback automático**.
-  GPT-5.6 Sol queda descartado para este workload salvo evidencia futura.
+- **Decisión**: Terra (`reasoning.effort=none`) es el proveedor
+  **primary provisional Y el único proveedor actualmente implementado**
+  para las 3 llamadas de IA de `parse-document` (classifier,
+  period_detector, parser_fallback), vía `PARSE_AI_PROVIDER=openai`.
+  Claude Sonnet 5 low es la **alternativa evaluada en el benchmark, pero
+  NO está conectada productivamente a `parse-document` hoy** —
+  `PARSE_AI_PROVIDER` solo acepta `"openai"`; cualquier otro valor
+  (incluido `"anthropic"`) falla cerrado antes de red. No existe fallback
+  automático. Reconsiderar el proveedor requiere una decisión explícita
+  nueva y, si se escoge Sonnet, la implementación/configuración
+  específica de ese modelo evaluado (no está lista hoy). GPT-5.6 Sol
+  queda descartado para este workload salvo evidencia futura.
+- **Corrección (2026-08-20, commit `fix: scope Terra provider to
+  parse-document`)**: la redacción original de esta entrada, y la
+  implementación del commit `fc88c11`, decían que
+  `PARSE_AI_PROVIDER=anthropic` activaba "la alternativa evaluada"
+  (Sonnet 5 low). Eso era falso: `fc88c11` enrutaba ese valor a
+  `callAnthropic()` (`anthropic-client.ts`), cuyo modelo está hardcodeado
+  a `claude-opus-4-8` — un modelo distinto, no validado por este
+  benchmark. Se corrigió acotando el soporte productivo a un único
+  proveedor (`"openai"`); `"anthropic"` ya no es un valor aceptado por
+  `resolveParseAiConfig()`. Esta entrada se corrigió en el sitio en vez
+  de abrir una D-12, porque el error era de implementación/redacción de
+  la misma decisión, no una reconsideración de la decisión en sí.
 - **Razón**: en las 3 rondas (CLEAN/NOISY/HARD), Terra y Sonnet 5
   obtuvieron calidad material equivalente — ninguna diferencia observada
   que favorezca a uno sobre el otro en exactitud de
@@ -571,14 +589,16 @@ esta decisión.
   (narrativa, homologación de cuentas, etc.) con esta metodología.
 - **Consecuencias técnicas**: se agregó
   `supabase/functions/_shared/parse-document-ai-provider.ts` (selección
-  de proveedor + adapter Terra vía Responses API) y se reemplazó el
-  acoplamiento directo a Anthropic en `parse-document/index.ts` por
-  selección explícita vía `PARSE_AI_PROVIDER`. `anthropic-client.ts` no
-  se modificó — es compartido con `map-accounts` y `generate-narrative`,
-  fuera de alcance. Ningún deploy ni cambio de variables de entorno de
-  producción se ejecutó como parte de esta decisión — fijar
-  `PARSE_AI_PROVIDER=openai` en el entorno real es un paso operativo
-  separado, no cubierto por esta tarea.
+  de proveedor + adapter Terra vía Responses API) y se eliminó el
+  dispatch productivo a `callAnthropic()` en `parse-document/index.ts` —
+  las 3 llamadas de IA van únicamente por el adapter OpenAI. `import {
+  callAnthropic } from "../_shared/anthropic-client.ts"` se removió de
+  `parse-document/index.ts` por no usarse más ahí. `anthropic-client.ts`
+  **no se modificó** — sigue intacto y en uso, sin cambios, en
+  `map-accounts` y `generate-narrative`, fuera de alcance. Ningún deploy
+  ni cambio de variables de entorno de producción se ejecutó como parte
+  de esta decisión — fijar `PARSE_AI_PROVIDER=openai` en el entorno real
+  es un paso operativo separado, no cubierto por esta tarea.
 - **Condiciones para reconsiderar**: si al procesar documentos reales
   (fuera de fixtures sintéticos) aparece evidencia de que Sonnet 5 (o
   cualquier otro modelo) es materialmente superior para este workload, se

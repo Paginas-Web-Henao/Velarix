@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
-import { callAnthropic } from "../_shared/anthropic-client.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { SYSTEM_CLASSIFIER, SYSTEM_PERIOD_DETECTOR, SYSTEM_PARSER_FALLBACK } from "../_shared/parse-document-prompts.ts";
@@ -13,19 +12,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Selección de proveedor de IA (classifier, period_detector, parser_fallback) ──
-// Decisión cerrada tras el benchmark Terra vs Sonnet 5 — ver
+// ── Llamada de IA (classifier, period_detector, parser_fallback) ──
+// Único proveedor productivo: OpenAI/Terra — ver
 // ../_shared/parse-document-ai-provider.ts para el detalle completo
-// (fail-closed, sin fallback automático, sin inferir proveedor por
-// existencia de key). Recibe `config` ya resuelto una sola vez por
-// request (ver el `if (!Deno.env.get("ANTHROPIC_API_KEY"))` más abajo,
-// reemplazado por resolveParseAiConfig) — nunca vuelve a leer env por
-// llamada, y nunca invoca a los dos proveedores para una misma llamada.
+// (fail-closed, PARSE_AI_PROVIDER=openai exigido explícitamente).
+// Anthropic/Sonnet 5 NO está conectado aquí — ver D-11
+// (docs/velarix/plan/REGISTRO-DE-DECISIONES.md): es alternativa
+// evaluada en el benchmark, no una ruta productiva. Recibe `config` ya
+// resuelto una sola vez por request — nunca vuelve a leer env por
+// llamada.
 async function callParseAiWith(config: ResolvedParseAiConfig, systemPrompt: string, userPrompt: string, maxTokens: number): Promise<string | null> {
-  if (config.provider === "openai") {
-    return callOpenAiParse(systemPrompt, userPrompt, maxTokens, config);
-  }
-  return callAnthropic(systemPrompt, userPrompt, maxTokens);
+  return callOpenAiParse(systemPrompt, userPrompt, maxTokens, config);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -502,9 +499,10 @@ serve(async (req) => {
 
     // Falla cerrado según el proveedor configurado explícitamente —
     // reemplaza el gate hardcodeado a Anthropic que existía antes de la
-    // integración de Terra. provider=anthropic conserva EXACTAMENTE el
-    // comportamiento previo (mismo mensaje, mismo timing); provider=openai
-    // exige OPENAI_API_KEY/OPENAI_PARSE_MODEL antes de seguir.
+    // integración de Terra. Único proveedor productivo soportado:
+    // PARSE_AI_PROVIDER=openai (ver D-11) — exige OPENAI_API_KEY y
+    // OPENAI_PARSE_MODEL antes de seguir; cualquier otro valor
+    // (incluido "anthropic") falla cerrado aquí mismo.
     let parseAiConfig: ResolvedParseAiConfig;
     try {
       parseAiConfig = resolveParseAiConfig({
@@ -515,9 +513,6 @@ serve(async (req) => {
     } catch (e) {
       if (e instanceof ParseAiConfigError) throw new BadRequestError("PARSE_AI_CONFIG_ERROR", e.message);
       throw e;
-    }
-    if (parseAiConfig.provider === "anthropic" && !Deno.env.get("ANTHROPIC_API_KEY")) {
-      throw new Error("ANTHROPIC_API_KEY not configured");
     }
 
     const arrayBuffer = await fileData.arrayBuffer();
