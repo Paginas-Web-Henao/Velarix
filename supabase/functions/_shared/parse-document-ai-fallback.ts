@@ -101,6 +101,35 @@ export class UnmappedAiColumnError extends Error {
  * - Un valor presente que no normaliza a número (`normalizarNumero`
  *   devuelve null) tampoco genera fila — no se fabrica un 0.
  */
+const SIMPLE_FISCAL_YEAR = /^\d{4}$/;
+
+/**
+ * Reconcilia los períodos que devolvió SYSTEM_PERIOD_DETECTOR (IA) con los
+ * que ya observó determinísticamente el paso de extracción (`column_headers`
+ * de extraerExcel/extraerCSV, o `parsed.column_headers` del propio
+ * SYSTEM_PARSER_FALLBACK) — ver auditoría: `sampleText` (el input que recibe
+ * el period_detector) se arma solo con `texto: valor_raw` por fila, sin el
+ * período de cada una ni los column_headers, así que el detector puede
+ * devolver `periodos: []` incluso cuando ya se observaron años válidos.
+ *
+ * - Solo se incorporan encabezados con formato de año fiscal simple (YYYY);
+ *   cualquier otro formato ("LTM Jun-2025", "2025-Q1", etc.) se ignora tal
+ *   cual — nunca se convierte ni se adivina a qué año corresponde.
+ * - Es una UNIÓN determinística, no un reemplazo: si el period_detector ya
+ *   encontró períodos válidos, se conservan.
+ * - No selecciona un base_period ni ordena por relevancia — eso lo decide
+ *   resolveBasePeriod() más adelante, con la evidencia completa por fila.
+ */
+export function reconcileDetectedPeriods(
+  aiDetectedPeriods: ReadonlyArray<string>,
+  columnHeaders: ReadonlyArray<unknown>,
+): string[] {
+  const headerPeriods = columnHeaders
+    .map((h) => (h === null || h === undefined ? "" : String(h).trim()))
+    .filter((h) => SIMPLE_FISCAL_YEAR.test(h));
+  return Array.from(new Set([...aiDetectedPeriods, ...headerPeriods])).sort();
+}
+
 export function explodeAiFallbackRowByPeriod(
   originalLabel: string,
   values: Record<string, unknown>,

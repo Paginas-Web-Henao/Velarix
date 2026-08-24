@@ -4,7 +4,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { SYSTEM_CLASSIFIER, SYSTEM_PERIOD_DETECTOR, SYSTEM_PARSER_FALLBACK } from "../_shared/parse-document-prompts.ts";
-import { normalizarNumero, explodeAiFallbackRowByPeriod, UnmappedAiColumnError } from "../_shared/parse-document-ai-fallback.ts";
+import { normalizarNumero, explodeAiFallbackRowByPeriod, reconcileDetectedPeriods, UnmappedAiColumnError } from "../_shared/parse-document-ai-fallback.ts";
 import { resolveParseAiConfig, callOpenAiParse, ParseAiConfigError, type ResolvedParseAiConfig } from "../_shared/parse-document-ai-provider.ts";
 
 const corsHeaders = {
@@ -651,7 +651,14 @@ serve(async (req) => {
     // AI Period Detection
     const periodResult = await callParseAiWith(parseAiConfig, SYSTEM_PERIOD_DETECTOR, `Detecta los períodos.\n\n${sampleText}`, 500);
     const periods = periodResult ? extractJSON(periodResult) : null;
-    const periodsDetected = periods?.periodos?.map((p: any) => p.etiqueta) || [];
+    const aiPeriodsDetected: string[] = periods?.periodos?.map((p: any) => p.etiqueta) || [];
+    // Bug período: sampleText (línea de arriba) no incluye el período de
+    // cada fila ni column_headers, así que el period_detector puede
+    // devolver [] aunque la extracción ya haya observado años YYYY válidos
+    // en metadatos.column_headers (extraerExcel/extraerCSV, o
+    // parsed.column_headers de SYSTEM_PARSER_FALLBACK). Se reconcilia con
+    // esa evidencia ya observada — ver reconcileDetectedPeriods().
+    const periodsDetected = reconcileDetectedPeriods(aiPeriodsDetected, metadatos.column_headers || []);
 
     const tiempoMs = Date.now() - inicio;
 

@@ -10,7 +10,7 @@
 // levantar Deno/Supabase.
 
 import { describe, it, expect } from "vitest";
-import { explodeAiFallbackRowByPeriod, normalizarNumero, UnmappedAiColumnError } from "./parse-document-ai-fallback";
+import { explodeAiFallbackRowByPeriod, normalizarNumero, reconcileDetectedPeriods, UnmappedAiColumnError } from "./parse-document-ai-fallback";
 import { resolveBasePeriod } from "./period-resolution";
 
 describe("explodeAiFallbackRowByPeriod", () => {
@@ -95,6 +95,42 @@ describe("normalizarNumero — reubicada desde parse-document/index.ts, sin camb
     expect(normalizarNumero(null)).toBeNull();
     expect(normalizarNumero(undefined)).toBeNull();
     expect(normalizarNumero("")).toBeNull();
+  });
+});
+
+describe("reconcileDetectedPeriods — evidencia real: period_detector devolvió [] con column_headers ['Cuenta','2024','2025']", () => {
+  it("1. period_detector vacío + column_headers ['Cuenta','2024','2025'] -> reconcilia a ['2024','2025'] (caso remoto real)", () => {
+    expect(reconcileDetectedPeriods([], ["Cuenta", "2024", "2025"])).toEqual(["2024", "2025"]);
+  });
+
+  it("2. period_detector ya encontró un período -> se une con el observado en headers, sin duplicar", () => {
+    expect(reconcileDetectedPeriods(["2025"], ["Cuenta", "2024", "2025"])).toEqual(["2024", "2025"]);
+  });
+
+  it("3. ningún header ni valor de IA produce 'col_1'/'col_2' como período", () => {
+    const result = reconcileDetectedPeriods([], ["Cuenta", "col_1", "col_2"]);
+    expect(result).not.toContain("col_1");
+    expect(result).not.toContain("col_2");
+    expect(result).toEqual([]);
+  });
+
+  it("4/7. headers ambiguos/mixtos: '2024' se incorpora, 'LTM Jun-2025' NO se convierte silenciosamente a año", () => {
+    const result = reconcileDetectedPeriods([], ["Cuenta", "2024", "LTM Jun-2025"]);
+    expect(result).toEqual(["2024"]);
+    expect(result).not.toContain("LTM Jun-2025");
+  });
+
+  it("6. single-period sigue funcionando: un solo header YYYY -> un solo período reconciliado", () => {
+    expect(reconcileDetectedPeriods([], ["Cuenta", "2025"])).toEqual(["2025"]);
+  });
+
+  it("sin column_headers (p. ej. ruta PDF) -> se conserva tal cual lo que devolvió el period_detector", () => {
+    expect(reconcileDetectedPeriods(["2025"], [])).toEqual(["2025"]);
+    expect(reconcileDetectedPeriods([], [])).toEqual([]);
+  });
+
+  it("headers no-string (números crudos de JSON de IA) también se reconocen si son YYYY", () => {
+    expect(reconcileDetectedPeriods([], ["Cuenta", 2024, 2025])).toEqual(["2024", "2025"]);
   });
 });
 
