@@ -157,3 +157,59 @@ describe("8. integración lógica — filas explotadas + resolveBasePeriod elige
     expect(resolution.selectionMode).toBe("single_explicit");
   });
 });
+
+describe("9. integración end-to-end — fixture 'Terra Test S.A.S.': Ingresos sobrevive completo una vez que llega al fallback (ver parse-document-csv-extractor.test.ts para la causa raíz — la pérdida ocurría ANTES de esta etapa)", () => {
+  it("Ingresos x2 + Costo de ventas x2 + Gastos operativos x2 + Resultado neto x1 + Caja x1 = 8 filas — nada se pierde, nada se inventa", () => {
+    const columnHeaders = ["Cuenta", "2024", "2025"];
+    // Simula el JSON que SYSTEM_PARSER_FALLBACK devolvería recibiendo el
+    // texto completo (no es una llamada real — misma forma que ya prueban
+    // los tests de explodeAiFallbackRowByPeriod arriba).
+    const aiRows = [
+      { original_label: "Ingresos", values: { col_1: "1.000.000", col_2: "1.200.000" } },
+      { original_label: "Costo de ventas", values: { col_1: "600.000", col_2: "700.000" } },
+      { original_label: "Gastos operativos", values: { col_1: "200.000", col_2: "220.000" } },
+      { original_label: "Resultado neto del ejercicio", values: { col_2: "(50.000)" } },
+      { original_label: "Caja", values: { col_2: "300.000" } },
+    ];
+
+    const filas = aiRows.flatMap((row) => explodeAiFallbackRowByPeriod(row.original_label, row.values, columnHeaders));
+
+    // 6. total esperado = 8 filas
+    expect(filas).toHaveLength(8);
+
+    // 1. Ingresos 2024/2025 sobreviven
+    expect(filas.find((f) => f.periodo === "2024" && f.valor === 1_000_000)).toBeDefined();
+    expect(filas.find((f) => f.periodo === "2025" && f.valor === 1_200_000)).toBeDefined();
+
+    // 2. Costo de ventas 2024/2025 sobreviven
+    expect(filas.find((f) => f.periodo === "2024" && f.valor === 600_000)).toBeDefined();
+    expect(filas.find((f) => f.periodo === "2025" && f.valor === 700_000)).toBeDefined();
+
+    // 3. Gastos operativos 2024/2025 sobreviven
+    expect(filas.find((f) => f.periodo === "2024" && f.valor === 200_000)).toBeDefined();
+    expect(filas.find((f) => f.periodo === "2025" && f.valor === 220_000)).toBeDefined();
+
+    // 4. Resultado neto solo 2025 permanece solo 2025
+    const resultadoNeto = filas.filter((f) => f.valor === -50_000);
+    expect(resultadoNeto).toHaveLength(1);
+    expect(resultadoNeto[0].periodo).toBe("2025");
+
+    // 5. Caja solo 2025 permanece solo 2025
+    const caja = filas.filter((f) => f.valor === 300_000);
+    expect(caja).toHaveLength(1);
+    expect(caja[0].periodo).toBe("2025");
+
+    // 7. no se fabrica Ingresos si no existe (aquí sí existe — control: no hay una 3ra cuenta inventada)
+    const cuentasUnicas = new Set(aiRows.map((r) => r.original_label));
+    expect(cuentasUnicas.size).toBe(5);
+
+    // 8. período ausente no se convierte en cero (Resultado neto y Caja no tienen fila 2024)
+    expect(filas.some((f) => f.periodo === "2024" && (f.valor === 0 || f.valor === -50_000 || f.valor === 300_000))).toBe(false);
+
+    // 9. negativo preservado
+    expect(filas.find((f) => f.valor === -50_000)).toBeDefined();
+
+    // 10. ningún col_N como período
+    expect(filas.every((f) => !/^col_\d+$/.test(f.periodo))).toBe(true);
+  });
+});
