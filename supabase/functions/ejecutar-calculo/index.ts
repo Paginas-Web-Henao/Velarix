@@ -9,6 +9,7 @@ import { buildMissingProvenance, type CalculationProvenance } from "../_shared/c
 import { resolveEffectiveMoneda, resolveEffectiveFactorConversion } from "../_shared/canonical-input-normalization.ts";
 import { resolveStructuredInput } from "../_shared/structured-input-resolution.ts";
 import { evaluateMinimumExpedienteCheckpoint } from "../_shared/minimum-expediente-checkpoint.ts";
+import { evaluateCalculationPreflight } from "../_shared/calculation-preflight.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -178,6 +179,40 @@ serve(async (req) => {
           code: "MINIMUM_EXPEDIENTE_REQUIRED",
           message: "Este análisis todavía no tiene evidencia mínima de revisión humana (contexto, cuenta material, ambigüedad y tratamiento) registrada antes de calcular.",
           checkpoint,
+        },
+      }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Calculation Preflight (fail-closed): corre DESPUÉS de Minimum
+    // Expediente y ANTES de tocar analyses.status/analysis_jobs, y antes
+    // de invocar el motor. A diferencia del checkpoint anterior (evidencia
+    // de revisión humana), esto verifica que los campos materiales del
+    // structured_input estén realmente observados (canonical-input-
+    // normalization.ts y capital-structure.ts convierten cualquier
+    // ausencia en 0 silenciosamente — ver auditoría) y que ningún supuesto
+    // metodológico usado por el motor esté sin aprobación humana
+    // (CANONICAL_METHODOLOGY, hoy con los 8 supuestos + el horizonte de
+    // 5 años marcados/tratados como no aprobados). Ver
+    // ../_shared/calculation-preflight.ts para el detalle completo.
+    const preflight = evaluateCalculationPreflight({
+      incomeStatement: input.income_statement,
+      balanceSheet: input.balance_sheet,
+    });
+    if (!preflight.passed) {
+      await supabase.from("audit_events").insert({
+        analysis_id,
+        user_id: actor?.userId || null,
+        event_type: "calculation_preflight_failed",
+        event_detail: `Preflight bloqueado: ${preflight.blockers.join(" | ")}`,
+        component: "ejecutar-calculo",
+        metadata: { preflight },
+      });
+      return new Response(JSON.stringify({
+        success: false,
+        error: {
+          code: "CALCULATION_PREFLIGHT_REQUIRED",
+          message: "El cálculo está bloqueado: falta información material y/o hay supuestos metodológicos sin aprobación humana registrada.",
+          preflight,
         },
       }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
