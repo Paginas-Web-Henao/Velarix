@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
 import { resolveBasePeriod } from "../_shared/period-resolution.ts";
-import { deriveFinancialDebtTotal, deriveEbitdaFromComponents } from "../_shared/structured-input-derivations.ts";
+import { deriveCoreFinancialFields } from "../_shared/structured-input-derivations.ts";
 import { computeTotalConversionFactor, normalizeCurrencyCode } from "../_shared/currency.ts";
 import { buildCalculationProvenance, type HomologationReference } from "../_shared/calculation-provenance.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
@@ -141,34 +141,23 @@ serve(async (req) => {
     const basePeriod = periodResolution.basePeriod;
     const periods = periodResolution.availablePeriods;
 
-    const revenue = getAccountValue(accounts, "revenue", basePeriod);
-    const costOfSales = getAccountValue(accounts, "cost_of_sales", basePeriod);
-    const opex = getAccountValue(accounts, "opex", basePeriod);
-    const da = getAccountValue(accounts, "da", basePeriod);
-    const interestExpense = getAccountValue(accounts, "interest_expense", basePeriod);
-    const taxes = getAccountValue(accounts, "taxes", basePeriod);
-    const netIncome = getAccountValue(accounts, "net_income", basePeriod);
-
-    let ebitda = getAccountValue(accounts, "ebitda", basePeriod);
-    let ebit = getAccountValue(accounts, "ebit", basePeriod);
-    if (ebitda == null) ebitda = deriveEbitdaFromComponents({ revenue, costOfSales, opex, da });
-    if (ebit == null && ebitda != null && da != null) ebit = ebitda - da;
-
-    const cash = getAccountValue(accounts, "cash", basePeriod);
-    const accountsReceivable = getAccountValue(accounts, "accounts_receivable", basePeriod);
-    const inventory = getAccountValue(accounts, "inventory", basePeriod);
-    const ppe = getAccountValue(accounts, "ppe", basePeriod);
-    const currentDebt = getAccountValue(accounts, "current_financial_debt", basePeriod);
-    const ltDebt = getAccountValue(accounts, "long_term_financial_debt", basePeriod);
-    const totalDebt = deriveFinancialDebtTotal(currentDebt, ltDebt);
-    const equity = getAccountValue(accounts, "equity", basePeriod);
-    // AUSENTE != 0: total_assets/total_liabilities NUNCA se derivan por
-    // suma parcial de componentes — no existe una decisión metodológica
-    // aprobada que autorice asumir que estos componentes agotan
-    // exhaustivamente el total real. Ausente -> null, tal cual lo observado.
-    const totalAssets = getAccountValue(accounts, "total_assets", basePeriod);
-    const totalLiabilities = getAccountValue(accounts, "total_liabilities", basePeriod);
-    const accountsPayable = getAccountValue(accounts, "accounts_payable", basePeriod);
+    // Núcleo financiero puro compartido con continuar-tras-revision — una
+    // sola implementación de "leer/derivar los campos financieros desde
+    // account_homologations" para ambos caminos (ver
+    // _shared/structured-input-derivations.ts#deriveCoreFinancialFields).
+    const core = deriveCoreFinancialFields(accounts, basePeriod);
+    const {
+      revenue, costOfSales, opex, da, interestExpense, taxes, netIncome,
+      ebitda, ebit,
+      cash, accountsReceivable, inventory, ppe, accountsPayable,
+      currentDebt, longTermDebt: ltDebt, financialDebtTotal: totalDebt,
+      equity,
+      // AUSENTE != 0: total_assets/total_liabilities NUNCA se derivan por
+      // suma parcial de componentes — no existe una decisión metodológica
+      // aprobada que autorice asumir que estos componentes agotan
+      // exhaustivamente el total real. Ausente -> null, tal cual lo observado.
+      totalAssets, totalLiabilities,
+    } = core;
 
     const qualityFlags: string[] = [];
 

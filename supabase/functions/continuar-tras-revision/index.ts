@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
+import type { HomologatedAccountRow } from "../_shared/financial-accounts.ts";
 import { resolveBasePeriod } from "../_shared/period-resolution.ts";
+import { deriveCoreFinancialFields } from "../_shared/structured-input-derivations.ts";
 import { canContinueAfterReview, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 
@@ -176,34 +177,24 @@ serve(async (req) => {
     const basePeriod = periodResolution.basePeriod;
 
     // 4. Build structured input from corrected homologations
-    // BL-02: antes tomaba la primera fila con `.find()` sin siquiera
-    // filtrar `value != null`, y devolvía 0 en vez de distinguir ausencia
-    // real. Ahora usa el módulo puro compartido (suma todas las
-    // subcuentas del mismo `canonical_account`), limitada al `base_period`
-    // ya resuelto arriba.
-    const getValue = (canonical: string): number | null =>
-      sumAccountValue(cuentas as HomologatedAccountRow[], canonical, basePeriod ?? undefined);
-
-    // Campos usados en aritmética directa en este archivo: se coacciona
-    // explícitamente `null -> 0` aquí, no dentro del helper compartido
-    // (que preserva `null` como "sin dato" para el resto de consumidores).
-    const revenue = getValue("revenue") ?? 0;
-    const costOfSales = getValue("cost_of_sales") ?? 0;
-    const opex = getValue("opex") ?? 0;
-    const da = getValue("da") ?? 0;
-    const interestExpense = getValue("interest_expense") ?? 0;
-    const taxes = getValue("taxes");
-    const cash = getValue("cash");
-    const equity = getValue("equity");
-    const totalAssets = getValue("total_assets");
-    const totalLiabilities = getValue("total_liabilities");
-    const currentDebt = getValue("current_financial_debt") ?? 0;
-    const longTermDebt = getValue("long_term_financial_debt") ?? 0;
-    const financialDebtTotal = (currentDebt + longTermDebt) || (getValue("financial_debt_total") ?? 0);
-
-    const ebitda = revenue - costOfSales - opex + da;
-    const ebit = ebitda - da;
-    const netIncome = getValue("net_income") ?? (ebit - interestExpense) * (1 - 0.3);
+    // Usa el MISMO derivador puro compartido que build-structured-input
+    // (`deriveCoreFinancialFields`) — este archivo reconstruía antes estos
+    // campos con su propia aritmética, coaccionando `null -> 0` vía `?? 0`
+    // (da, current/long_term_financial_debt) y recalculando net_income con
+    // una tasa de impuestos de 30% hardcoded sin aprobación metodológica.
+    // Eso fabricaba valores para campos genuinamente ausentes, ocultando el
+    // missing al Calculation Preflight (ver
+    // continuar-tras-revision.regression.test.ts). AUSENTE != 0: un campo
+    // sin fila en `cuentas` para el `base_period` resuelto queda `null`,
+    // igual que en el camino canónico.
+    const core = deriveCoreFinancialFields(cuentas as HomologatedAccountRow[], basePeriod);
+    const {
+      revenue, costOfSales, opex, da, interestExpense, taxes, netIncome,
+      ebitda, ebit,
+      cash, accountsReceivable, inventory, ppe,
+      currentDebt, longTermDebt, financialDebtTotal,
+      equity, totalAssets, totalLiabilities,
+    } = core;
 
     // Get snapshot
     const { data: snapshot } = await supabase
@@ -233,9 +224,9 @@ serve(async (req) => {
       },
       balance_sheet: {
         cash,
-        accounts_receivable: getValue("accounts_receivable"),
-        inventory: getValue("inventory"),
-        ppe: getValue("ppe"),
+        accounts_receivable: accountsReceivable,
+        inventory,
+        ppe,
         current_financial_debt: currentDebt,
         long_term_financial_debt: longTermDebt,
         financial_debt_total: financialDebtTotal,
