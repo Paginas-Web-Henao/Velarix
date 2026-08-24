@@ -4,6 +4,7 @@ import { callAnthropic } from "../_shared/anthropic-client.ts";
 import { matchAccount, normalizeLabel } from "../_shared/account-taxonomy.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
+import { selectLatestParsedDocumentPerDocument, AmbiguousDocumentParseError } from "../_shared/latest-parsed-document.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -137,10 +138,28 @@ serve(async (req) => {
 
     // Get parsed documents
     const { data: documents } = await supabase.from("documents").select("id, doc_type_declared").eq("analysis_id", analysis_id);
-    const { data: parsedDocs } = await supabase.from("documents_parsed").select("*").in("document_id", (documents || []).map(d => d.id));
+    const { data: parsedDocsAllVersions } = await supabase.from("documents_parsed").select("*").in("document_id", (documents || []).map(d => d.id));
 
-    if (!parsedDocs || parsedDocs.length === 0) {
+    if (!parsedDocsAllVersions || parsedDocsAllVersions.length === 0) {
       throw new BadRequestError("NO_PARSED_DOCUMENTS", "No hay documentos parseados disponibles para homologar. Verifica que los documentos se procesaron correctamente.");
+    }
+
+    // Bug parses duplicados: parse-document puede reejecutarse sobre el
+    // mismo document_id (debugging, re-subida) — cada corrida es un INSERT
+    // nuevo en documents_parsed, sin UNIQUE en document_id, y el historial
+    // se conserva a propósito. Sin esto, un documento parseado 2 veces
+    // duplicaba cada homologación (mismo original_label × canonical_account
+    // × period × value insertado dos veces). Se conserva solo la versión
+    // vigente (created_at más reciente) por document_id — ver
+    // ../_shared/latest-parsed-document.ts para el criterio de desempate.
+    let parsedDocs: typeof parsedDocsAllVersions;
+    try {
+      parsedDocs = selectLatestParsedDocumentPerDocument(parsedDocsAllVersions);
+    } catch (e) {
+      if (e instanceof AmbiguousDocumentParseError) {
+        throw new BadRequestError("AMBIGUOUS_DOCUMENT_PARSE_VERSION", e.message);
+      }
+      throw e;
     }
 
     // Clear previous mappings
