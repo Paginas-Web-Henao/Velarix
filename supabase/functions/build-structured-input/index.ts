@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { sumAccountValue, type HomologatedAccountRow } from "../_shared/financial-accounts.ts";
 import { resolveBasePeriod } from "../_shared/period-resolution.ts";
+import { deriveFinancialDebtTotal, deriveEbitdaFromComponents } from "../_shared/structured-input-derivations.ts";
 import { computeTotalConversionFactor, normalizeCurrencyCode } from "../_shared/currency.ts";
 import { buildCalculationProvenance, type HomologationReference } from "../_shared/calculation-provenance.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
@@ -150,7 +151,7 @@ serve(async (req) => {
 
     let ebitda = getAccountValue(accounts, "ebitda", basePeriod);
     let ebit = getAccountValue(accounts, "ebit", basePeriod);
-    if (ebitda == null && revenue != null) ebitda = revenue - (costOfSales || 0) - (opex || 0) + (da || 0);
+    if (ebitda == null) ebitda = deriveEbitdaFromComponents({ revenue, costOfSales, opex, da });
     if (ebit == null && ebitda != null && da != null) ebit = ebitda - da;
 
     const cash = getAccountValue(accounts, "cash", basePeriod);
@@ -159,31 +160,17 @@ serve(async (req) => {
     const ppe = getAccountValue(accounts, "ppe", basePeriod);
     const currentDebt = getAccountValue(accounts, "current_financial_debt", basePeriod);
     const ltDebt = getAccountValue(accounts, "long_term_financial_debt", basePeriod);
-    const totalDebt = (currentDebt || 0) + (ltDebt || 0);
+    const totalDebt = deriveFinancialDebtTotal(currentDebt, ltDebt);
     const equity = getAccountValue(accounts, "equity", basePeriod);
+    // AUSENTE != 0: total_assets/total_liabilities NUNCA se derivan por
+    // suma parcial de componentes — no existe una decisión metodológica
+    // aprobada que autorice asumir que estos componentes agotan
+    // exhaustivamente el total real. Ausente -> null, tal cual lo observado.
     const totalAssets = getAccountValue(accounts, "total_assets", basePeriod);
     const totalLiabilities = getAccountValue(accounts, "total_liabilities", basePeriod);
     const accountsPayable = getAccountValue(accounts, "accounts_payable", basePeriod);
 
     const qualityFlags: string[] = [];
-
-    let finalTotalAssets = totalAssets;
-    if (finalTotalAssets == null) {
-      const componentSum = (cash || 0) + (accountsReceivable || 0) + (inventory || 0) + (ppe || 0);
-      if (componentSum > 0) {
-        finalTotalAssets = componentSum;
-        qualityFlags.push("total_activos_calculado_por_suma_componentes");
-      }
-    }
-
-    let finalTotalLiabilities = totalLiabilities;
-    if (finalTotalLiabilities == null) {
-      const liabSum = (accountsPayable || 0) + totalDebt;
-      if (liabSum > 0) {
-        finalTotalLiabilities = liabSum;
-        qualityFlags.push("total_pasivos_calculado_por_suma_componentes");
-      }
-    }
 
     if (inventory == null) qualityFlags.push("sin_inventario_declarado");
     if (accountsReceivable == null) qualityFlags.push("sin_cartera_declarada");
@@ -226,7 +213,7 @@ serve(async (req) => {
     const conv = (v: number | null) => v !== null ? v * factorTotal : null;
 
     const validationNotes: string[] = [];
-    if (finalTotalAssets != null && finalTotalLiabilities != null && equity != null) validationNotes.push("Ecuación patrimonial validada");
+    if (totalAssets != null && totalLiabilities != null && equity != null) validationNotes.push("Ecuación patrimonial validada");
     if (ebitda != null && getAccountValue(accounts, "ebitda", basePeriod) == null) validationNotes.push("EBITDA calculado desde componentes");
 
     const { data: dbSnapshot } = await supabase
@@ -286,7 +273,7 @@ serve(async (req) => {
       periods,
       base_period: basePeriod,
       income_statement: { revenue: conv(revenue), cost_of_sales: conv(costOfSales), opex: conv(opex), da: conv(da), ebitda: conv(ebitda), ebit: conv(ebit), interest_expense: conv(interestExpense), taxes: conv(taxes), net_income: conv(netIncome) },
-      balance_sheet: { cash: conv(cash), accounts_receivable: conv(accountsReceivable), inventory: conv(inventory), accounts_payable: conv(accountsPayable), ppe: conv(ppe), current_financial_debt: conv(currentDebt), long_term_financial_debt: conv(ltDebt), financial_debt_total: conv(totalDebt), equity: conv(equity), total_assets: conv(finalTotalAssets), total_liabilities: conv(finalTotalLiabilities) },
+      balance_sheet: { cash: conv(cash), accounts_receivable: conv(accountsReceivable), inventory: conv(inventory), accounts_payable: conv(accountsPayable), ppe: conv(ppe), current_financial_debt: conv(currentDebt), long_term_financial_debt: conv(ltDebt), financial_debt_total: conv(totalDebt), equity: conv(equity), total_assets: conv(totalAssets), total_liabilities: conv(totalLiabilities) },
       quality_flags: qualityFlags,
       validation_notes: validationNotes,
       snapshot_id: snapshotId,
