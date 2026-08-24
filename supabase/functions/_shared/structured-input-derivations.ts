@@ -49,17 +49,20 @@ export function deriveFinancialDebtTotal(
 }
 
 /**
- * EBITDA = revenue - cost_of_sales - opex + D&A, pero SOLO cuando D&A está
- * observado (incluyendo D&A=0 observado explícitamente). Si D&A está
- * ausente, no hay autorización metodológica para asumirlo en 0 (ver
- * comentario de archivo) — el resultado es `null`, no una cifra derivada
- * con D&A fabricado.
+ * EBITDA = revenue - cost_of_sales - opex + D&A, pero SOLO cuando los
+ * CUATRO componentes están observados (incluyendo cualquiera de ellos
+ * observado explícitamente en 0 — un cero observado sigue siendo un dato
+ * real, no ausencia). Si falta cualquiera de los cuatro, no hay
+ * autorización metodológica para asumirlo en 0 (ver comentario de
+ * archivo) — el resultado es `null`, no una cifra derivada con un
+ * componente fabricado.
  *
- * cost_of_sales/opex ausentes conservan el comportamiento previo (`|| 0`
- * dentro de la fórmula) — esa parte NO forma parte de la evidencia
- * demostrada para este fix (el fixture remoto real siempre tuvo ambos
- * observados) y queda fuera de alcance aquí; ver auditoría para el detalle
- * y la recomendación de revisarla por separado.
+ * Hallazgo secundario ya cerrado: antes, cost_of_sales/opex ausentes caían
+ * a 0 vía `|| 0` dentro de la fórmula (mismo patrón que D&A, señalado pero
+ * no corregido en el commit anterior por no estar demostrado en el
+ * fixture remoto real — donde ambos siempre estaban observados). Ahora los
+ * cuatro componentes se tratan con el mismo criterio estricto de
+ * observación.
  */
 export function deriveEbitdaFromComponents(params: {
   revenue: number | null;
@@ -68,6 +71,6 @@ export function deriveEbitdaFromComponents(params: {
   da: number | null;
 }): number | null {
   const { revenue, costOfSales, opex, da } = params;
-  if (revenue == null || da == null) return null;
-  return revenue - (costOfSales || 0) - (opex || 0) + da;
+  if (revenue == null || costOfSales == null || opex == null || da == null) return null;
+  return revenue - costOfSales - opex + da;
 }

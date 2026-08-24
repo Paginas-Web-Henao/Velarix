@@ -93,6 +93,29 @@ describe("deriveEbitdaFromComponents — D&A ausente NO se asume en 0 (sin decis
   it("revenue ausente -> EBITDA no se deriva (null), independientemente de D&A", () => {
     expect(deriveEbitdaFromComponents({ revenue: null, costOfSales: 700_000, opex: 220_000, da: 0 })).toBeNull();
   });
+
+  it("cost_of_sales ausente -> EBITDA null (hallazgo secundario: mismo patrón que D&A, ahora cerrado)", () => {
+    expect(deriveEbitdaFromComponents({ revenue: 1_200_000, costOfSales: null, opex: 220_000, da: 0 })).toBeNull();
+  });
+
+  it("opex ausente -> EBITDA null (hallazgo secundario: mismo patrón que D&A, ahora cerrado)", () => {
+    expect(deriveEbitdaFromComponents({ revenue: 1_200_000, costOfSales: 700_000, opex: null, da: 0 })).toBeNull();
+  });
+
+  it("cost_of_sales=0 observado explícitamente -> se usa como 0 real, no como ausente", () => {
+    const result = deriveEbitdaFromComponents({ revenue: 1_200_000, costOfSales: 0, opex: 220_000, da: 0 });
+    expect(result).toBe(980_000);
+  });
+
+  it("opex=0 observado explícitamente -> se usa como 0 real, no como ausente", () => {
+    const result = deriveEbitdaFromComponents({ revenue: 1_200_000, costOfSales: 700_000, opex: 0, da: 0 });
+    expect(result).toBe(500_000);
+  });
+
+  it("los cuatro componentes observados con valores normales -> fórmula correcta", () => {
+    const result = deriveEbitdaFromComponents({ revenue: 1_200_000, costOfSales: 700_000, opex: 220_000, da: 50_000 });
+    expect(result).toBe(330_000);
+  });
 });
 
 describe("taxes / interest_expense — ausentes permanecen null, sin tasa de referencia ni cero fabricado", () => {
