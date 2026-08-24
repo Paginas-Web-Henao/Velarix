@@ -229,12 +229,18 @@ serve(async (req) => {
 
     // Bloque 1C-T: procedencia técnica — reutiliza las mismas filas de
     // `account_homologations` ya consultadas arriba (id, document_id,
-    // canonical_account). No agrega ninguna consulta nueva a Supabase.
+    // canonical_account, period). No agrega ninguna consulta nueva a
+    // Supabase.
+    // `period` se incluye para que buildCalculationProvenance pueda filtrar
+    // field-level provenance por basePeriod — antes se omitía, así que una
+    // homologación de 2024 podía aparecer como evidencia de un valor
+    // calculado para basePeriod=2025 (ver auditoría).
     const homologationRefs: HomologationReference[] = (accounts || []).map(
-      (a: { id: string; document_id: string | null; canonical_account: string }) => ({
+      (a: { id: string; document_id: string | null; canonical_account: string; period: string | null }) => ({
         id: a.id,
         document_id: a.document_id ?? null,
         canonical_account: a.canonical_account,
+        period: a.period ?? null,
       }),
     );
 

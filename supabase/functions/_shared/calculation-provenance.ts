@@ -81,11 +81,28 @@ export interface HomologationReference {
   id: string;
   document_id: string | null;
   canonical_account: string;
+  /** Opcional por compatibilidad con llamadores que no distinguen período
+   *  (ver `buildFieldProvenance` — sin `period_selection`, no se filtra). */
+  period?: string | null;
+}
+
+function normalizePeriod(period: string | null | undefined): string | null {
+  return period === undefined || period === null || period === "" ? null : period;
 }
 
 export interface CalculationProvenance {
   analysis_id: string;
   structured_input_id: string | null;
+  /**
+   * Inventario completo de document_ids/homologation_ids de TODAS las
+   * filas pasadas en `homologationRows` (todos los períodos incluidos) —
+   * a diferencia de `fields.*.homologation_ids`, que sí se filtra por
+   * `period_selection.base_period` cuando está disponible. El contrato de
+   * este nivel (¿inventario completo del análisis vs. solo lo
+   * efectivamente usado?) no está definido por ningún test ni comentario
+   * previo — se documenta aquí tal cual el comportamiento verificado, sin
+   * cambiarlo (bug demostrado y corregido: solo el nivel `fields`).
+   */
   document_ids: string[];
   homologation_ids: string[];
   /** Ver nota de limitación arriba — siempre `null` hoy, nunca un arreglo vacío silencioso. */
@@ -116,8 +133,18 @@ export interface CalculationProvenance {
 function buildFieldProvenance(
   rows: readonly HomologationReference[],
   canonicalAccounts: readonly string[],
+  // `undefined` = sin período resuelto disponible (llamador no lo pasó) ->
+  // no se filtra, mismo comportamiento que antes de este fix. `string |
+  // null` = período base YA resuelto por build-structured-input (nunca se
+  // vuelve a resolver aquí) -> solo cuentan las homologaciones de ESE
+  // período exacto. Evita que evidencia de otro año (p. ej. 2024) aparezca
+  // como soporte de un valor calculado para base_period=2025.
+  basePeriod: string | null | undefined,
 ): FieldProvenance {
-  const matched = rows.filter((r) => canonicalAccounts.includes(r.canonical_account));
+  const inPeriod = basePeriod === undefined
+    ? rows
+    : rows.filter((r) => normalizePeriod(r.period) === normalizePeriod(basePeriod));
+  const matched = inPeriod.filter((r) => canonicalAccounts.includes(r.canonical_account));
   const homologationIds = [...new Set(matched.map((r) => r.id))];
   const documentIds = [...new Set(matched.map((r) => r.document_id).filter((d): d is string => !!d))];
 
@@ -158,9 +185,16 @@ export function buildCalculationProvenance(params: {
   builtAt?: string;
   periodSelection?: PeriodSelectionProvenance | null;
 }): CalculationProvenance {
+  // `periodSelection` ya viene resuelto por build-structured-input (Bug 2 —
+  // política de base_period) — aquí NUNCA se vuelve a resolver, solo se
+  // reutiliza `base_period` para filtrar qué homologaciones sustentan cada
+  // campo. Sin `periodSelection` (llamador no lo pasó), no se filtra —
+  // mismo comportamiento que antes de este fix.
+  const basePeriodForFields = params.periodSelection ? params.periodSelection.base_period : undefined;
+
   const fields = {} as Record<TraceableField, FieldProvenance>;
   for (const field of TRACEABLE_FIELDS) {
-    fields[field] = buildFieldProvenance(params.homologationRows, FIELD_CANONICAL_ACCOUNTS[field]);
+    fields[field] = buildFieldProvenance(params.homologationRows, FIELD_CANONICAL_ACCOUNTS[field], basePeriodForFields);
   }
 
   const documentIds = [...new Set(params.homologationRows.map((r) => r.document_id).filter((d): d is string => !!d))];
