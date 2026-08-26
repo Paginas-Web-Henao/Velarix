@@ -10,6 +10,7 @@ import {
   type FinancialInputs,
   type ReportingCurrency,
 } from "./financial-engine";
+import type { HistoricalFinancials } from "@/types/calculation-result";
 
 // ═══════════════════════════════════════════════════════════════
 // VELARIX INSTITUTIONAL PDF GENERATOR v4.0
@@ -219,16 +220,37 @@ function shouldIncludePage(page: PageKey, result: AnalysisResult): boolean {
 export async function generatePDF(
   result: AnalysisResult,
   inputs: FinancialInputs,
-  version: PDFVersion = "ejecutivo"
+  version: PDFVersion = "ejecutivo",
+  // Bloque 1E — Subbloque 1 (corrección): cifras históricas (año 0)
+  // nullable, provenientes de `calculation_result.source_input_snapshot`
+  // vía el mapper canónico. Cuando se pasa, el PDF es el camino REAL
+  // (Dashboard.tsx) y NUNCA lee `inputs.revenue/costOfSales/opex/...`
+  // para históricos — solo `historicals.*`, con "N/D" si algo falta.
+  // Cuando se omite (demo/landing, fuera de alcance de este subbloque),
+  // el PDF conserva exactamente el comportamiento anterior (fórmulas
+  // sobre `inputs.*`) para no romper esos caminos.
+  historicals?: HistoricalFinancials,
 ) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const M = DS.margin.left;
   const W = DS.contentW;
+  const isCanonical = historicals != null;
 
   // BL-04: moneda de reporte real del análisis, no un literal fijo. Se
   // mantiene el nombre `fUSD` (en vez de renombrar sus 44 usos) para que
   // esta corrección sea mínima y no toque el resto del archivo.
   const fUSD = (v: number | null | undefined) => formatMoneda(v, inputs.reportingCurrency);
+
+  const safeDiv = (num: number | null | undefined, den: number | null | undefined): number | null =>
+    num != null && den != null && den !== 0 ? num / den : null;
+  const fPctOf = (num: number | null | undefined, den: number | null | undefined): string => {
+    const r = safeDiv(num, den);
+    return r != null ? `${(r * 100).toFixed(1)}%` : "N/D";
+  };
+  const fRatioX = (num: number | null | undefined, den: number | null | undefined): string => {
+    const r = safeDiv(num, den);
+    return r != null ? `${r.toFixed(1)}x` : "N/D";
+  };
 
   const fecha = new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
   const empresa = inputs.companyName?.trim() || "Empresa demo";
@@ -240,25 +262,50 @@ export async function generatePDF(
   const pageList = basePagesOrdered.filter(p => shouldIncludePage(p, result));
   const totalPages = pageList.length;
 
-  // Precomputed values
-  const ebitdaY0 = inputs.revenue - inputs.costOfSales - inputs.opex + inputs.depreciation;
-  const ebitY0 = ebitdaY0 - inputs.depreciation;
-  const utilidadNeta = (ebitY0 - inputs.interestExpense) * (1 - inputs.taxRate / 100);
-  const costRatio = ((inputs.costOfSales / inputs.revenue) * 100).toFixed(1);
-  const opexRatio = ((inputs.opex / inputs.revenue) * 100).toFixed(1);
+  // Históricos (año 0): en el camino canónico, 1:1 desde
+  // `historicals` (calculation_result.source_input_snapshot), sin
+  // recalcular — "N/D" cuando algo falta. En el camino demo/landing
+  // (sin `historicals`), se preserva EXACTAMENTE la fórmula anterior
+  // sobre `inputs.*` para no alterar ese camino, fuera de alcance aquí.
+  const hist: HistoricalFinancials = historicals ?? (() => {
+    const ebitdaDemo = inputs.revenue - inputs.costOfSales - inputs.opex + inputs.depreciation;
+    const ebitDemo = ebitdaDemo - inputs.depreciation;
+    return {
+      revenue: inputs.revenue,
+      costOfSales: inputs.costOfSales,
+      opex: inputs.opex,
+      depreciation: inputs.depreciation,
+      ebitda: ebitdaDemo,
+      ebit: ebitDemo,
+      interestExpense: inputs.interestExpense,
+      taxes: null,
+      netIncome: (ebitDemo - inputs.interestExpense) * (1 - inputs.taxRate / 100),
+      cash: inputs.cash,
+      financialDebtTotal: inputs.totalDebt,
+      equity: inputs.equity,
+      totalAssets: inputs.totalDebt + inputs.equity,
+      totalLiabilities: null,
+    };
+  })();
+  const costRatio = fPctOf(hist.costOfSales, hist.revenue);
+  const opexRatio = fPctOf(hist.opex, hist.revenue);
 
   // Build dynamic risks
   const risks: { name: string; impact: string; probability: string; category: string; desc: string; indicator: string }[] = [];
   if (inputs.growth > 40) risks.push({ name: "Crecimiento agresivo", impact: "Alto", probability: "Media", category: "CREC", desc: `El supuesto del ${inputs.growth}% supera al promedio sectorial.`, indicator: `Crecimiento: ${inputs.growth}%` });
   if (result.kpis.leverage > 3) risks.push({ name: "Apalancamiento elevado", impact: "Alto", probability: "Alta", category: "END", desc: `DN/EBITDA de ${fNum(result.kpis.leverage)}x limita la flexibilidad financiera.`, indicator: `DN/EBITDA: ${fNum(result.kpis.leverage)}x` });
-  if (inputs.cash < result.kpis.cajaMinima) risks.push({ name: "Liquidez operativa ajustada", impact: "Medio", probability: "Media", category: "LIQ", desc: `Caja (${fUSD(inputs.cash)}) bajo la caja mínima recomendada (${fUSD(result.kpis.cajaMinima)}).`, indicator: `Caja vs mínima` });
+  // Caja mínima operativa: solo existe como heurística en el camino
+  // demo (constante de UI, no un dato canónico) — calculation_result no
+  // produce ninguna cifra de caja mínima, así que esta regla de riesgo
+  // no puede evaluarse en el camino canónico sin inventar un umbral.
+  if (!isCanonical && inputs.cash < result.kpis.cajaMinima) risks.push({ name: "Liquidez operativa ajustada", impact: "Medio", probability: "Media", category: "LIQ", desc: `Caja (${fUSD(inputs.cash)}) bajo la caja mínima recomendada (${fUSD(result.kpis.cajaMinima)}).`, indicator: `Caja vs mínima` });
   if (result.kpis.interestCoverage < 3) risks.push({ name: "Cobertura de intereses limitada", impact: "Alto", probability: "Media", category: "END", desc: `Cobertura de ${fNum(result.kpis.interestCoverage)}x con poco margen.`, indicator: `ICR: ${fNum(result.kpis.interestCoverage)}x` });
   if (inputs.ebitdaMargin < bm.ebitdaMargin) risks.push({ name: "Margen EBITDA inferior al sector", impact: "Medio", probability: "Alta", category: "RENT", desc: `Margen EBITDA ${(bm.ebitdaMargin - inputs.ebitdaMargin).toFixed(1)}pp debajo del benchmark.`, indicator: `Margen: ${inputs.ebitdaMargin.toFixed(1)}% vs ${bm.ebitdaMargin}%` });
   if (risks.length === 0) risks.push({ name: "Sin riesgos críticos detectados", impact: "Bajo", probability: "Baja", category: "GEN", desc: "Indicadores financieros en niveles saludables.", indicator: "—" });
 
   // Build recommendations
   const recs: { title: string; priority: string; reason: string }[] = [];
-  if (inputs.cash < result.kpis.cajaMinima) recs.push({ title: "Fortalecer posición de caja operativa", priority: "Alta", reason: `Caja actual bajo el mínimo de ${inputs.diasMinCaja} días de ingresos.` });
+  if (!isCanonical && inputs.cash < result.kpis.cajaMinima) recs.push({ title: "Fortalecer posición de caja operativa", priority: "Alta", reason: `Caja actual bajo el mínimo de ${inputs.diasMinCaja} días de ingresos.` });
   if (inputs.ebitdaMargin < bm.ebitdaMargin) recs.push({ title: "Mejorar eficiencia operativa", priority: "Media", reason: `Margen EBITDA ${(bm.ebitdaMargin - inputs.ebitdaMargin).toFixed(1)}pp debajo del benchmark.` });
   recs.push({ title: "Documentar supuestos de crecimiento", priority: "Media", reason: `Validar el ${inputs.growth}% con evidencia comercial.` });
   recs.push({ title: "Actualizar el análisis periódicamente", priority: "Media", reason: "Re-ejecutar al cierre de cada trimestre." });
@@ -403,7 +450,7 @@ export async function generatePDF(
     let y = dibujarTituloSeccion(doc, "1. Resumen ejecutivo", contentArea.y);
 
     const tarjetas = [
-      { label: "Ingresos anuales", valor: fUSD(inputs.revenue) },
+      { label: "Ingresos anuales", valor: fUSD(hist.revenue) },
       { label: "Margen EBITDA", valor: `${inputs.ebitdaMargin.toFixed(1)}%` },
       { label: "Enterprise Value", valor: fUSD(result.enterpriseValue) },
       { label: "Deuda neta / EBITDA", valor: `${fNum(result.kpis.leverage)}x` },
@@ -529,14 +576,14 @@ export async function generatePDF(
 
     // P&L table
     const bodyPnl = [
-      ["Ingresos operacionales", fUSD(inputs.revenue), "100.0%"],
-      ["Costo de ventas", fUSD(inputs.costOfSales), `${costRatio}%`],
-      ["Gastos operativos", fUSD(inputs.opex), `${opexRatio}%`],
-      ["EBITDA", fUSD(ebitdaY0), `${inputs.ebitdaMargin.toFixed(1)}%`],
-      ["D&A", fUSD(inputs.depreciation), `${(inputs.depreciation / inputs.revenue * 100).toFixed(1)}%`],
-      ["EBIT", fUSD(ebitY0), `${((ebitY0 / inputs.revenue) * 100).toFixed(1)}%`],
-      ["Gastos financieros", fUSD(inputs.interestExpense), "—"],
-      ["Utilidad neta", fUSD(utilidadNeta), `${((utilidadNeta / inputs.revenue) * 100).toFixed(1)}%`],
+      ["Ingresos operacionales", fUSD(hist.revenue), "100.0%"],
+      ["Costo de ventas", fUSD(hist.costOfSales), costRatio],
+      ["Gastos operativos", fUSD(hist.opex), opexRatio],
+      ["EBITDA", fUSD(hist.ebitda), `${inputs.ebitdaMargin.toFixed(1)}%`],
+      ["D&A", fUSD(hist.depreciation), fPctOf(hist.depreciation, hist.revenue)],
+      ["EBIT", fUSD(hist.ebit), fPctOf(hist.ebit, hist.revenue)],
+      ["Gastos financieros", fUSD(hist.interestExpense), "—"],
+      ["Utilidad neta", fUSD(hist.netIncome), fPctOf(hist.netIncome, hist.revenue)],
     ];
 
     autoTable(doc, {
@@ -587,11 +634,11 @@ export async function generatePDF(
       startY: y, margin: { left: M, right: DS.margin.right },
       head: [["Componente", "Valor (Y0)", "% de ingresos"]],
       body: [
-        ["Ingresos", fUSD(inputs.revenue), "100.0%"],
-        ["Costo de ventas", fUSD(inputs.costOfSales), `${costRatio}%`],
-        ["Gastos operativos", fUSD(inputs.opex), `${opexRatio}%`],
-        ["D&A", fUSD(inputs.depreciation), `${(inputs.depreciation / inputs.revenue * 100).toFixed(1)}%`],
-        ["EBITDA", fUSD(ebitdaY0), `${inputs.ebitdaMargin.toFixed(1)}%`],
+        ["Ingresos", fUSD(hist.revenue), "100.0%"],
+        ["Costo de ventas", fUSD(hist.costOfSales), costRatio],
+        ["Gastos operativos", fUSD(hist.opex), opexRatio],
+        ["D&A", fUSD(hist.depreciation), fPctOf(hist.depreciation, hist.revenue)],
+        ["EBITDA", fUSD(hist.ebitda), `${inputs.ebitdaMargin.toFixed(1)}%`],
       ],
       headStyles: { fillColor: DS.color.azulOscuro, textColor: DS.color.blanco, fontStyle: "bold", fontSize: 9 },
       alternateRowStyles: { fillColor: DS.color.grisFondo },
@@ -599,7 +646,7 @@ export async function generatePDF(
       theme: "grid",
     });
     let yEnd = getTableEnd() + 6;
-    dibujarParrafo(doc, `La estructura de costos muestra un ratio de costo de ventas del ${costRatio}%, con gastos operativos del ${opexRatio}%. El margen EBITDA resultante de ${inputs.ebitdaMargin.toFixed(1)}% se compara con el benchmark sectorial de ${bm.ebitdaMargin}%.`, yEnd);
+    dibujarParrafo(doc, `La estructura de costos muestra un ratio de costo de ventas del ${costRatio}, con gastos operativos del ${opexRatio}. El margen EBITDA resultante de ${inputs.ebitdaMargin.toFixed(1)}% se compara con el benchmark sectorial de ${bm.ebitdaMargin}%.`, yEnd);
   };
 
   const renderRentabilidad = () => {
@@ -627,15 +674,22 @@ export async function generatePDF(
 
   const renderLiquidez = () => {
     let y = dibujarTituloSeccion(doc, "5b. Análisis de liquidez", contentArea.y);
+    // Caja mínima operativa / días de cartera / ciclo de caja: solo son
+    // datos reales en el camino demo (constantes de UI, nunca en
+    // calculation_result). En el camino canónico se omiten por completo
+    // en vez de presentarlos como hechos — ver ETAPA 6.
+    const filasLiquidez = isCanonical
+      ? [["Caja y equivalentes", fUSD(hist.cash), "—"]]
+      : [
+          ["Caja y equivalentes", fUSD(hist.cash), "—"],
+          ["Caja mínima operativa", fUSD(result.kpis.cajaMinima), (hist.cash ?? 0) > result.kpis.cajaMinima ? "✓ Suficiente" : "⚠ Ajustada"],
+          ["Días de cartera", `${result.kpis.daysReceivable} días`, "Referencia demo"],
+          ["Ciclo de caja", `${result.kpis.cashCycle} días`, "Referencia demo"],
+        ];
     autoTable(doc, {
       startY: y, margin: { left: M, right: DS.margin.right },
       head: [["Indicador", "Valor", "Evaluación"]],
-      body: [
-        ["Caja y equivalentes", fUSD(inputs.cash), "—"],
-        ["Caja mínima operativa", fUSD(result.kpis.cajaMinima), inputs.cash > result.kpis.cajaMinima ? "✓ Suficiente" : "⚠ Ajustada"],
-        ["Días de cartera", `${result.kpis.daysReceivable} días`, "Referencia demo"],
-        ["Ciclo de caja", `${result.kpis.cashCycle} días`, "Referencia demo"],
-      ],
+      body: filasLiquidez,
       headStyles: { fillColor: DS.color.azulOscuro, textColor: DS.color.blanco, fontStyle: "bold", fontSize: 9 },
       alternateRowStyles: { fillColor: DS.color.grisFondo },
       bodyStyles: { fontSize: 9, textColor: DS.color.grisOscuro },
@@ -648,10 +702,10 @@ export async function generatePDF(
 
     // Balance table
     const bodyBal = [
-      ["Caja y equivalentes", fUSD(inputs.cash)],
-      ["Total activos", fUSD(inputs.totalDebt + inputs.equity)],
-      ["Deuda financiera total", fUSD(inputs.totalDebt)],
-      ["Patrimonio", fUSD(inputs.equity)],
+      ["Caja y equivalentes", fUSD(hist.cash)],
+      ["Total activos", fUSD(hist.totalAssets)],
+      ["Deuda financiera total", fUSD(hist.financialDebtTotal)],
+      ["Patrimonio", fUSD(hist.equity)],
       ["Deuda neta", fUSD(result.netDebt)],
     ];
     autoTable(doc, {
@@ -670,7 +724,7 @@ export async function generatePDF(
     const ratios = [
       { label: "DN / EBITDA", valor: `${fNum(result.kpis.leverage)}x` },
       { label: "Cob. intereses", valor: `${fNum(result.kpis.interestCoverage)}x` },
-      { label: "Deuda / Patrimonio", valor: `${fNum(inputs.totalDebt / inputs.equity)}x` },
+      { label: "Deuda / Patrimonio", valor: fRatioX(hist.financialDebtTotal, hist.equity) },
     ];
     const anchoR = (W - 10) / 3;
     ratios.forEach((r, i) => {
@@ -683,15 +737,21 @@ export async function generatePDF(
 
   const renderEficiencia = () => {
     let y = dibujarTituloSeccion(doc, "6b. Eficiencia operativa", contentArea.y);
+    // Días de cartera/inventario y ciclo de caja: mismo motivo que en
+    // renderLiquidez — solo existen como referencia demo, se omiten en
+    // el camino canónico.
+    const filasEficiencia = isCanonical
+      ? [["Rotación de activos", fRatioX(hist.revenue, hist.totalAssets), "Ingresos / Activos totales"]]
+      : [
+          ["Rotación de activos", fRatioX(hist.revenue, hist.totalAssets), "Ingresos / Activos totales"],
+          ["Días de cartera", `${result.kpis.daysReceivable} días`, "Referencia demo"],
+          ["Días de inventario", `${result.kpis.daysInventory} días`, "Referencia demo"],
+          ["Ciclo de caja", `${result.kpis.cashCycle} días`, "Referencia demo"],
+        ];
     autoTable(doc, {
       startY: y, margin: { left: M, right: DS.margin.right },
       head: [["Indicador", "Valor", "Nota"]],
-      body: [
-        ["Rotación de activos", `${fNum(inputs.revenue / (inputs.totalDebt + inputs.equity))}x`, "Ingresos / Activos totales"],
-        ["Días de cartera", `${result.kpis.daysReceivable} días`, "Referencia demo"],
-        ["Días de inventario", `${result.kpis.daysInventory} días`, "Referencia demo"],
-        ["Ciclo de caja", `${result.kpis.cashCycle} días`, "Referencia demo"],
-      ],
+      body: filasEficiencia,
       headStyles: { fillColor: DS.color.azulOscuro, textColor: DS.color.blanco, fontStyle: "bold", fontSize: 9 },
       alternateRowStyles: { fillColor: DS.color.grisFondo },
       bodyStyles: { fontSize: 9, textColor: DS.color.grisOscuro },
@@ -726,10 +786,10 @@ export async function generatePDF(
   const renderProyeccionesPL = () => {
     let y = dibujarTituloSeccion(doc, "7. Proyecciones financieras", contentArea.y);
     const plRows = [
-      { label: "Ingresos", y0: inputs.revenue, key: "revenue" },
-      { label: "EBITDA", y0: ebitdaY0, key: "ebitda" },
-      { label: "EBIT", y0: ebitY0, key: "ebit" },
-      { label: "Utilidad neta", y0: utilidadNeta, key: "netIncome" },
+      { label: "Ingresos", y0: hist.revenue, key: "revenue" },
+      { label: "EBITDA", y0: hist.ebitda, key: "ebitda" },
+      { label: "EBIT", y0: hist.ebit, key: "ebit" },
+      { label: "Utilidad neta", y0: hist.netIncome, key: "netIncome" },
     ];
     autoTable(doc, {
       startY: y, margin: { left: M, right: DS.margin.right },
@@ -741,7 +801,9 @@ export async function generatePDF(
       theme: "grid",
     });
     let yEnd = getTableEnd() + 6;
-    dibujarParrafo(doc, `Las proyecciones asumen un crecimiento anual del ${inputs.growth}% con margen EBITDA del ${inputs.ebitdaMargin}%. Al Y5, los ingresos alcanzarían ${fUSD(result.projections[4].revenue)} (${(result.projections[4].revenue / inputs.revenue).toFixed(1)}x sobre la base).`, yEnd);
+    const y5SobreBase = safeDiv(result.projections[4].revenue, hist.revenue);
+    const y5SobreBaseTexto = y5SobreBase != null ? ` (${y5SobreBase.toFixed(1)}x sobre la base)` : "";
+    dibujarParrafo(doc, `Las proyecciones asumen un crecimiento anual del ${inputs.growth}% con margen EBITDA del ${inputs.ebitdaMargin}%. Al Y5, los ingresos alcanzarían ${fUSD(result.projections[4].revenue)}${y5SobreBaseTexto}.`, yEnd);
   };
 
   const renderProyeccionesFCFF = () => {
@@ -780,7 +842,12 @@ export async function generatePDF(
         ["Prima de riesgo (ERP)", `${inputs.erp}%`],
         ["Costo del equity (Ke)", fPctVal(result.costOfEquity)],
         ["Kd after-tax", fPctVal(result.costOfDebtAfterTax)],
-        ["Peso equity / deuda", `${(inputs.equityWeight * 100).toFixed(0)}% / ${(inputs.debtWeight * 100).toFixed(0)}%`],
+        // calculation_result no expone equityWeight/debtWeight (el motor
+        // canónico los usa internamente para WACC pero no los re-emite en
+        // su output) — no se recalculan en frontend, se declara "N/D" en
+        // el camino canónico. En demo, `equityWeight/debtWeight` sí vienen
+        // del motor cliente y se preservan igual que antes.
+        ["Peso equity / deuda", isCanonical ? "N/D" : `${(inputs.equityWeight * 100).toFixed(0)}% / ${(inputs.debtWeight * 100).toFixed(0)}%`],
         ["WACC", fPctVal(result.wacc)],
         ["Crecimiento terminal (g)", `${inputs.terminalGrowth}%`],
       ],

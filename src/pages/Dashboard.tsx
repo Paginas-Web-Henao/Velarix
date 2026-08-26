@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { runAnalysis, DEFAULT_INPUTS, type FinancialInputs } from "@/lib/financial-engine";
 import { generatePDF } from "@/lib/pdf-generator";
+import { mapCanonicalCalculationToPdfData } from "@/lib/pdf-canonical-mapper";
+import type { PersistedCalculationResult } from "@/types/calculation-result";
 import DemoDashboard from "@/components/demo/DemoDashboard";
 import DashboardSidebar, { type DashboardView } from "@/components/dashboard/DashboardSidebar";
 import DashboardHome from "@/components/dashboard/DashboardHome";
@@ -67,69 +68,29 @@ const Dashboard = () => {
       const analysis = analyses.find((a) => a.id === id);
       if (!analysis) { toast.error("Análisis no encontrado."); return; }
 
-      const { data: si, error } = await supabase
-        .from("structured_inputs")
-        .select("input_payload")
-        .eq("analysis_id", id)
-        .single();
-
-      if (error || !si?.input_payload) {
-        toast.error("No hay datos financieros disponibles. Verifica que el análisis haya completado el procesamiento.");
+      // Fail-closed (Fase 1E / Subbloque 1): el PDF real solo puede
+      // consumir el calculation_result canónico ya persistido por
+      // ejecutar-calculo — históricos, valoración y metadata de versión
+      // deben venir del MISMO calculation_result. NO se recalcula con el
+      // motor cliente, NO se usan valores por defecto de UI, y NO se
+      // vuelve a consultar structured_inputs: se bloquea la descarga.
+      const calculationResult = analysis.calculation_result as PersistedCalculationResult | null;
+      if (!calculationResult) {
+        toast.error("El cálculo canónico aún no está disponible. Ejecuta el cálculo antes de generar el informe.");
+        return;
+      }
+      if (!calculationResult.source_input_snapshot) {
+        toast.error("El cálculo disponible no contiene el snapshot canónico requerido para generar un informe trazable. Vuelve a ejecutar el cálculo.");
         return;
       }
 
-      const ip = si.input_payload as any;
-      const is_ = ip.income_statement || {};
-      const bs = ip.balance_sheet || {};
-
-      const revenue = Number(is_.revenue) || 0;
-      if (revenue === 0) {
-        toast.error("Los ingresos del análisis son 0. Verifica los documentos cargados.");
-        return;
-      }
-
-      const costOfSales = Number(is_.cost_of_sales) || 0;
-      const opex = Number(is_.opex) || 0;
-      const da = Number(is_.da) || 0;
-      const interestExpense = Number(is_.interest_expense) || 0;
-      const cash = Number(bs.cash) || 0;
-      const equity = Number(bs.equity) || 0;
-      const totalDebt = Number(bs.financial_debt_total) || 0;
-
-      const ebitdaRaw = is_.ebitda != null ? Number(is_.ebitda) : revenue - costOfSales - opex + da;
-      const ebitdaMargin = revenue > 0 ? (ebitdaRaw / revenue) * 100 : 0;
-
-      const totalCapital = equity + totalDebt;
-      const equityWeight = totalCapital > 0 ? equity / totalCapital : DEFAULT_INPUTS.equityWeight;
-      const debtWeight = 1 - equityWeight;
-
-      // BL-04: moneda real del análisis, tal como la persistió
-      // build-structured-input (input_payload.moneda_analisis) — no se
-      // recalcula aquí, solo se pasa al generador de PDF.
-      const reportingCurrency: FinancialInputs["reportingCurrency"] =
-        ip.moneda_analisis === "USD" ? "USD" : "COP";
-
-      const inputs: FinancialInputs = {
-        ...DEFAULT_INPUTS,
+      const { result, inputs, historicals } = mapCanonicalCalculationToPdfData({
+        calculationResult,
         companyName: analysis.company_name,
         sector: analysis.sector,
-        reportingCurrency,
-        revenue,
-        costOfSales,
-        opex,
-        depreciation: da,
-        totalDebt,
-        cash,
-        equity,
-        interestExpense,
-        growth: analysis.expected_growth || DEFAULT_INPUTS.growth,
-        ebitdaMargin,
-        equityWeight,
-        debtWeight,
-      };
+      });
 
-      const result = runAnalysis(inputs);
-      await generatePDF(result, inputs, "ejecutivo");
+      await generatePDF(result, inputs, "ejecutivo", historicals);
       toast.success("PDF generado y descargado exitosamente.");
     } catch (err: any) {
       console.error("[handleDownloadPDF]", err);

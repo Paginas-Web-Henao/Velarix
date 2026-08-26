@@ -23,6 +23,13 @@ describe("buildCalculationVersionInfo", () => {
     expect(info.calculation_schema_version).toBe(CALCULATION_SCHEMA_VERSION);
   });
 
+  it("Bloque 1E/Subbloque 1 (corrección de versionado): CALCULATION_SCHEMA_VERSION subió a 1.1.0 al incorporar source_input_snapshot al envelope — literal, no solo por referencia a la constante, para detectar un revert accidental. canonical_engine_version se mantiene en 1.0.0 (ninguna fórmula del motor cambió).", () => {
+    expect(CALCULATION_SCHEMA_VERSION).toBe("1.1.0");
+    expect(CANONICAL_ENGINE_VERSION).toBe("1.0.0");
+    const info = buildCalculationVersionInfo({ inputFingerprint: "abc123", provenanceStatus: "complete" });
+    expect(info.calculation_schema_version).toBe("1.1.0");
+  });
+
   it("7. assumptions_snapshot corresponde exactamente a los 8 supuestos realmente usados por CANONICAL_METHODOLOGY", () => {
     const info = buildCalculationVersionInfo({ inputFingerprint: "abc123", provenanceStatus: "complete" });
     const expectedKeys = Object.keys(CANONICAL_METHODOLOGY.assumptions).sort();

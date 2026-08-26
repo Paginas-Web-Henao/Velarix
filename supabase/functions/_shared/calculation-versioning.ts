@@ -25,8 +25,19 @@ import type { ProvenanceStatus } from "./calculation-provenance.ts";
  */
 export const CANONICAL_ENGINE_VERSION = "1.0.0";
 
-/** Versión del "sobre" (envelope) que agrega versionado + procedencia al resultado del motor. Ver `ejecutar-calculo/index.ts`. */
-export const CALCULATION_SCHEMA_VERSION = "1.0.0";
+/**
+ * Versión del "sobre" (envelope) que agrega versionado + procedencia al
+ * resultado del motor. Ver `ejecutar-calculo/index.ts`.
+ *
+ * 1.0.0 → 1.1.0 (Bloque 1E, Subbloque 1 — corrección de trazabilidad):
+ * el envelope incorporó `source_input_snapshot` (ver
+ * `_shared/source-input-snapshot.ts`), un campo aditivo/compatible — no
+ * cambia ni remueve ningún campo existente del envelope, así que es un
+ * cambio menor (minor), no un cambio de motor ni de metodología. Un
+ * `calculation_result` con `calculation_schema_version: "1.0.0"` no tiene
+ * `source_input_snapshot`; uno con `"1.1.0"` sí.
+ */
+export const CALCULATION_SCHEMA_VERSION = "1.1.0";
 
 export interface AssumptionSnapshotEntry {
   value: number;

@@ -8,6 +8,7 @@ import { buildCalculationVersionInfo } from "../_shared/calculation-versioning.t
 import { buildMissingProvenance, type CalculationProvenance } from "../_shared/calculation-provenance.ts";
 import { resolveEffectiveMoneda, resolveEffectiveFactorConversion } from "../_shared/canonical-input-normalization.ts";
 import { resolveStructuredInput } from "../_shared/structured-input-resolution.ts";
+import { buildSourceInputSnapshot } from "../_shared/source-input-snapshot.ts";
 import { evaluateMinimumExpedienteCheckpoint } from "../_shared/minimum-expediente-checkpoint.ts";
 import { evaluateCalculationPreflight } from "../_shared/calculation-preflight.ts";
 
@@ -101,9 +102,13 @@ serve(async (req) => {
     // `analyses.input_payload`, una copia que `build-structured-input`
     // invocado directamente nunca sincronizaba (bug de integración, no del
     // motor).
+    // Se incluye `id`/`version_input` en el mismo SELECT ya existente (no
+    // es una consulta nueva) para poder congelar, más abajo, el snapshot
+    // exacto de este structured input dentro de `calculation_result`
+    // (Bloque 1E, Subbloque 1 — corrección de trazabilidad).
     const { data: structuredInputRow } = await supabase
       .from("structured_inputs")
-      .select("input_payload")
+      .select("id, input_payload, version_input")
       .eq("analysis_id", analysis_id)
       .maybeSingle();
 
@@ -266,7 +271,23 @@ serve(async (req) => {
       provenanceStatus: provenance.overall_status,
       calculatedAt: new Date().toISOString(),
     });
-    const enrichedResult = { ...result, version, provenance };
+
+    // Snapshot del structured input EXACTO (Bloque 1E, Subbloque 1 —
+    // corrección de trazabilidad): se construye a partir del MISMO `input`
+    // ya usado arriba para `computeInputFingerprint` y
+    // `runCanonicalFinancialEngine` — no se vuelve a consultar
+    // `structured_inputs`, no se recalcula ni deriva ninguna cifra. Si el
+    // cálculo cayó al fallback legacy (`analyses.input_payload`, sin fila
+    // real en `structured_inputs`), `structured_input_id`/`version_input`
+    // quedan `null` en vez de inventar un id que no existe.
+    const sourceInputSnapshot = buildSourceInputSnapshot({
+      structuredInputId: structuredInputRow?.id ?? null,
+      versionInput: structuredInputRow?.version_input ?? null,
+      sector: analysis.sector,
+      input,
+    });
+
+    const enrichedResult = { ...result, version, provenance, source_input_snapshot: sourceInputSnapshot };
 
     // Store results
     await supabase.from("analyses").update({

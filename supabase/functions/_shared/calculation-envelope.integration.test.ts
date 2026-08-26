@@ -25,8 +25,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { runCanonicalFinancialEngine } from "./canonical-financial-engine";
 import { computeInputFingerprint } from "./calculation-fingerprint";
-import { buildCalculationVersionInfo } from "./calculation-versioning";
+import { buildCalculationVersionInfo, CANONICAL_ENGINE_VERSION } from "./calculation-versioning";
 import { buildMissingProvenance } from "./calculation-provenance";
+import { buildSourceInputSnapshot } from "./source-input-snapshot";
+import { CANONICAL_METHODOLOGY } from "./financial-methodology";
 import {
   CASO_A_ESTABLE_SERVIDOR,
   CASO_B_ALTO_CRECIMIENTO_SERVIDOR,
@@ -71,6 +73,41 @@ describe("Compatibilidad del envelope (versionado + procedencia) sobre el result
     expect(enveloped.provenance.overall_status).toBe("missing");
   });
 
+  it("16. Bloque 1E/Subbloque 1 (corrección de versionado): el envelope completo — con source_input_snapshot — queda en calculation_schema_version 1.1.0, sin tocar canonical_engine_version ni methodology_version", () => {
+    const fixture = CASO_A_ESTABLE_SERVIDOR;
+    const result = runCanonicalFinancialEngine(fixture.input, fixture.sector, fixture.expectedGrowth);
+    const inputFingerprint = computeInputFingerprint(fixture.input, fixture.sector, fixture.expectedGrowth);
+    const provenance = buildMissingProvenance({
+      analysisId: "test-analysis",
+      monedaAnalisis: fixture.input.moneda_analisis || "COP",
+      monedaDocumento: null,
+      factorConversion: fixture.input.factor_conversion || 1,
+      builtAt: "2026-08-26T00:00:00.000Z",
+    });
+    const version = buildCalculationVersionInfo({ inputFingerprint, provenanceStatus: provenance.overall_status, calculatedAt: "2026-08-26T00:00:00.000Z" });
+    const sourceInputSnapshot = buildSourceInputSnapshot({
+      structuredInputId: "struct-1",
+      versionInput: "2.3",
+      sector: fixture.sector,
+      input: fixture.input,
+    });
+    // Misma composición que ejecutar-calculo/index.ts:
+    // `{ ...result, version, provenance, source_input_snapshot: sourceInputSnapshot }`.
+    const enveloped = { ...result, version, provenance, source_input_snapshot: sourceInputSnapshot };
+
+    // El schema del envelope subió (campo aditivo nuevo: source_input_snapshot).
+    expect(enveloped.version.calculation_schema_version).toBe("1.1.0");
+    // El motor no cambió: ninguna fórmula, mismo número de versión.
+    expect(enveloped.version.canonical_engine_version).toBe(CANONICAL_ENGINE_VERSION);
+    expect(enveloped.version.canonical_engine_version).toBe("1.0.0");
+    // La metodología no cambió.
+    expect(enveloped.version.methodology_version).toBe(CANONICAL_METHODOLOGY.methodologyVersion);
+    // El snapshot está presente y corresponde al mismo input/fingerprint de este envelope.
+    expect(enveloped.source_input_snapshot).toBeDefined();
+    expect(enveloped.source_input_snapshot.income_statement.revenue).toBe(fixture.input.income_statement?.revenue ?? null);
+    expect(enveloped.version.input_fingerprint).toBe(inputFingerprint);
+  });
+
   it("15. revenue=0 sigue siendo rechazado por el motor incluso cuando se compone el envelope alrededor (comportamiento conservado, no re-decidido aquí)", () => {
     expect(() => runCanonicalFinancialEngine({ income_statement: { revenue: 0 }, balance_sheet: {} }, "Manufactura", 5))
       .toThrow("Revenue es 0 — no se puede calcular valoración.");
@@ -95,8 +132,18 @@ describe("ejecutar-calculo/index.ts usa realmente el contrato nuevo (verificaci�
   it("13. invoca las funciones importadas y persiste version/provenance dentro de calculation_result", () => {
     expect(source).toContain("computeInputFingerprint(typedInput, analysis.sector, analysis.expected_growth)");
     expect(source).toContain("buildCalculationVersionInfo({");
-    expect(source).toContain("const enrichedResult = { ...result, version, provenance };");
+    expect(source).toContain("const enrichedResult = { ...result, version, provenance, source_input_snapshot: sourceInputSnapshot };");
     expect(source).toContain("calculation_result: enrichedResult,");
+  });
+
+  it("Bloque 1E/Subbloque 1 (corrección): el snapshot del structured input se construye del MISMO `input` usado para fingerprint, no de una consulta nueva", () => {
+    expect(source).toContain('import { buildSourceInputSnapshot } from "../_shared/source-input-snapshot.ts"');
+    expect(source).toContain("buildSourceInputSnapshot({");
+    expect(source).toContain("input,");
+    // No hay una segunda consulta a `structured_inputs` después de resolver `input` —
+    // solo aparece la única lectura de arriba (`.from("structured_inputs")`).
+    const structuredInputsQueries = (source.match(/\.from\("structured_inputs"\)/g) || []).length;
+    expect(structuredInputsQueries).toBe(1);
   });
 
   it("no queda ninguna copia manual de las fórmulas de versionado/procedencia dentro de ejecutar-calculo (solo se invocan las funciones importadas)", () => {
