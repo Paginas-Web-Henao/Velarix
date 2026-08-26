@@ -37,12 +37,20 @@ import type { HomologatedAccountRow } from "./financial-accounts";
 const sourcePath = path.resolve(__dirname, "../continuar-tras-revision/index.ts");
 const source = fs.readFileSync(sourcePath, "utf-8");
 
-describe("continuar-tras-revision/index.ts — verificación estática: usa el derivador canónico compartido, ya no reconstruye con lógica propia", () => {
-  it("importa y llama a deriveCoreFinancialFields desde _shared/structured-input-derivations.ts", () => {
-    expect(source).toContain(
-      'import { deriveCoreFinancialFields } from "../_shared/structured-input-derivations.ts";',
-    );
-    expect(source).toContain("deriveCoreFinancialFields(cuentas as HomologatedAccountRow[], basePeriod)");
+describe("continuar-tras-revision/index.ts — verificación estática: usa el constructor canónico compartido, ya no reconstruye con lógica propia", () => {
+  // ACTUALIZADO (fix PARALLEL CANONICAL REBUILD BUG, ver
+  // structured-input-canonical-contract.regression.test.ts): antes de este
+  // fix, continuar-tras-revision llamaba a deriveCoreFinancialFields
+  // directamente pero seguía ensamblando su propio objeto structuredInput a
+  // mano (v1.1 incompleto). Ahora delega el payload COMPLETO en
+  // buildCanonicalStructuredInput (_shared/structured-input-builder.ts),
+  // que internamente usa deriveCoreFinancialFields — ya no se importa
+  // directamente aquí, para que no vuelva a existir una segunda
+  // implementación paralela del contrato.
+  it("delega en buildCanonicalStructuredInput — ya no importa deriveCoreFinancialFields directamente", () => {
+    expect(source).toContain('from "../_shared/structured-input-builder.ts"');
+    expect(source).toContain("buildCanonicalStructuredInput(");
+    expect(source).not.toContain("import { deriveCoreFinancialFields }");
   });
 
   it("ya no contiene los patrones vulnerables anteriores: fabricación missing->0 y tasa de impuestos hardcoded", () => {

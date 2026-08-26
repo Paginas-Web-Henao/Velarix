@@ -1,8 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import type { HomologatedAccountRow } from "../_shared/financial-accounts.ts";
 import { resolveBasePeriod } from "../_shared/period-resolution.ts";
-import { deriveCoreFinancialFields } from "../_shared/structured-input-derivations.ts";
+import { normalizeCurrencyCode } from "../_shared/currency.ts";
+import {
+  buildCanonicalStructuredInput,
+  buildDefaultSnapshot,
+  CANONICAL_STRUCTURED_INPUT_VERSION,
+} from "../_shared/structured-input-builder.ts";
 import { canContinueAfterReview, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 
@@ -11,6 +15,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+// TRM from macro data (single source of truth) — mismo valor real que
+// build-structured-input/index.ts (ver _shared/structured-input-builder.ts).
+const TRM = 4080;
+
+/** Subconjunto mínimo de `analyses` que necesita la resolución de moneda (BL-03). */
+interface AnalysisCurrencyFields {
+  moneda_analisis?: string | null;
+}
+
+/** Metadata de `audit_events` (event_type "parse_complete") que necesita la resolución de moneda del documento fuente. */
+interface ParseMetadata {
+  moneda_documento?: string | null;
+  factor_escala?: number | string | null;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -175,29 +194,22 @@ serve(async (req) => {
       );
     }
     const basePeriod = periodResolution.basePeriod;
+    const periods = periodResolution.availablePeriods;
 
-    // 4. Build structured input from corrected homologations
-    // Usa el MISMO derivador puro compartido que build-structured-input
-    // (`deriveCoreFinancialFields`) — este archivo reconstruía antes estos
-    // campos con su propia aritmética, coaccionando `null -> 0` vía `?? 0`
-    // (da, current/long_term_financial_debt) y recalculando net_income con
-    // una tasa de impuestos de 30% hardcoded sin aprobación metodológica.
-    // Eso fabricaba valores para campos genuinamente ausentes, ocultando el
-    // missing al Calculation Preflight (ver
-    // continuar-tras-revision.regression.test.ts). AUSENTE != 0: un campo
-    // sin fila en `cuentas` para el `base_period` resuelto queda `null`,
-    // igual que en el camino canónico.
-    const core = deriveCoreFinancialFields(cuentas as HomologatedAccountRow[], basePeriod);
-    const {
-      revenue, costOfSales, opex, da, interestExpense, taxes, netIncome,
-      ebitda, ebit,
-      cash, accountsReceivable, inventory, ppe,
-      currentDebt, longTermDebt, financialDebtTotal,
-      equity, totalAssets, totalLiabilities,
-    } = core;
+    // ── Currency conversion (BL-03) — misma resolución que build-structured-input ──
+    const monedaAnalisis = normalizeCurrencyCode((analysis as AnalysisCurrencyFields).moneda_analisis) ?? "COP";
+    const { data: auditParse } = await supabase.from("audit_events")
+      .select("metadata").eq("analysis_id", analysis_id).eq("event_type", "parse_complete")
+      .order("created_at", { ascending: false }).limit(1);
+    const parseMeta = (auditParse?.[0]?.metadata as ParseMetadata | null) || {};
+    const monedaDoc = normalizeCurrencyCode(parseMeta.moneda_documento);
+    const factorEscala = Number(parseMeta.factor_escala) || 1;
 
-    // Get snapshot
-    const { data: snapshot } = await supabase
+    // Get snapshot — mismo fallback Damodaran que build-structured-input
+    // cuando no hay fila en external_snapshots para el sector (antes de
+    // este fix, continuar-tras-revision no tenía fallback y omitía
+    // snapshot_data/macro_data por completo).
+    const { data: dbSnapshot } = await supabase
       .from("external_snapshots")
       .select("*")
       .eq("sector", analysis.sector)
@@ -205,47 +217,51 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const structuredInput = {
-      analysis_id,
+    const snapshot = dbSnapshot || buildDefaultSnapshot(analysis.sector, TRM);
+    const snapshotId = dbSnapshot?.id || null;
+
+    const builtAt = new Date().toISOString();
+
+    // Mismo criterio que build-structured-input: reutiliza el id de fila
+    // existente en `structured_inputs` para este `analysis_id` (columna
+    // UNIQUE) si ya existe, o genera uno nuevo para provenance.
+    const { data: existingRow } = await supabase
+      .from("structured_inputs").select("id").eq("analysis_id", analysis_id).maybeSingle();
+    const structuredInputId: string = existingRow?.id || crypto.randomUUID();
+
+    // 4. Build structured input from corrected homologations — único
+    // constructor del contrato canónico v2.3, compartido con
+    // build-structured-input (ver _shared/structured-input-builder.ts).
+    // Ya no se reconstruye el payload aquí (ver
+    // structured-input-canonical-contract.regression.test.ts).
+    const structuredInput = buildCanonicalStructuredInput({
+      analysisId: analysis_id,
       sector: analysis.sector,
-      expected_growth: analysis.expected_growth || 25,
-      periods: periodResolution.availablePeriods,
-      base_period: basePeriod,
-      income_statement: {
-        revenue,
-        cost_of_sales: costOfSales,
-        opex,
-        da,
-        ebitda,
-        ebit,
-        interest_expense: interestExpense,
-        taxes,
-        net_income: netIncome,
+      expectedGrowth: analysis.expected_growth || 25,
+      accounts: cuentas,
+      basePeriod,
+      periods,
+      periodSelectionMode: periodResolution.selectionMode,
+      monedaAnalisis,
+      monedaDocumento: monedaDoc,
+      scaleFactor: factorEscala,
+      exchangeRate: TRM,
+      snapshot: {
+        id: snapshotId,
+        data_payload: snapshot.data_payload || snapshot,
+        macro_payload: snapshot.macro_payload || null,
       },
-      balance_sheet: {
-        cash,
-        accounts_receivable: accountsReceivable,
-        inventory,
-        ppe,
-        current_financial_debt: currentDebt,
-        long_term_financial_debt: longTermDebt,
-        financial_debt_total: financialDebtTotal,
-        equity,
-        total_assets: totalAssets,
-        total_liabilities: totalLiabilities,
-      },
-      quality_flags: ["revisado_manualmente"],
-      validation_notes: ["Cuentas corregidas por revisión manual"],
-      snapshot_id: snapshot?.id || null,
-      version_input: "1.1",
-    };
+      structuredInputId,
+      createdAt: builtAt,
+    });
 
     // 5. Upsert structured input
     await supabase.from("structured_inputs").upsert(
       {
+        id: structuredInputId,
         analysis_id,
         input_payload: structuredInput,
-        version_input: "1.1",
+        version_input: CANONICAL_STRUCTURED_INPUT_VERSION,
       },
       { onConflict: "analysis_id" }
     );
@@ -257,7 +273,7 @@ serve(async (req) => {
         status: "validacion_aprobada",
         validation_status: "verde",
         input_payload: structuredInput,
-        snapshot_id: snapshot?.id || null,
+        snapshot_id: snapshotId,
       })
       .eq("id", analysis_id);
 
