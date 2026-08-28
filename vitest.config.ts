@@ -12,6 +12,7 @@ export default defineConfig({
       "src/**/*.{test,spec}.{ts,tsx}",
       "supabase/functions/_shared/**/*.{test,spec}.ts",
       "scripts/benchmark-ai/**/*.{test,spec}.ts",
+      "scripts/benchmark-narrative/**/*.{test,spec}.ts",
     ],
   },
   resolve: {
