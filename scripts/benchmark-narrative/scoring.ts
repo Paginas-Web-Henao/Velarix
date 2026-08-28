@@ -176,7 +176,61 @@ const UNSUPPORTED_CLAIM_PATTERNS: RegExp[] = [
   /riesgo\s+de\s+default\s+inminente/i,
   /controles?\s+internos?\s+deficientes?/i,
   /gobierno\s+corporativo\s+deficiente/i,
+  // Hardening (evidencia de 2 benchmarks reales, sección "Inferencias no
+  // soportadas" — ver GUARDRAILS SEMÁNTICOS FINANCIEROS #4 en tasks.ts).
+  // Cada patrón exige la afirmación causal/cualitativa explícita, no la
+  // sola mención de un término neutral (p.ej. "demanda" solo no flaggea).
+  /poder\s+de\s+fijaci[oó]n\s+de\s+precios|pricing\s+power/i,
+  /demanda\s+(fuerte|robusta|s[oó]lida|activa)/i,
+  /bajo\s+riesgo\s+de\s+(incumplimiento|default)/i,
+  /gesti[oó]n\s+eficiente/i,
+  /uso\s+eficiente\s+del\s+apalancamiento/i,
+  /ventaja\s+competitiva/i,
+  /estabilidad\s+financiera\s+de\s+mediano\s+plazo/i,
+  /ciclicidad\s+del\s+sector[^.]{0,40}beta|beta[^.]{0,40}ciclicidad\s+del\s+sector/i,
 ];
+
+// ═══════════════════════════════════════════════════════════════
+// Margen vs. WACC — comparación metodológicamente inválida para
+// argumentar creación/destrucción de valor (evidencia: error observado
+// especialmente en Sonnet en las 2 corridas reales). Un margen EBITDA
+// mayor que el WACC NO demuestra creación de valor: eso requeriría ROIC,
+// que no está disponible. Ver GUARDRAILS SEMÁNTICOS FINANCIEROS #1.
+// ═══════════════════════════════════════════════════════════════
+
+const MARGIN_TERM_RE = /margen\s+(bruto|ebitda|ebit|neto)|gross\s*margin|ebitda\s*margin|ebit\s*margin|net\s*margin/i;
+const WACC_OR_COST_OF_CAPITAL_RE = /\bwacc\b|costo\s+de\s+capital|costo\s+de\s+equity|costo\s+de\s+la\s+deuda/i;
+const VALUE_CREATION_LANGUAGE_RE = /creaci[oó]n\s+de\s+valor|crea\s+valor|genera\s+valor|destrucci[oó]n\s+de\s+valor|destruye\s+valor|\bspread\b/i;
+
+/** Divide en oraciones simples (puntuación de cierre o salto de línea) — acota el contexto sin cruzar oraciones distintas, mismo criterio que las regex `[^.]` de arriba. */
+function splitSentences(text: string): string[] {
+  return text.split(/(?<=[.!?])\s+|\n+/).filter((s) => s.trim().length > 0);
+}
+
+/** Detecta una oración que compara un margen contra el WACC (u otro costo de capital) usando lenguaje de creación/destrucción de valor — inválido sin ROIC. */
+export function detectMarginVsWaccValueClaim(outputText: string): { flagged: boolean; matches: string[] } {
+  const matches: string[] = [];
+  for (const sentence of splitSentences(outputText)) {
+    if (MARGIN_TERM_RE.test(sentence) && WACC_OR_COST_OF_CAPITAL_RE.test(sentence) && VALUE_CREATION_LANGUAGE_RE.test(sentence)) {
+      matches.push(sentence.trim());
+    }
+  }
+  return { flagged: matches.length > 0, matches };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// interestCoverage descrito como EBITDA/intereses — el KPI canónico de
+// Velarix es EBIT/interest_expense (ver GUARDRAILS SEMÁNTICOS
+// FINANCIEROS #2). Evidencia: ambos proveedores describieron el coverage
+// como si fuera EBITDA/intereses en las 2 corridas reales.
+// ═══════════════════════════════════════════════════════════════
+
+const COVERAGE_AS_EBITDA_RE = /cobertura\s+(?:de\s+intereses\s+)?[^.]{0,40}ebitda[^.]{0,20}\/[^.]{0,25}(intereses|gastos?\s+financieros?)|ebitda[^.]{0,10}\/[^.]{0,25}(intereses|gastos?\s+financieros?)[^.]{0,40}cobertura|ebitda\s+sobre\s+(?:los\s+)?(?:gastos?\s+financieros?|intereses)/i;
+
+export function detectCoverageDescribedAsEbitda(outputText: string): { flagged: boolean; matches: string[] } {
+  const m = outputText.match(COVERAGE_AS_EBITDA_RE);
+  return { flagged: m != null, matches: m ? [m[0]] : [] };
+}
 
 /** Heurística conservadora por palabra clave — no exhaustiva, preferible a un falso positivo silencioso o a no detectar nada. */
 export function detectUnsupportedClaim(outputText: string): { flagged: boolean; matches: string[] } {
@@ -195,7 +249,15 @@ export function detectUnsupportedClaim(outputText: string): { flagged: boolean; 
 // `[^.]{0,N}` tolera verbos/conectores entre el sujeto y el adjetivo
 // ("cobertura de intereses ES saludable", no solo "cobertura saludable")
 // sin cruzar el límite de una oración.
-const POSITIVE_EBITDA_CONTRADICTION_RE = /p[ée]rdidas?\s+operativas|margen\s+ebitda\s+negativo/i;
+//
+// Hardening (evidencia de 2 benchmarks reales): además de "pérdidas
+// operativas" (plural) y "margen ebitda negativo", ahora también cubre
+// "pérdida operativa" (singular) y "operación en pérdidas" — CASE_B
+// (EBITDA margin +14%, EBIT margin +10%, net margin -1.58%) mostró que
+// ambos proveedores describían un resultado neto negativo con EBIT
+// positivo como si fuera pérdida operativa. Ver GUARDRAILS SEMÁNTICOS
+// FINANCIEROS #3 en tasks.ts.
+const OPERATING_LOSS_PHRASE_RE = /p[ée]rdidas?\s+operativas?|operaci[oó]n\s+en\s+p[ée]rdidas?|margen\s+ebitda\s+negativo/i;
 const NEGATIVE_EBITDA_CONTRADICTION_RE = /(ebitda|rentabilidad\s+operativa)[^.]{0,15}(positiv[oa]|s[oó]lid[oa])/i;
 const POSITIVE_NET_MARGIN_CONTRADICTION_RE = /(rentabilidad|resultado|utilidad)\s+neta?[^.]{0,15}positiv[oa]/i;
 const NEGATIVE_NET_MARGIN_CONTRADICTION_RE = /(p[ée]rdidas?\s+netas?|resultado\s+neto\s+negativo)/i;
@@ -204,11 +266,16 @@ const INSUFFICIENT_COVERAGE_CONTRADICTION_RE = /cobertura\s+de\s+intereses[^.]{0
 
 export function detectContradictsCalculation(outputText: string, vm: NarrativeCalculationViewModel): { flagged: boolean; reasons: string[] } {
   const reasons: string[] = [];
-  const { ebitdaMargin, netMargin, interestCoverage } = vm.kpis;
+  const { ebitdaMargin, ebitMargin, netMargin, interestCoverage } = vm.kpis;
 
   if (typeof ebitdaMargin === "number") {
-    if (ebitdaMargin > 0 && POSITIVE_EBITDA_CONTRADICTION_RE.test(outputText)) reasons.push("afirma pérdidas operativas/margen EBITDA negativo con ebitdaMargin > 0 en el ground truth");
+    if (ebitdaMargin > 0 && OPERATING_LOSS_PHRASE_RE.test(outputText)) reasons.push("afirma pérdida/operación en pérdidas operativa con ebitdaMargin > 0 en el ground truth");
     if (ebitdaMargin < 0 && NEGATIVE_EBITDA_CONTRADICTION_RE.test(outputText)) reasons.push("afirma EBITDA/rentabilidad operativa positiva con ebitdaMargin < 0 en el ground truth");
+  }
+  // EBIT > 0 (ebitMargin > 0) con lenguaje de "pérdida operativa" — el caso
+  // exacto observado en CASE_B: EBIT positivo pero net margin negativo.
+  if (typeof ebitMargin === "number" && ebitMargin > 0 && OPERATING_LOSS_PHRASE_RE.test(outputText)) {
+    reasons.push("afirma pérdida/operación en pérdidas operativa con ebitMargin > 0 (EBIT positivo) en el ground truth — el resultado negativo es a nivel neto, no operativo");
   }
   if (typeof netMargin === "number") {
     if (netMargin > 0 && NEGATIVE_NET_MARGIN_CONTRADICTION_RE.test(outputText)) reasons.push("afirma pérdidas netas con netMargin > 0 en el ground truth");
@@ -293,25 +360,30 @@ export function scoreOutput(
   const numbers = detectInventedNumbers(outputText, evidenceTexts);
   const source = detectInventedSource(outputText);
   const claim = detectUnsupportedClaim(outputText);
+  const marginVsWacc = detectMarginVsWaccValueClaim(outputText);
   const contradiction = detectContradictsCalculation(outputText, vm);
   const missingAsZero = detectTreatsMissingAsZero(outputText, nullFieldLabels);
   const methodology = detectInventsMethodology(outputText);
+  const coverageAsEbitda = detectCoverageDescribedAsEbitda(outputText);
 
   return {
     invented_number: numbers.invented.length > 0,
     invented_source: source.flagged,
-    unsupported_financial_claim: claim.flagged,
+    // Reutiliza unsupported_financial_claim/invents_methodology (en vez de
+    // agregar flags nuevos al tipo) para los 2 errores metodológicos de
+    // hardening — ver Subbloque 2.E, sección 5.
+    unsupported_financial_claim: claim.flagged || marginVsWacc.flagged,
     contradicts_calculation: contradiction.flagged,
     treats_missing_as_zero: missingAsZero.flagged,
-    invents_methodology: methodology.flagged,
+    invents_methodology: methodology.flagged || coverageAsEbitda.flagged,
     needs_human_review: numbers.needsHumanReview,
     details: {
       invented_numbers: numbers.invented,
       invented_source_matches: source.matches,
-      unsupported_claim_matches: claim.matches,
+      unsupported_claim_matches: [...claim.matches, ...marginVsWacc.matches],
       contradiction_reasons: contradiction.reasons,
       treats_missing_as_zero_matches: missingAsZero.matches,
-      invents_methodology_matches: methodology.matches,
+      invents_methodology_matches: [...methodology.matches, ...coverageAsEbitda.matches],
     },
   };
 }

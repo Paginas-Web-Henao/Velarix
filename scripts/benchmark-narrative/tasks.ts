@@ -27,7 +27,38 @@ import {
 import type { BenchmarkTask } from "./types.ts";
 import type { NarrativeFixture, AuditNarrativeBundleVariants } from "./fixtures.ts";
 
-// ── SYSTEM_BASE — idéntico a generate-narrative/index.ts línea 31 ──
+// ═══════════════════════════════════════════════════════════════
+// HARDENING CANDIDATO — FASE 1E/1E-hardening (evidencia: 2 benchmarks
+// reales, 60 llamadas — HEAD base 867b083). Estos guardrails NO están
+// activos en producción todavía. generate-narrative/index.ts (la fuente
+// que este archivo snapshotea) sigue exactamente como en HEAD c34f964 —
+// no se toca en este bloque. `FINANCIAL_SEMANTIC_GUARDRAILS` vive
+// ÚNICAMENTE en este harness como propuesta a validar contra el
+// `--profile hardening-retest` (ver runner.ts) antes de proponer, en un
+// bloque separado, el cambio equivalente al archivo productivo real.
+//
+// Motivación (errores OBSERVADOS en las 2 corridas reales, no
+// hipotéticos): comparar un margen EBITDA contra el WACC para argumentar
+// creación de valor; describir `interestCoverage` como EBITDA/intereses
+// cuando el KPI canónico es EBIT/interest_expense; usar "pérdida
+// operativa" con EBIT positivo (CASE_B: EBITDA margin +14%, EBIT margin
+// +10%, net margin -1.58%); e inferencias causales (poder de fijación de
+// precios, ciclicidad del sector, etc.) sin respaldo explícito en los
+// datos entregados.
+// ═══════════════════════════════════════════════════════════════
+export const FINANCIAL_SEMANTIC_GUARDRAILS = `GUARDRAILS SEMÁNTICOS FINANCIEROS (candidato de hardening — todavía NO activo en producción):
+
+1. Nunca compares un margen (grossMargin, ebitdaMargin, ebitMargin, netMargin) contra WACC, costOfEquity o costOfDebt para argumentar creación o destrucción de valor. Un margen EBITDA mayor que el WACC NO demuestra creación de valor. Si ROIC no está disponible en los datos, no infieras un spread ROIC-WACC.
+2. interestCoverage en Velarix significa EBIT / interest_expense. Nunca lo describas como cobertura EBITDA/intereses ni como EBITDA sobre gasto financiero.
+3. Si EBIT > 0 pero netIncome/netMargin < 0, describe "resultado neto negativo" o "pérdida neta". Nunca "pérdida operativa" ni "operación en pérdidas" — EBIT positivo significa que no hay pérdida operativa.
+4. No infieras sin evidencia explícita en los datos entregados: poder de fijación de precios, demanda fuerte, calidad de gestión, eficiencia gerencial, riesgo de default, posición o ventaja competitiva, ciclicidad como causa del beta, causas de una diferencia de margen, calidad de la estructura de capital, o sostenibilidad de mediano plazo. Puedes describir el indicador observado y su implicación directa, pero no inventar la causa.
+5. sectorBenchmark es una referencia sectorial. No lo conviertas en "promedio probado", "peer group observado" ni "comparable de mercado confirmado" salvo que esa evidencia exista en los datos.
+6. Un campo null significa información no disponible. Nunca lo trates como cero.
+7. No reconstruyas capital weights, WACC, debt/equity weights, tasas ni supuestos que no te fueron entregados explícitamente.`;
+
+// ── SYSTEM_BASE — snapshot de generate-narrative/index.ts línea 31, con
+// FINANCIAL_SEMANTIC_GUARDRAILS anexado al final (candidato de hardening,
+// ver bloque de arriba). Las reglas originales de producción NO se tocan.
 export const SYSTEM_BASE = `Eres el analista financiero senior de Velarix, una plataforma de inteligencia financiera institucional para empresas colombianas.
 
 PRINCIPIO DE CONSTRUCCIÓN NARRATIVA:
@@ -44,7 +75,9 @@ RESTRICCIONES ABSOLUTAS:
 TONO: Institucional. Sobrio. Técnico. Preciso. Claro para usuarios de negocio.
 IDIOMA: Español colombiano formal. Términos técnicos en inglés: DCF, WACC, EBITDA, CAPM, Beta, ERP, FCFF, EV/EBITDA, EV/Revenue, NOPAT.
 
-Devuelve únicamente el texto de la sección. Sin JSON. Sin encabezados. Sin markdown.`;
+Devuelve únicamente el texto de la sección. Sin JSON. Sin encabezados. Sin markdown.
+
+${FINANCIAL_SEMANTIC_GUARDRAILS}`;
 
 export interface SectionTaskDefinition {
   key: "executive_summary" | "profitability_analysis" | "valuation_analysis";
@@ -59,23 +92,29 @@ export const SECTION_TASKS: readonly SectionTaskDefinition[] = [
   {
     key: "executive_summary",
     title: "Resumen Ejecutivo",
-    system: `${SYSTEM_BASE}\n\nTu función es redactar el resumen ejecutivo del informe. Esta es la sección más importante: debe permitir entender completamente el caso sin leer el resto.\n\nEstructura obligatoria:\n  Párrafo 1: Diagnóstico general de la empresa\n  Párrafo 2: Principales fortalezas (máximo 2, con dato)\n  Párrafo 3: Principales debilidades o riesgos (máximo 2, con dato)\n  Párrafo 4: Resultado de valoración (si existe) — EV, rango, WACC\n  Párrafo 5: Recomendación ejecutiva de cierre\n\nExtensión: 5 párrafos · 250–400 palabras`,
+    system: `${SYSTEM_BASE}\n\nTu función es redactar el resumen ejecutivo del informe. Esta es la sección más importante: debe permitir entender completamente el caso sin leer el resto.\n\nEstructura obligatoria:\n  Párrafo 1: Diagnóstico general de la empresa\n  Párrafo 2: Principales fortalezas (máximo 2, con dato)\n  Párrafo 3: Principales debilidades o riesgos (máximo 2, con dato)\n  Párrafo 4: Resultado de valoración (si existe) — EV, rango, WACC\n  Párrafo 5: Recomendación ejecutiva de cierre\n\nExtensión: máximo 5 párrafos · 350–450 palabras. Sé conciso — no rellenes con repetición.`,
     dataKeys: ["enterpriseValue", "equityValue", "wacc", "costOfEquity", "betaLevered", "evEbitda", "evRevenue", "netDebt", "evLow", "evHigh", "kpis", "growth"],
-    maxTokens: 800,
+    // Budget candidato de hardening: 800→900 (ver Subbloque 2.E) — deja margen
+    // para las 350-450 palabras objetivo sin invitar a rellenar de más.
+    maxTokens: 900,
   },
   {
     key: "profitability_analysis",
     title: "Análisis de Rentabilidad",
-    system: `${SYSTEM_BASE}\n\nRedacta el análisis de rentabilidad.\n  Párrafo 1: Dato — márgenes actuales (bruto, EBITDA, neto)\n  Párrafo 2: Interpretación — capacidad de captura de valor\n  Párrafo 3: Comparación sectorial (si benchmark disponible)\n  Párrafo 4: ROE y ROA (si disponibles)\nExtensión: 3–4 párrafos · 150–200 palabras\nSi márgenes negativos: "la empresa registra pérdidas operativas en el período analizado".\nPara la comparación sectorial, compara ÚNICAMENTE métricas donde exista tanto el valor de la empresa (kpis) como el de referencia (sectorBenchmark) — p.ej. kpis.ebitdaMargin vs sectorBenchmark.ebitdaMargin. sectorBenchmark no incluye referencia de ROE ni ROA: no compares esas dos métricas contra el sector.\nSi benchmark no disponible: omitir comparación sin mencionarla.`,
+    system: `${SYSTEM_BASE}\n\nRedacta el análisis de rentabilidad.\n  Párrafo 1: Dato — márgenes actuales (bruto, EBITDA, neto)\n  Párrafo 2: Interpretación — capacidad de captura de valor\n  Párrafo 3: Comparación sectorial (si benchmark disponible)\n  Párrafo 4: ROE y ROA (si disponibles)\nExtensión: máximo 4 párrafos · 220–300 palabras\nSi el margen EBITDA es negativo: "la empresa registra pérdidas operativas en el período analizado". Si el margen EBITDA es positivo pero el margen neto es negativo, NUNCA describas esto como "pérdidas operativas": describe "resultado neto negativo" o "pérdida neta" (ver GUARDRAILS SEMÁNTICOS FINANCIEROS más abajo).\nPara la comparación sectorial, compara ÚNICAMENTE métricas donde exista tanto el valor de la empresa (kpis) como el de referencia (sectorBenchmark) — p.ej. kpis.ebitdaMargin vs sectorBenchmark.ebitdaMargin. sectorBenchmark no incluye referencia de ROE ni ROA: no compares esas dos métricas contra el sector.\nSi benchmark no disponible: omitir comparación sin mencionarla.`,
     dataKeys: ["kpis", "sectorBenchmark"],
-    maxTokens: 500,
+    // Budget candidato de hardening: 500→700 — el límite anterior contribuía
+    // a los cortes por max_output_tokens observados en la 2ª corrida.
+    maxTokens: 700,
   },
   {
     key: "valuation_analysis",
     title: "Valoración por DCF",
-    system: `${SYSTEM_BASE}\n\nRedacta la sección de valoración por DCF.\n  Párrafo 1: Componentes del WACC — describe ÚNICAMENTE los componentes presentes en los datos entregados (wacc, costOfEquity, costOfDebtAfterTax si está disponible, betaLevered). No reconstruyas ni infieras pesos de capital (equity/deuda), tasas o supuestos que no te fueron entregados.\n  Párrafo 2: Resultado — EV, equity value, rango\n  Párrafo 3: Composición del valor — cita terminalValue/discountedTV y el enterpriseValue si están disponibles\n  Párrafo 4: Interpretación ejecutiva — qué sostiene el valor y sensibilidad\nExtensión: 4–5 párrafos · 200–250 palabras\n\nDescribe el peso del valor terminal (discountedTV) frente al Enterprise Value únicamente a partir de los datos entregados. No afirmes que domina salvo que los datos lo sustenten. No calcules ni menciones un porcentaje/participación que no te fue entregado explícitamente.\nSiempre menciona el rango, no solo el punto central.`,
+    system: `${SYSTEM_BASE}\n\nRedacta la sección de valoración por DCF.\n  Párrafo 1: Componentes del WACC — describe ÚNICAMENTE los componentes presentes en los datos entregados (wacc, costOfEquity, costOfDebtAfterTax si está disponible, betaLevered). No reconstruyas ni infieras pesos de capital (equity/deuda), tasas o supuestos que no te fueron entregados.\n  Párrafo 2: Resultado — EV, equity value, rango\n  Párrafo 3: Composición del valor — cita terminalValue/discountedTV y el enterpriseValue si están disponibles\n  Párrafo 4: Interpretación ejecutiva — qué sostiene el valor y sensibilidad\nExtensión: máximo 4 párrafos · 300–400 palabras\n\nDescribe el peso del valor terminal (discountedTV) frente al Enterprise Value únicamente a partir de los datos entregados. No afirmes que domina salvo que los datos lo sustenten. No calcules ni menciones un porcentaje/participación que no te fue entregado explícitamente.\nSiempre menciona el rango, no solo el punto central.`,
     dataKeys: ["enterpriseValue", "equityValue", "wacc", "costOfEquity", "costOfDebtAfterTax", "discountedTV", "evEbitda", "evRevenue", "terminalValue", "betaLevered", "netDebt", "evLow", "evHigh", "projections"],
-    maxTokens: 700,
+    // Budget candidato de hardening: 700→1000 — CASE_A/valuation_analysis
+    // falló 2/2 con max_tokens/NO_TEXT_IN_RESPONSE en la evidencia real.
+    maxTokens: 1000,
   },
 ];
 
@@ -92,13 +131,15 @@ Estructura:
   Párrafo 4: Cuál es el siguiente frente lógico de gestión
   Párrafo 5: Cierre institucional — una línea que sintetice el mensaje central
 
-Extensión: 5 párrafos · 300–450 palabras
+Extensión: máximo 5 párrafos · 250–350 palabras
 
 La conclusión debe ser consistente con el resumen ejecutivo, los riesgos y las recomendaciones.
 No introduzcas información nueva. No repitas párrafos de otras secciones.
 Si hay limitaciones de datos: reconocerlas sin minimizarlas.
 Devuelve únicamente el texto, sin encabezados ni JSON.`;
 
+// Budget candidato de hardening: se mantiene en 800 (ya coincidía con el
+// target de la propuesta) — ver Subbloque 2.E, sección 4.
 export const CONCLUSION_MAX_TOKENS = 800;
 
 // ── SYSTEM_AUDITOR — idéntico a generate-narrative/index.ts línea 262 ──
@@ -112,6 +153,10 @@ Verifica estos seis criterios:
 4. RECOMENDACIONES SIN RESPALDO — ¿Alguna recomendación no se conecta con hallazgos?
 5. TONO INCONSISTENTE — ¿Hay pérdidas pero la narrativa suena optimista, o viceversa?
 6. INCONSISTENCIA ENTRE SECCIONES — ¿El resumen ejecutivo contradice la conclusión?
+
+${FINANCIAL_SEMANTIC_GUARDRAILS}
+
+Aplica estos mismos guardrails al auditar: una narrativa que compare un margen contra el WACC para argumentar creación de valor, que describa interestCoverage como EBITDA/intereses, o que use "pérdida operativa" con EBIT positivo, es una CONTRADICCION que debes reportar en el arreglo issues.
 
 Devuelve ÚNICAMENTE este JSON:
 {
@@ -132,7 +177,9 @@ Devuelve ÚNICAMENTE este JSON:
 Si no hay problemas: audit_passed = true, score = 100, issues = [].
 Solo JSON. Sin texto adicional.`;
 
-export const AUDIT_MAX_TOKENS = 1200;
+// Budget candidato de hardening: 1200→1000 — solo JSON, sin prosa fuera
+// del JSON (ver Subbloque 2.E, sección 4).
+export const AUDIT_MAX_TOKENS = 1000;
 
 // ── generateRecommendations/recMap — snapshot de generate-narrative/index.ts líneas 185-210 ──
 interface RecommendationRule {

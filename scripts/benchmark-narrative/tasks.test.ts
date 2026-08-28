@@ -4,7 +4,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BENCHMARK_TASKS } from "./types";
 import { findFixture } from "./fixtures";
-import { SYSTEM_BASE, SYSTEM_CONCLUSION, SYSTEM_AUDITOR, SECTION_TASKS, buildTaskInput, buildViewModel, deriveEstado, generateRecommendations } from "./tasks";
+import { SYSTEM_BASE, SYSTEM_CONCLUSION, SYSTEM_AUDITOR, SECTION_TASKS, FINANCIAL_SEMANTIC_GUARDRAILS, buildTaskInput, buildViewModel, deriveEstado, generateRecommendations } from "./tasks";
 import { detectRisks } from "../../supabase/functions/_shared/narrative-calculation-adapter";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -109,5 +109,40 @@ describe("snapshot de prompts — divergencia frente a generate-narrative/index.
     for (const id of ["END_001", "END_002", "RENT_001", "RENT_003", "CREC_001", "VAL_001", "VAL_002"]) {
       expect(GENERATE_NARRATIVE_SOURCE).toContain(`${id}:`);
     }
+  });
+
+  it("FINANCIAL_SEMANTIC_GUARDRAILS es un candidato de hardening que NO existe todavía en generate-narrative/index.ts real", () => {
+    expect(GENERATE_NARRATIVE_SOURCE).not.toContain("GUARDRAILS SEMÁNTICOS FINANCIEROS");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Hardening — guardrails semánticos financieros (Subbloque 2.E, evidencia
+// de 2 benchmarks reales). Confirma que la propuesta de hardening aparece
+// en el input real de las 4 tareas narrativas relevantes y del auditor —
+// NO que ya esté activa en producción (ver test de arriba).
+// ═══════════════════════════════════════════════════════════════
+
+describe("FINANCIAL_SEMANTIC_GUARDRAILS aparece en el input de las tareas relevantes", () => {
+  const fixture = findFixture("CASE_A_MODERATE");
+  const GUARDRAIL_MARKER = "GUARDRAILS SEMÁNTICOS FINANCIEROS";
+
+  it("executive_summary, profitability_analysis, valuation_analysis y conclusion incluyen los guardrails en systemPrompt", () => {
+    for (const task of ["executive_summary", "profitability_analysis", "valuation_analysis", "conclusion"] as const) {
+      const input = buildTaskInput(task, fixture);
+      expect(input.systemPrompt).toContain(GUARDRAIL_MARKER);
+    }
+  });
+
+  it("SYSTEM_AUDITOR también conoce los guardrails al evaluar narrativas", () => {
+    const input = buildTaskInput("narrative_audit", fixture);
+    expect(input.systemPrompt).toContain(GUARDRAIL_MARKER);
+    expect(SYSTEM_AUDITOR).toContain(GUARDRAIL_MARKER);
+  });
+
+  it("los 7 guardrails cubren explícitamente EBITDA-vs-WACC, interestCoverage=EBIT/interés, y 'pérdida operativa' con EBIT>0", () => {
+    expect(FINANCIAL_SEMANTIC_GUARDRAILS).toMatch(/margen.*wacc/is);
+    expect(FINANCIAL_SEMANTIC_GUARDRAILS).toContain("EBIT / interest_expense");
+    expect(FINANCIAL_SEMANTIC_GUARDRAILS).toContain('Nunca "pérdida operativa"');
   });
 });

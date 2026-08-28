@@ -14,6 +14,12 @@
 // Primera ronda: 1 ejecución por combinación (3 casos × 5 tareas × 2
 // proveedores = 30), sin `--runs` — a diferencia de scripts/benchmark-ai/,
 // aquí no se pidieron repeticiones para la primera ronda.
+//
+// --profile hardening-retest (FASE 1E/1E-hardening): retest dirigido de
+// 7 pares fixture-tarea × 2 proveedores = 14 combinaciones — ver
+// HARDENING_RETEST_TASKS_BY_FIXTURE. NO cambia el comportamiento default
+// (sin --profile sigue siendo 3×5×2=30) y NO implica --execute:
+//   npx tsx scripts/benchmark-narrative/runner.ts --profile hardening-retest --dry-run
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -35,9 +41,34 @@ export interface BenchmarkCombination {
   provider: Provider;
 }
 
-/** Genera la matriz completa fixtures × tareas × proveedores — función pura, sin red. */
-export function buildCombinations(): BenchmarkCombination[] {
+export type BenchmarkProfile = "default" | "hardening-retest";
+
+// Perfil de retest dirigido (FASE 1E/1E-hardening, evidencia de 2
+// benchmarks reales — ver tasks.ts::FINANCIAL_SEMANTIC_GUARDRAILS). NO
+// cambia el comportamiento default (3×5×2=30, sin --profile). Cubre
+// exactamente los 7 pares fixture-tarea donde se observó el error real:
+// NO_TEXT/max_tokens de Anthropic en valuation_analysis, EBITDA-vs-WACC,
+// interestCoverage mal descrito, "pérdida operativa" con EBIT positivo
+// (CASE_B), y truncamiento en profitability/valuation.
+export const HARDENING_RETEST_TASKS_BY_FIXTURE: Readonly<Record<FixtureId, readonly BenchmarkTask[]>> = {
+  CASE_A_MODERATE: ["valuation_analysis", "conclusion"],
+  CASE_B_FINANCIAL_STRESS: ["executive_summary", "profitability_analysis"],
+  CASE_C_INCOMPLETE_EVIDENCE: ["profitability_analysis", "valuation_analysis", "conclusion"],
+};
+
+/** Genera la matriz de combinaciones para el `profile` dado — función pura, sin red. Default: fixtures × tareas × proveedores completo (3×5×2=30, comportamiento sin cambios). `hardening-retest`: solo los 7 pares fixture-tarea de HARDENING_RETEST_TASKS_BY_FIXTURE × 2 proveedores = 14. */
+export function buildCombinations(profile: BenchmarkProfile = "default"): BenchmarkCombination[] {
   const combos: BenchmarkCombination[] = [];
+  if (profile === "hardening-retest") {
+    for (const fixture of BENCHMARK_FIXTURES) {
+      for (const task of HARDENING_RETEST_TASKS_BY_FIXTURE[fixture.id]) {
+        for (const provider of PROVIDERS) {
+          combos.push({ fixtureId: fixture.id, task, provider });
+        }
+      }
+    }
+    return combos;
+  }
   for (const fixture of BENCHMARK_FIXTURES) {
     for (const task of BENCHMARK_TASKS) {
       for (const provider of PROVIDERS) {
@@ -55,12 +86,13 @@ export interface PlannedMatrix {
   combinations: number;
 }
 
-export function planMatrix(): PlannedMatrix {
+export function planMatrix(profile: BenchmarkProfile = "default"): PlannedMatrix {
+  const combos = buildCombinations(profile);
   return {
-    fixtures: BENCHMARK_FIXTURES.length,
-    tasks: BENCHMARK_TASKS.length,
+    fixtures: new Set(combos.map((c) => c.fixtureId)).size,
+    tasks: new Set(combos.map((c) => c.task)).size,
     providers: PROVIDERS.length,
-    combinations: BENCHMARK_FIXTURES.length * BENCHMARK_TASKS.length * PROVIDERS.length,
+    combinations: combos.length,
   };
 }
 
@@ -88,13 +120,16 @@ export function checkProviderConfig(provider: Provider): ProviderConfigStatus {
 
 export interface ParsedArgs {
   mode: "dry-run" | "execute";
+  profile: BenchmarkProfile;
 }
 
 export type ParseArgsResult = { ok: true; args: ParsedArgs } | { ok: false; error: string };
 
 /**
  * Parseo de argumentos — fail-closed y puro (no toca red, no imprime).
- * Sin flags -> dry-run. --dry-run y --execute simultáneos -> error.
+ * Sin flags -> dry-run + profile default. --dry-run y --execute
+ * simultáneos -> error. `--profile hardening-retest` NO implica
+ * --execute — sigue siendo dry-run salvo que --execute se pase aparte.
  */
 export function parseArgs(argv: readonly string[]): ParseArgsResult {
   const hasDryRun = argv.includes("--dry-run");
@@ -102,7 +137,18 @@ export function parseArgs(argv: readonly string[]): ParseArgsResult {
   if (hasDryRun && hasExecute) {
     return { ok: false, error: "No se puede pasar --dry-run y --execute al mismo tiempo." };
   }
-  return { ok: true, args: { mode: hasExecute ? "execute" : "dry-run" } };
+
+  let profile: BenchmarkProfile = "default";
+  const profileFlagIndex = argv.indexOf("--profile");
+  if (profileFlagIndex !== -1) {
+    const value = argv[profileFlagIndex + 1];
+    if (value !== "default" && value !== "hardening-retest") {
+      return { ok: false, error: `--profile inválido: "${value ?? "(ausente)"}" — valores permitidos: default, hardening-retest.` };
+    }
+    profile = value;
+  }
+
+  return { ok: true, args: { mode: hasExecute ? "execute" : "dry-run", profile } };
 }
 
 async function callProvider(
@@ -117,12 +163,13 @@ async function callProvider(
     : callOpenAI(systemPrompt, userPrompt, maxTokens, model);
 }
 
-function printDryRunReport(): void {
-  const plan = planMatrix();
+function printDryRunReport(profile: BenchmarkProfile): void {
+  const plan = planMatrix(profile);
   const anthropicStatus = checkProviderConfig("anthropic");
   const openaiStatus = checkProviderConfig("openai");
 
   console.log(`modo=dry-run`);
+  console.log(`profile=${profile}`);
   console.log(`fixtures=${plan.fixtures}`);
   console.log(`tasks=${plan.tasks}`);
   console.log(`providers=${plan.providers}`);
@@ -135,7 +182,7 @@ function printDryRunReport(): void {
   console.log(`openai_model_configured=${openaiStatus.modelConfigured ? "YES" : "NO"}`);
 
   console.log(`--- matriz prevista ---`);
-  for (const combo of buildCombinations()) {
+  for (const combo of buildCombinations(profile)) {
     console.log(`fixture=${combo.fixtureId} task=${combo.task} provider=${combo.provider}`);
   }
 
@@ -148,8 +195,8 @@ function printDryRunReport(): void {
   console.log(`network_requests=0`);
 }
 
-async function runExecute(): Promise<void> {
-  const combos = buildCombinations();
+async function runExecute(profile: BenchmarkProfile): Promise<void> {
+  const combos = buildCombinations(profile);
   const anthropicModel = process.env.ANTHROPIC_BENCHMARK_MODEL;
   const openaiModel = process.env.OPENAI_BENCHMARK_MODEL;
   const results: ProviderResult[] = [];
@@ -188,11 +235,11 @@ async function main(): Promise<void> {
   }
 
   if (parsed.args.mode === "dry-run") {
-    printDryRunReport();
+    printDryRunReport(parsed.args.profile);
     return;
   }
 
-  await runExecute();
+  await runExecute(parsed.args.profile);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

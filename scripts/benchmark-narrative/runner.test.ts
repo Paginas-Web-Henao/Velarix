@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { buildCombinations, planMatrix, parseArgs, checkProviderConfig } from "./runner";
+import { buildCombinations, planMatrix, parseArgs, checkProviderConfig, HARDENING_RETEST_TASKS_BY_FIXTURE } from "./runner";
 import { BENCHMARK_FIXTURES } from "./fixtures";
 import { BENCHMARK_TASKS, PROVIDERS } from "./types";
 
@@ -30,10 +30,13 @@ describe("D. planMatrix / buildCombinations — 3 casos × 5 tareas × 2 proveed
 });
 
 describe("E. parseArgs — dry-run por defecto, cero red por construcción (parseArgs no toca red)", () => {
-  it("sin flags: modo dry-run", () => {
+  it("sin flags: modo dry-run, profile default", () => {
     const r = parseArgs([]);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.args.mode).toBe("dry-run");
+    if (r.ok) {
+      expect(r.args.mode).toBe("dry-run");
+      expect(r.args.profile).toBe("default");
+    }
   });
 
   it("--dry-run explícito: modo dry-run", () => {
@@ -46,6 +49,73 @@ describe("E. parseArgs — dry-run por defecto, cero red por construcción (pars
     const r = parseArgs(["--execute"]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.args.mode).toBe("execute");
+  });
+
+  it("--profile hardening-retest --dry-run: profile=hardening-retest, modo dry-run (el profile NO implica --execute)", () => {
+    const r = parseArgs(["--profile", "hardening-retest", "--dry-run"]);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.args.profile).toBe("hardening-retest");
+      expect(r.args.mode).toBe("dry-run");
+    }
+  });
+
+  it("--profile hardening-retest sin --execute: sigue siendo dry-run por defecto", () => {
+    const r = parseArgs(["--profile", "hardening-retest"]);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.args.mode).toBe("dry-run");
+  });
+
+  it("--profile con valor inválido: rechazado", () => {
+    const r = parseArgs(["--profile", "algo-invalido"]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain("--profile inválido");
+  });
+});
+
+describe("hardening-retest profile — 7 pares fixture-tarea × 2 proveedores = 14 combinaciones", () => {
+  it("HARDENING_RETEST_TASKS_BY_FIXTURE cubre exactamente los 7 pares especificados", () => {
+    expect(HARDENING_RETEST_TASKS_BY_FIXTURE.CASE_A_MODERATE).toEqual(["valuation_analysis", "conclusion"]);
+    expect(HARDENING_RETEST_TASKS_BY_FIXTURE.CASE_B_FINANCIAL_STRESS).toEqual(["executive_summary", "profitability_analysis"]);
+    expect(HARDENING_RETEST_TASKS_BY_FIXTURE.CASE_C_INCOMPLETE_EVIDENCE).toEqual(["profitability_analysis", "valuation_analysis", "conclusion"]);
+  });
+
+  it("buildCombinations('hardening-retest') genera exactamente 14 combinaciones, 7 por proveedor", () => {
+    const combos = buildCombinations("hardening-retest");
+    expect(combos.length).toBe(14);
+    const byProvider = { anthropic: 0, openai: 0 };
+    for (const c of combos) byProvider[c.provider]++;
+    expect(byProvider.anthropic).toBe(7);
+    expect(byProvider.openai).toBe(7);
+  });
+
+  it("cubre exactamente los 7 pares fixture::task especificados, sin duplicados ni extras", () => {
+    const combos = buildCombinations("hardening-retest");
+    const pairs = new Set(combos.map((c) => `${c.fixtureId}::${c.task}`));
+    expect(pairs.size).toBe(7);
+    expect([...pairs].sort()).toEqual(
+      [
+        "CASE_A_MODERATE::valuation_analysis",
+        "CASE_A_MODERATE::conclusion",
+        "CASE_B_FINANCIAL_STRESS::executive_summary",
+        "CASE_B_FINANCIAL_STRESS::profitability_analysis",
+        "CASE_C_INCOMPLETE_EVIDENCE::profitability_analysis",
+        "CASE_C_INCOMPLETE_EVIDENCE::valuation_analysis",
+        "CASE_C_INCOMPLETE_EVIDENCE::conclusion",
+      ].sort(),
+    );
+  });
+
+  it("planMatrix('hardening-retest') reporta combinations=14", () => {
+    const plan = planMatrix("hardening-retest");
+    expect(plan.combinations).toBe(14);
+  });
+
+  it("planMatrix() default (sin argumento) sigue reportando 30 — comportamiento default sin cambios", () => {
+    const plan = planMatrix();
+    expect(plan.combinations).toBe(30);
+    expect(plan.fixtures).toBe(3);
+    expect(plan.tasks).toBe(5);
   });
 });
 

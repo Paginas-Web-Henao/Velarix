@@ -8,6 +8,8 @@ import {
   detectContradictsCalculation,
   detectTreatsMissingAsZero,
   detectInventsMethodology,
+  detectMarginVsWaccValueClaim,
+  detectCoverageDescribedAsEbitda,
   scoreOutput,
   CASE_C_NULL_FIELD_LABELS,
 } from "./scoring";
@@ -137,6 +139,110 @@ describe("detectInventsMethodology", () => {
   it("mención de DCF/WACC (metodología real) no se flaggea", () => {
     const result = detectInventsMethodology("La valoración por DCF utiliza un WACC de 10.1%.");
     expect(result.flagged).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Hardening — detectores basados en errores OBSERVADOS en las 2 corridas
+// reales (Subbloque 2.E, sección 5 de la tarea).
+// ═══════════════════════════════════════════════════════════════
+
+describe("A. detectMarginVsWaccValueClaim — margen EBITDA > WACC usado para argumentar creación de valor", () => {
+  it("dispara con 'margen EBITDA ... WACC ... creación de valor' en la misma oración", () => {
+    const result = detectMarginVsWaccValueClaim("El margen EBITDA de 21.0% supera ampliamente el WACC de 10.1%, lo que evidencia creación de valor para los accionistas.");
+    expect(result.flagged).toBe(true);
+  });
+
+  it("dispara con lenguaje de 'spread' entre margen y WACC", () => {
+    const result = detectMarginVsWaccValueClaim("El spread entre el margen EBITDA y el WACC sugiere que la empresa genera valor de forma sostenida.");
+    expect(result.flagged).toBe(true);
+  });
+
+  it("NO dispara si solo se mencionan margen y WACC sin lenguaje de creación de valor", () => {
+    const result = detectMarginVsWaccValueClaim("El margen EBITDA se ubica en 21.0% y el WACC utilizado en la valoración es de 10.1%.");
+    expect(result.flagged).toBe(false);
+  });
+
+  it("NO dispara si margen y WACC aparecen en oraciones distintas", () => {
+    const result = detectMarginVsWaccValueClaim("El margen EBITDA se ubica en 21.0%, un nivel saludable. El WACC de 10.1% refleja el costo de capital de la empresa, lo que sustenta la creación de valor observada en otros indicadores.");
+    // Ambas condiciones (margen+wacc en la misma oración) no se cumplen — solo la segunda oración trae wacc+creación de valor, sin margen.
+    expect(result.flagged).toBe(false);
+  });
+});
+
+describe("B. detectCoverageDescribedAsEbitda — interestCoverage descrito como EBITDA/intereses (canónico es EBIT/interest_expense)", () => {
+  it("dispara con 'cobertura de intereses ... EBITDA/intereses'", () => {
+    const result = detectCoverageDescribedAsEbitda("La cobertura de intereses, calculada como EBITDA/intereses, es de 7.5x en el período.");
+    expect(result.flagged).toBe(true);
+  });
+
+  it("dispara con 'EBITDA sobre gastos financieros'", () => {
+    const result = detectCoverageDescribedAsEbitda("La cobertura resulta de dividir el EBITDA sobre los gastos financieros del período.");
+    expect(result.flagged).toBe(true);
+  });
+
+  it("NO dispara cuando la cobertura se describe correctamente (sin vincularla a EBITDA)", () => {
+    const result = detectCoverageDescribedAsEbitda("La cobertura de intereses de 7.5x refleja holgura para el servicio de la deuda.");
+    expect(result.flagged).toBe(false);
+  });
+});
+
+describe("C. CASE_B — EBIT positivo (ebitMargin=10) y net margin negativo: 'pérdida operativa' contradice el ground truth", () => {
+  it("detectContradictsCalculation flaggea 'pérdida operativa' (singular) con CASE_B", () => {
+    const vm = buildViewModel(findFixture("CASE_B_FINANCIAL_STRESS"));
+    expect(vm.kpis.ebitMargin).toBeGreaterThan(0);
+    expect(vm.kpis.netMargin).toBeLessThan(0);
+    const result = detectContradictsCalculation("La empresa presenta una pérdida operativa en el período, producto de la presión financiera observada.", vm);
+    expect(result.flagged).toBe(true);
+  });
+
+  it("detectContradictsCalculation flaggea 'operación en pérdidas' con CASE_B", () => {
+    const vm = buildViewModel(findFixture("CASE_B_FINANCIAL_STRESS"));
+    const result = detectContradictsCalculation("La compañía se encuentra en operación en pérdidas durante el período analizado.", vm);
+    expect(result.flagged).toBe(true);
+  });
+
+  it("no flaggea la formulación correcta 'resultado neto negativo' con CASE_B", () => {
+    const vm = buildViewModel(findFixture("CASE_B_FINANCIAL_STRESS"));
+    const result = detectContradictsCalculation("La empresa registra un resultado neto negativo pese a un EBIT positivo, señal de presión financiera.", vm);
+    expect(result.flagged).toBe(false);
+  });
+});
+
+describe("D. 'margen bruto evidencia poder de fijación de precios' sin evidencia adicional — unsupported_financial_claim", () => {
+  it("detectUnsupportedClaim dispara con 'poder de fijación de precios'", () => {
+    const result = detectUnsupportedClaim("El margen bruto elevado evidencia un fuerte poder de fijación de precios frente a sus clientes.");
+    expect(result.flagged).toBe(true);
+  });
+});
+
+describe("E. 'beta elevado por la ciclicidad del sector' sin evidencia causal — unsupported_financial_claim", () => {
+  it("detectUnsupportedClaim dispara con beta + ciclicidad del sector en la misma oración", () => {
+    const result = detectUnsupportedClaim("El beta elevado se explica por la ciclicidad del sector en el que opera la empresa.");
+    expect(result.flagged).toBe(true);
+  });
+
+  it("NO dispara con 'ciclicidad del sector' sin mención de beta", () => {
+    const result = detectUnsupportedClaim("El sector presenta ciclicidad del sector conocida por los analistas de la industria.");
+    expect(result.flagged).toBe(false);
+  });
+});
+
+describe("scoreOutput — los 2 detectores de hardening se reflejan en unsupported_financial_claim/invents_methodology", () => {
+  it("margen vs WACC se refleja en unsupported_financial_claim", () => {
+    const fixture = findFixture("CASE_A_MODERATE");
+    const vm = buildViewModel(fixture);
+    const text = "El margen EBITDA de 21.0% supera el WACC de 10.1%, lo que evidencia creación de valor.";
+    const result = scoreOutput(text, [], vm);
+    expect(result.unsupported_financial_claim).toBe(true);
+  });
+
+  it("interestCoverage descrito como EBITDA/intereses se refleja en invents_methodology", () => {
+    const fixture = findFixture("CASE_A_MODERATE");
+    const vm = buildViewModel(fixture);
+    const text = "La cobertura de intereses, calculada como EBITDA/intereses, es de 7.5x.";
+    const result = scoreOutput(text, [], vm);
+    expect(result.invents_methodology).toBe(true);
   });
 });
 

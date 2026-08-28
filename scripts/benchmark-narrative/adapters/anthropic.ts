@@ -88,12 +88,34 @@ export async function callAnthropic(
     }
 
     const textBlock = (data.content ?? []).find((b) => b.type === "text");
+    const text = textBlock?.text ?? null;
+
+    // Hardening (FASE 1E/1E-hardening, evidencia de 2 benchmarks reales):
+    // stop_reason="max_tokens" es un HTTP/API success pero NUNCA una
+    // narrativa completa — 24/30 llamadas Anthropic terminaron así en la
+    // segunda corrida, y varias quedaban reportadas como success=true pese
+    // a estar truncadas. Se distingue explícitamente "HTTP/API success" de
+    // "NARRATIVE COMPLETION success": con max_tokens, success siempre es
+    // false y errorCode="INCOMPLETE", exista o no texto parcial. El texto
+    // parcial (si lo hay) se preserva igual en `text` — nunca se descarta.
+    if (stopReason === "max_tokens") {
+      return {
+        provider: "anthropic", model: model as string, text,
+        inputTokens: data.usage?.input_tokens ?? null, outputTokens: data.usage?.output_tokens ?? null,
+        latencyMs, success: false, rateLimited: false, errorCode: "INCOMPLETE",
+        errorMessage: text != null
+          ? "respuesta truncada por max_tokens — texto parcial preservado"
+          : "respuesta truncada por max_tokens — sin texto",
+        stopReason,
+      };
+    }
+
     return {
-      provider: "anthropic", model: model as string, text: textBlock?.text ?? null,
+      provider: "anthropic", model: model as string, text,
       inputTokens: data.usage?.input_tokens ?? null, outputTokens: data.usage?.output_tokens ?? null,
-      latencyMs, success: textBlock?.text != null, rateLimited: false,
-      errorCode: textBlock?.text != null ? null : "NO_TEXT_IN_RESPONSE",
-      errorMessage: textBlock?.text != null ? null : "la respuesta no trae ningún bloque de texto",
+      latencyMs, success: text != null, rateLimited: false,
+      errorCode: text != null ? null : "NO_TEXT_IN_RESPONSE",
+      errorMessage: text != null ? null : "la respuesta no trae ningún bloque de texto",
       stopReason,
     };
   } catch (e) {
