@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { buildCombinations, planMatrix, parseArgs, checkProviderConfig, HARDENING_RETEST_TASKS_BY_FIXTURE } from "./runner";
+import { buildCombinations, planMatrix, parseArgs, checkProviderConfig, taskIdsForProfile, HARDENING_RETEST_TASKS_BY_FIXTURE } from "./runner";
 import { BENCHMARK_FIXTURES } from "./fixtures";
 import { BENCHMARK_TASKS, PROVIDERS } from "./types";
 
@@ -116,6 +116,39 @@ describe("hardening-retest profile — 7 pares fixture-tarea × 2 proveedores = 
     expect(plan.combinations).toBe(30);
     expect(plan.fixtures).toBe(3);
     expect(plan.tasks).toBe(5);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Corrección de reporting — task_ids del dry-run debe derivarse de las
+// combinaciones EFECTIVAS del profile, no del inventario global
+// BENCHMARK_TASKS (bug detectado: hardening-retest reportaba tasks=4 pero
+// task_ids incluía las 5 tareas, incluyendo narrative_audit que no forma
+// parte del profile).
+// ═══════════════════════════════════════════════════════════════
+
+describe("taskIdsForProfile — deriva task_ids de las combinaciones reales, no del inventario global", () => {
+  it("A. default profile: tasks=5, task_ids contiene exactamente los 5 tasks", () => {
+    const combos = buildCombinations("default");
+    const taskIds = taskIdsForProfile(combos);
+    expect(taskIds.length).toBe(5);
+    expect(taskIds).toEqual(BENCHMARK_TASKS);
+  });
+
+  it("B. hardening-retest: tasks=4, task_ids contiene exactamente executive_summary/profitability_analysis/valuation_analysis/conclusion, sin narrative_audit", () => {
+    const combos = buildCombinations("hardening-retest");
+    const taskIds = taskIdsForProfile(combos);
+    expect(taskIds.length).toBe(4);
+    expect(taskIds).toEqual(["executive_summary", "profitability_analysis", "valuation_analysis", "conclusion"]);
+    expect(taskIds).not.toContain("narrative_audit");
+  });
+
+  it("C. hardening-retest: planned_combinations=14 sin alterar la matriz", () => {
+    const combos = buildCombinations("hardening-retest");
+    expect(combos.length).toBe(14);
+    const plan = planMatrix("hardening-retest");
+    expect(plan.combinations).toBe(14);
+    expect(plan.tasks).toBe(4);
   });
 });
 

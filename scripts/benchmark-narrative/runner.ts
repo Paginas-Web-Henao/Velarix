@@ -163,8 +163,15 @@ async function callProvider(
     : callOpenAI(systemPrompt, userPrompt, maxTokens, model);
 }
 
+/** task_ids reportados en dry-run: derivados de las combinaciones EFECTIVAS del profile (nunca del inventario global BENCHMARK_TASKS), preservando el orden canónico de BENCHMARK_TASKS. Para "default" coincide con los 5 tasks; para "hardening-retest" excluye narrative_audit porque ningún combo del profile lo incluye. */
+export function taskIdsForProfile(combos: readonly BenchmarkCombination[]): BenchmarkTask[] {
+  const present = new Set(combos.map((c) => c.task));
+  return BENCHMARK_TASKS.filter((t) => present.has(t));
+}
+
 function printDryRunReport(profile: BenchmarkProfile): void {
   const plan = planMatrix(profile);
+  const combos = buildCombinations(profile);
   const anthropicStatus = checkProviderConfig("anthropic");
   const openaiStatus = checkProviderConfig("openai");
 
@@ -175,14 +182,14 @@ function printDryRunReport(profile: BenchmarkProfile): void {
   console.log(`providers=${plan.providers}`);
   console.log(`planned_combinations=${plan.combinations}`);
   console.log(`fixture_ids=${BENCHMARK_FIXTURES.map((f) => f.id).join(",")}`);
-  console.log(`task_ids=${BENCHMARK_TASKS.join(",")}`);
+  console.log(`task_ids=${taskIdsForProfile(combos).join(",")}`);
   console.log(`anthropic_key_present=${anthropicStatus.keyPresent ? "YES" : "NO"}`);
   console.log(`anthropic_model_configured=${anthropicStatus.modelConfigured ? "YES" : "NO"}`);
   console.log(`openai_key_present=${openaiStatus.keyPresent ? "YES" : "NO"}`);
   console.log(`openai_model_configured=${openaiStatus.modelConfigured ? "YES" : "NO"}`);
 
   console.log(`--- matriz prevista ---`);
-  for (const combo of buildCombinations(profile)) {
+  for (const combo of combos) {
     console.log(`fixture=${combo.fixtureId} task=${combo.task} provider=${combo.provider}`);
   }
 
