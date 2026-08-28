@@ -3,15 +3,29 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
+import {
+  assertNarrativeCalculationResult,
+  mapCalculationResultToNarrativeViewModel,
+  buildCalculationMeta,
+  detectRisks,
+  CalculationResultRequiredError,
+  UnsupportedCalculationResultError,
+  type NarrativeCalculationViewModel,
+} from "../_shared/narrative-calculation-adapter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const NARRATIVE_GENERATION_VERSION = "4.1";
+
 // ═══════════════════════════════════════════════════════════════
-// VELARIX v4.0 — Motor Narrativo Institucional Completo
+// VELARIX v4.1 — Motor Narrativo Institucional Completo
 // Bloques 3-5: 20 secciones + riesgos + recomendaciones + auditoría
+// Bloque 1E/Subbloque 2: consume exclusivamente analyses.calculation_result
+// canónico (vía narrative-calculation-adapter.ts) — ya no acepta cifras
+// financieras desde el request.
 // ═══════════════════════════════════════════════════════════════
 
 const SYSTEM_BASE = `Eres el analista financiero senior de Velarix, una plataforma de inteligencia financiera institucional para empresas colombianas.
@@ -32,41 +46,41 @@ IDIOMA: Español colombiano formal. Términos técnicos en inglés: DCF, WACC, E
 
 Devuelve únicamente el texto de la sección. Sin JSON. Sin encabezados. Sin markdown.`;
 
-// ── Section definitions (Bloques 3+4) ──
+// ── Section definitions (Bloques 3+4) — dataKeys ya sobre nombres canónicos ──
 const SECTIONS = [
   {
     key: "executive_summary",
     title: "Resumen Ejecutivo",
     system: `${SYSTEM_BASE}\n\nTu función es redactar el resumen ejecutivo del informe. Esta es la sección más importante: debe permitir entender completamente el caso sin leer el resto.\n\nEstructura obligatoria:\n  Párrafo 1: Diagnóstico general de la empresa\n  Párrafo 2: Principales fortalezas (máximo 2, con dato)\n  Párrafo 3: Principales debilidades o riesgos (máximo 2, con dato)\n  Párrafo 4: Resultado de valoración (si existe) — EV, rango, WACC\n  Párrafo 5: Recomendación ejecutiva de cierre\n\nExtensión: 5 párrafos · 250–400 palabras`,
-    dataKeys: ["enterpriseValue", "equityValue", "wacc", "ke", "betaLevered", "evEbitdaImplied", "evRevenueImplied", "netDebt", "evLow", "evHigh", "kpis", "growth"],
+    dataKeys: ["enterpriseValue", "equityValue", "wacc", "costOfEquity", "betaLevered", "evEbitda", "evRevenue", "netDebt", "evLow", "evHigh", "kpis", "growth"],
     maxTokens: 800,
   },
   {
     key: "company_profile",
     title: "Perfil de la Empresa",
-    system: `${SYSTEM_BASE}\n\nRedacta la sección de perfil de la empresa.\n  Párrafo 1: Contexto del caso (empresa, sector, períodos, tipo de análisis)\n  Párrafo 2: Características inferibles del comportamiento financiero\n  Párrafo 3: Alcance y limitaciones del análisis\nExtensión: 2–3 párrafos · 100–150 palabras\nNo inventes características del negocio que no estén en los datos.`,
-    dataKeys: ["kpis", "growth"],
+    system: `${SYSTEM_BASE}\n\nRedacta la sección de perfil de la empresa.\n  Párrafo 1: Contexto del caso (empresa, sector, período base, tipo de análisis)\n  Párrafo 2: Características inferibles del comportamiento financiero\n  Párrafo 3: Alcance y limitaciones del análisis\nExtensión: 2–3 párrafos · 100–150 palabras\nNo inventes características del negocio que no estén en los datos.\nSolo dispones del período base (historical.base_period), no de una serie histórica de varios períodos.`,
+    dataKeys: ["kpis", "growth", "historical"],
     maxTokens: 400,
   },
   {
     key: "revenue_analysis",
     title: "Análisis de Ingresos y Crecimiento",
-    system: `${SYSTEM_BASE}\n\nRedacta el análisis de ingresos y crecimiento.\n  Párrafo 1: Dato — nivel absoluto de ingresos y evolución\n  Párrafo 2: Interpretación — qué dice la tendencia sobre el negocio\n  Párrafo 3: Implicación — sostenibilidad y base para proyecciones\nExtensión: 3–4 párrafos · 150–200 palabras\nSi solo hay un período: describe nivel absoluto sin inventar tendencia.\nSi crecimiento > 50%: advertir que es agresivo sin dramatizar.`,
-    dataKeys: ["kpis", "proyecciones", "growth"],
+    system: `${SYSTEM_BASE}\n\nRedacta el análisis de ingresos y crecimiento.\n  Párrafo 1: Dato — nivel de ingresos del período base (historical.income_statement.revenue) y proyecciones ya calculadas (projections)\n  Párrafo 2: Interpretación — qué dice el supuesto de crecimiento (growth) sobre el negocio\n  Párrafo 3: Implicación — sostenibilidad y base para las proyecciones entregadas\nExtensión: 3–4 párrafos · 150–200 palabras\nEl período base no constituye por sí solo una tendencia histórica. No infieras evolución histórica no entregada.\nSi crecimiento > 50%: advertir que es agresivo sin dramatizar.`,
+    dataKeys: ["historical", "projections", "growth"],
     maxTokens: 500,
   },
   {
     key: "cost_analysis",
     title: "Análisis de Costos y Estructura Operativa",
-    system: `${SYSTEM_BASE}\n\nRedacta el análisis de costos y estructura operativa.\n  Párrafo 1: Dato — composición de costos y peso relativo sobre ingresos\n  Párrafo 2: Interpretación — eficiencia o presión de la estructura\n  Párrafo 3: Implicación — modelo operativo y márgenes\nExtensión: 3–4 párrafos · 150–200 palabras`,
-    dataKeys: ["kpis"],
+    system: `${SYSTEM_BASE}\n\nRedacta el análisis de costos y estructura operativa.\n  Párrafo 1: Dato — cifras del período base disponibles en historical.income_statement (revenue, cost_of_sales, opex, da, ebitda, ebit) y los márgenes ya calculados en kpis\n  Párrafo 2: Interpretación — eficiencia o presión de la estructura, usando los márgenes de kpis (no calcules nuevos porcentajes)\n  Párrafo 3: Implicación — modelo operativo y márgenes\nExtensión: 3–4 párrafos · 150–200 palabras\nMenciona solo las cifras de historical.income_statement que estén presentes (no nulas) — si alguna falta, omítela sin señalarlo.\nNo calcules ningún porcentaje/ratio nuevo — usa exclusivamente los márgenes ya presentes en kpis.`,
+    dataKeys: ["kpis", "historical"],
     maxTokens: 500,
   },
   {
     key: "profitability_analysis",
     title: "Análisis de Rentabilidad",
-    system: `${SYSTEM_BASE}\n\nRedacta el análisis de rentabilidad.\n  Párrafo 1: Dato — márgenes actuales (bruto, EBITDA, neto)\n  Párrafo 2: Interpretación — capacidad de captura de valor\n  Párrafo 3: Comparación sectorial (si benchmark disponible)\n  Párrafo 4: ROE y ROA (si disponibles)\nExtensión: 3–4 párrafos · 150–200 palabras\nSi márgenes negativos: "la empresa registra pérdidas operativas en el período analizado".\nSi benchmark no disponible: omitir comparación sin mencionarla.`,
-    dataKeys: ["kpis"],
+    system: `${SYSTEM_BASE}\n\nRedacta el análisis de rentabilidad.\n  Párrafo 1: Dato — márgenes actuales (bruto, EBITDA, neto)\n  Párrafo 2: Interpretación — capacidad de captura de valor\n  Párrafo 3: Comparación sectorial (si benchmark disponible)\n  Párrafo 4: ROE y ROA (si disponibles)\nExtensión: 3–4 párrafos · 150–200 palabras\nSi márgenes negativos: "la empresa registra pérdidas operativas en el período analizado".\nPara la comparación sectorial, compara ÚNICAMENTE métricas donde exista tanto el valor de la empresa (kpis) como el de referencia (sectorBenchmark) — p.ej. kpis.ebitdaMargin vs sectorBenchmark.ebitdaMargin. sectorBenchmark no incluye referencia de ROE ni ROA: no compares esas dos métricas contra el sector.\nSi benchmark no disponible: omitir comparación sin mencionarla.`,
+    dataKeys: ["kpis", "sectorBenchmark"],
     maxTokens: 500,
   },
   {
@@ -79,8 +93,8 @@ const SECTIONS = [
   {
     key: "financial_structure",
     title: "Análisis de Estructura Financiera y Endeudamiento",
-    system: `${SYSTEM_BASE}\n\nRedacta el análisis de endeudamiento.\n  Párrafo 1: Dato — deuda total, composición CP/LP, deuda neta\n  Párrafo 2: Interpretación — nivel de apalancamiento y sostenibilidad\n  Párrafo 3: Implicación — capacidad de servicio de deuda y riesgo\nExtensión: 3–4 párrafos · 150–200 palabras\n\nEscala deuda neta/EBITDA: <1.0x bajo, 1.0–2.5x moderado, 2.5–4.0x elevado, >4.0x alto.\nSi deuda neta < 0: posición neta de caja (favorable).`,
-    dataKeys: ["kpis", "netDebt"],
+    system: `${SYSTEM_BASE}\n\nRedacta el análisis de endeudamiento.\n  Párrafo 1: Dato — deuda financiera (historical.balance_sheet.current_financial_debt / long_term_financial_debt / financial_debt_total), caja (historical.balance_sheet.cash) y deuda neta (netDebt)\n  Párrafo 2: Interpretación — nivel de apalancamiento (kpis.leverage) y cobertura de intereses (kpis.interestCoverage)\n  Párrafo 3: Implicación — capacidad de servicio de deuda y riesgo\nExtensión: 3–4 párrafos · 150–200 palabras\n\nMenciona solo los campos de historical.balance_sheet que estén presentes (no nulos) — si alguno falta, omítelo sin señalarlo. No reconstruyas financial_debt_total a partir de sus componentes si no viene ya calculado.\nEscala deuda neta/EBITDA (kpis.leverage): <1.0x bajo, 1.0–2.5x moderado, 2.5–4.0x elevado, >4.0x alto.\nSi deuda neta < 0: posición neta de caja (favorable).`,
+    dataKeys: ["historical", "netDebt", "kpis"],
     maxTokens: 500,
   },
   // ── Bloque 4 sections ──
@@ -102,21 +116,28 @@ const SECTIONS = [
     key: "projections_analysis",
     title: "Proyecciones Financieras",
     system: `${SYSTEM_BASE}\n\nRedacta la sección de proyecciones financieras.\n  Párrafo 1: Supuestos del modelo\n  Párrafo 2: Evolución proyectada de ingresos y EBITDA (escenario base)\n  Párrafo 3: Comportamiento del FCFF y generación de caja\n  Párrafo 4: Lectura del escenario — qué tan exigente, razonable o conservador\nExtensión: 3–4 párrafos · 150–200 palabras\n\nSi growth > 50%: advertirlo como supuesto agresivo.\nSi growth < 5%: mencionarlo como supuesto conservador.\nSi FCFF negativo en algún año: mencionarlo con explicación.\nNo calcules proyecciones — solo interpreta las que te entrego.`,
-    dataKeys: ["proyecciones", "growth"],
+    dataKeys: ["projections", "growth"],
     maxTokens: 500,
   },
   {
     key: "valuation_analysis",
     title: "Valoración por DCF",
-    system: `${SYSTEM_BASE}\n\nRedacta la sección de valoración por DCF.\n  Párrafo 1: Construcción del WACC — Ke (CAPM), Kd, pesos — paso a paso\n  Párrafo 2: Resultado — EV, equity value, rango\n  Párrafo 3: Composición del valor — períodos explícitos vs valor terminal\n  Párrafo 4: Interpretación ejecutiva — qué sostiene el valor y sensibilidad\nExtensión: 4–5 párrafos · 200–250 palabras\n\nSiempre menciona que el valor terminal domina en modelos DCF.\nSiempre menciona el rango, no solo el punto central.`,
-    dataKeys: ["enterpriseValue", "equityValue", "wacc", "ke", "pvFCFFTotal", "pvTerminalValue", "discountedTV", "evEbitdaImplied", "evRevenueImplied", "terminalValue", "betaLevered", "netDebt", "evLow", "evHigh"],
+    system: `${SYSTEM_BASE}\n\nRedacta la sección de valoración por DCF.\n  Párrafo 1: Componentes del WACC — describe ÚNICAMENTE los componentes presentes en los datos entregados (wacc, costOfEquity, costOfDebtAfterTax si está disponible, betaLevered). No reconstruyas ni infieras pesos de capital (equity/deuda), tasas o supuestos que no te fueron entregados.\n  Párrafo 2: Resultado — EV, equity value, rango\n  Párrafo 3: Composición del valor — cita terminalValue/discountedTV y el enterpriseValue si están disponibles\n  Párrafo 4: Interpretación ejecutiva — qué sostiene el valor y sensibilidad\nExtensión: 4–5 párrafos · 200–250 palabras\n\nDescribe el peso del valor terminal (discountedTV) frente al Enterprise Value únicamente a partir de los datos entregados. No afirmes que domina salvo que los datos lo sustenten. No calcules ni menciones un porcentaje/participación que no te fue entregado explícitamente.\nSiempre menciona el rango, no solo el punto central.`,
+    dataKeys: ["enterpriseValue", "equityValue", "wacc", "costOfEquity", "costOfDebtAfterTax", "discountedTV", "evEbitda", "evRevenue", "terminalValue", "betaLevered", "netDebt", "evLow", "evHigh", "projections"],
     maxTokens: 700,
   },
   {
     key: "multiples_valuation",
     title: "Valoración por Múltiplos",
-    system: `${SYSTEM_BASE}\n\nRedacta la sección de valoración por múltiplos.\n  Párrafo 1: Metodología — múltiplos usados y fuente de comparables\n  Párrafo 2: Resultados — rangos de valoración por múltiplo\n  Párrafo 3: Contraste con DCF — convergencia o divergencia y explicación\nExtensión: 3–4 párrafos · 150–200 palabras\n\nNo afirmes cuál método es más correcto — son complementarios.\nSiempre menciona la fuente de los múltiplos de referencia.`,
-    dataKeys: ["enterpriseValue", "evEbitdaImplied", "evRevenueImplied", "kpis"],
+    // Bloque 1E/Subbloque 2 (corrección final): esta sección queda
+    // `not_available` — ver SECTIONS_NOT_AVAILABLE más abajo. El motor
+    // canónico no ejecuta una valoración INDEPENDIENTE por múltiplos;
+    // `valuation.evEbitda`/`evRevenue` son múltiplos implícitos del
+    // resultado DCF, no un segundo método de valoración. `system`/
+    // `dataKeys` quedan documentados pero no se usan mientras esta
+    // sección esté marcada no disponible.
+    system: `${SYSTEM_BASE}\n\nRedacta la sección de valoración por múltiplos.\n  Párrafo 1: Metodología — múltiplos usados\n  Párrafo 2: Resultados — rangos de valoración por múltiplo\n  Párrafo 3: Contraste con DCF — convergencia o divergencia y explicación\nExtensión: 3–4 párrafos · 150–200 palabras\n\nNo afirmes cuál método es más correcto — son complementarios.\nMenciona la fuente de los múltiplos de referencia SOLO si está presente en los datos entregados. No inventes ni atribuyas una fuente que no te fue entregada — si no está disponible, omite la mención de fuente sin señalar su ausencia.`,
+    dataKeys: ["enterpriseValue", "evEbitda", "evRevenue", "kpis"],
     maxTokens: 500,
   },
   {
@@ -129,75 +150,44 @@ const SECTIONS = [
   {
     key: "benchmark_comparison",
     title: "Comparación Sectorial",
-    system: `${SYSTEM_BASE}\n\nRedacta la comparación sectorial.\n  Párrafo 1: Dato — comparación de métricas clave empresa vs sector\n  Párrafo 2: Interpretación — posición relativa y qué la explica\n  Párrafo 3: Implicación — qué significa para valoración y gestión\nExtensión: 3–4 párrafos · 150–200 palabras\n\nSolo comenta métricas para las que tienes tanto valor empresa como sector.\nNo inferir benchmark que no esté en los datos entregados.\nSiempre mencionar fuente y fecha del benchmark.\nSi no hay benchmark: indicar sobriamente ausencia de referencia.`,
-    dataKeys: ["kpis", "evEbitdaImplied", "evRevenueImplied", "wacc", "betaLevered"],
+    system: `${SYSTEM_BASE}\n\nRedacta la comparación sectorial (NO es una valoración por múltiplos — es una referencia de contraste, no un método de valoración adicional).\n  Párrafo 1: Dato — compara valores de la empresa/cálculo (kpis.ebitdaMargin, evEbitda, evRevenue, wacc, betaLevered) contra los de referencia sectorial (sectorBenchmark.ebitdaMargin, sectorBenchmark.evEbitda, sectorBenchmark.evRevenue, sectorBenchmark.waccRef, sectorBenchmark.beta)\n  Párrafo 2: Interpretación — posición relativa y qué la explica\n  Párrafo 3: Implicación — qué significa para valoración y gestión\nExtensión: 3–4 párrafos · 150–200 palabras\n\nSolo comenta pares de métricas donde exista tanto el valor de la empresa como el de sectorBenchmark.\nNo inferir benchmark que no esté en los datos entregados.\nMenciona fuente y fecha del benchmark SOLO si están presentes en los datos entregados — no las inventes ni las asumas.\nNo llames a esta sección "valoración por múltiplos" ni la presentes como un método de valoración adicional.\nSi no hay benchmark: indicar sobriamente ausencia de referencia.`,
+    dataKeys: ["kpis", "sectorBenchmark", "evEbitda", "evRevenue", "wacc", "betaLevered"],
     maxTokens: 500,
   },
 ];
 
-// ═══════════════════════════════════════════════════════════════
-// BLOQUE 5 — Motor de Riesgos Determinístico
-// ═══════════════════════════════════════════════════════════════
-
-function detectRisks(output: any): any[] {
-  const risks: any[] = [];
-  const kpis = output.kpis || {};
-  const growth = output.growth || 0;
-
-  // LIQ_001: Razón corriente baja
-  if (kpis.liquidezCorriente != null && kpis.liquidezCorriente < 1.2) {
-    risks.push({ id: "LIQ_001", nombre: "Liquidez corriente ajustada", categoria: "Liquidez", indicador: `Razón corriente: ${kpis.liquidezCorriente.toFixed(2)}x`, umbral: "< 1.2x", impacto: "Alto", probabilidad: "Media" });
-  }
-
-  // END_001: Apalancamiento elevado
-  if (kpis.leverageDeudaEBITDA != null && kpis.leverageDeudaEBITDA > 3.0) {
-    risks.push({ id: "END_001", nombre: "Nivel de apalancamiento elevado", categoria: "Endeudamiento", indicador: `Deuda neta/EBITDA: ${kpis.leverageDeudaEBITDA.toFixed(2)}x`, umbral: "> 3.0x", impacto: "Alto", probabilidad: "Media" });
-  }
-
-  // END_002: Cobertura de intereses baja
-  if (kpis.coberturaIntereses != null && kpis.coberturaIntereses < 2.0) {
-    risks.push({ id: "END_002", nombre: "Cobertura de intereses insuficiente", categoria: "Endeudamiento", indicador: `Cobertura: ${kpis.coberturaIntereses.toFixed(1)}x`, umbral: "< 2.0x", impacto: "Alto", probabilidad: "Alta" });
-  }
-
-  // RENT_001: EBITDA margin negativo
-  if (kpis.margenEBITDA != null && kpis.margenEBITDA < 0) {
-    risks.push({ id: "RENT_001", nombre: "Pérdidas operativas en el período analizado", categoria: "Rentabilidad", indicador: `Margen EBITDA: ${kpis.margenEBITDA.toFixed(1)}%`, umbral: "< 0%", impacto: "Alto", probabilidad: "Alta" });
-  }
-
-  // RENT_003: Net margin negativo con EBITDA positivo
-  if (kpis.margenNeto != null && kpis.margenNeto < 0 && kpis.margenEBITDA != null && kpis.margenEBITDA > 0) {
-    risks.push({ id: "RENT_003", nombre: "Resultado neto negativo a pesar de EBITDA positivo", categoria: "Rentabilidad", indicador: `Margen neto: ${kpis.margenNeto.toFixed(1)}%`, umbral: "< 0% con EBITDA positivo", impacto: "Medio", probabilidad: "Media" });
-  }
-
-  // CREC_001: Growth agresivo
-  if (growth > 50) {
-    risks.push({ id: "CREC_001", nombre: "Supuesto de crecimiento agresivo en el modelo", categoria: "Crecimiento", indicador: `Crecimiento asumido: ${growth}%`, umbral: "> 50% anual", impacto: "Alto", probabilidad: "Media" });
-  }
-
-  // VAL_001: EV negativo
-  if (output.enterpriseValue != null && output.enterpriseValue < 0) {
-    risks.push({ id: "VAL_001", nombre: "Enterprise Value negativo bajo los supuestos del modelo", categoria: "Valoración", indicador: `EV: USD ${Math.round(output.enterpriseValue).toLocaleString()}`, umbral: "EV < 0", impacto: "Alto", probabilidad: "Alta" });
-  }
-
-  // VAL_002: Alta sensibilidad
-  if (output.evLow && output.evHigh && output.evHigh / output.evLow > 2.0) {
-    risks.push({ id: "VAL_002", nombre: "Alta sensibilidad del valor a supuestos del modelo", categoria: "Valoración", indicador: `Rango EV: USD ${(output.evLow / 1e6).toFixed(1)}M – ${(output.evHigh / 1e6).toFixed(1)}M`, umbral: "Ratio > 2.0x", impacto: "Medio", probabilidad: "Media" });
-  }
-
-  // Sort by impact then probability
-  const impOrder: Record<string, number> = { Alto: 0, Medio: 1, Bajo: 2 };
-  const probOrder: Record<string, number> = { Alta: 0, Media: 1, Baja: 2 };
-  risks.sort((a, b) => (impOrder[a.impacto] - impOrder[b.impacto]) || (probOrder[a.probabilidad] - probOrder[b.probabilidad]));
-  return risks;
-}
+// Bloque 1E/Subbloque 2 (corrección + corrección final): secciones que se
+// persisten como contenido determinístico, sin invocar IA, en vez de dejar
+// que el modelo interprete/rellene sobre datos que no tiene:
+//
+// - liquidity_analysis / efficiency_analysis: piden métricas (razón
+//   corriente, prueba ácida, capital de trabajo, días de cartera/
+//   inventario/proveedores, ciclo de caja) que NUNCA existieron en
+//   `CanonicalKPIs` ni en el motor cliente — limitación estructural, no
+//   ausencia puntual.
+// - multiples_valuation: el motor canónico NO ejecuta una valoración
+//   INDEPENDIENTE por múltiplos — `valuation.evEbitda`/`evRevenue` son
+//   múltiplos implícitos del resultado DCF, no un segundo método de
+//   valoración por comparables. Presentar una sección "Valoración por
+//   Múltiplos" insinuaría un método que no existe.
+const SECTIONS_NOT_AVAILABLE: Record<string, string> = {
+  liquidity_analysis: "No hay métricas canónicas suficientes para emitir una conclusión trazable sobre esta sección.",
+  efficiency_analysis: "No hay métricas canónicas suficientes para emitir una conclusión trazable sobre esta sección.",
+  multiples_valuation: "No se ejecutó una valoración canónica independiente por múltiplos dentro de este cálculo. Los múltiplos disponibles se utilizan únicamente como referencias de contraste y no constituyen una segunda conclusión de valor.",
+};
 
 // ═══════════════════════════════════════════════════════════════
 // Motor de Recomendaciones (riesgo → acción)
+// Sin cambios de contrato — opera sobre `risks` (mismos ids/campos que
+// siempre), no sobre nombres del contrato legacy que el request enviaba antes.
 // ═══════════════════════════════════════════════════════════════
 
-function generateRecommendations(risks: any[], kpis: any): any[] {
+function generateRecommendations(risks: ReturnType<typeof detectRisks>, _kpis: NarrativeCalculationViewModel["kpis"]): any[] {
   const recMap: Record<string, any> = {
-    LIQ_001: { titulo: "Fortalecer la posición de liquidez corriente", razon: "Razón corriente por debajo del umbral mínimo de 1.2x.", impacto_esperado: "Reducción del riesgo de incumplimiento CP.", prioridad: "Alta" },
+    // LIQ_001 eliminado (Bloque 1E/Subbloque 2): la regla de riesgo que la
+    // originaba ya no existe (liquidezCorriente no está en CanonicalKPIs) —
+    // sin sustituto, no tiene sentido mantener una recomendación que nunca
+    // puede originarse.
     END_001: { titulo: "Gestionar activamente el nivel de endeudamiento", razon: "Deuda neta/EBITDA supera 3.0x.", impacto_esperado: "Mayor flexibilidad financiera.", prioridad: "Alta" },
     END_002: { titulo: "Revisar la estructura de deuda para mejorar cobertura de intereses", razon: "Cobertura de intereses insuficiente.", impacto_esperado: "Menor riesgo de incumplimiento en servicio de deuda.", prioridad: "Alta" },
     RENT_001: { titulo: "Implementar plan de recuperación de rentabilidad operativa", razon: "Pérdidas a nivel EBITDA comprometen la viabilidad del modelo.", impacto_esperado: "Retorno a márgenes operativos positivos.", prioridad: "Alta" },
@@ -305,6 +295,13 @@ function handleAIResult(content: string | null, title: string): { title: string;
   return { title, content: "[Error al generar esta sección]", status: "error" };
 }
 
+function calculationErrorResponse(code: string, message: string): Response {
+  return new Response(JSON.stringify({ success: false, error: { code, message } }), {
+    status: 409,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Main handler
 // ═══════════════════════════════════════════════════════════════
@@ -325,16 +322,41 @@ serve(async (req) => {
       return { user: data.user, error };
     });
 
-    const { analysis_id, calculation_output } = await req.json();
-    if (!analysis_id) throw new Error("analysis_id required");
-    if (!calculation_output) {
-      throw new BadRequestError("MISSING_CALCULATION_OUTPUT", "Falta calculation_output para generar el informe narrativo.");
-    }
+    // Bloque 1E/Subbloque 2: el body ya solo trae el identificador del
+    // análisis — el cálculo se lee siempre server-side desde
+    // analyses.calculation_result, nunca de cifras que el caller decida enviar.
+    const { analysis_id } = await req.json();
+    if (!analysis_id) throw new BadRequestError("MISSING_ANALYSIS_ID", "analysis_id es requerido.");
 
-    const { data: analysis, error: analysisError } = await supabase.from("analyses").select("*").eq("id", analysis_id).single();
+    const { data: analysis, error: analysisError } = await supabase
+      .from("analyses")
+      .select("id, company_name, sector, status, calculation_result, user_id")
+      .eq("id", analysis_id)
+      .single();
     const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
     if (lookup === "not_found") throw new NotFoundError();
     if (lookup === "technical_error") throw analysisError;
+
+    // Gate técnico fail-closed (ANTES de tocar analyses.status): el
+    // calculation_result debe ser un envelope canónico completo, de la
+    // versión de schema soportada, con fingerprint y snapshot presentes.
+    // Nunca se recalcula ni se completa con defaults — o es válido, o se
+    // rechaza explícito pidiendo volver a ejecutar el cálculo.
+    let calculationResult;
+    try {
+      calculationResult = assertNarrativeCalculationResult(analysis.calculation_result);
+    } catch (e) {
+      if (e instanceof CalculationResultRequiredError) {
+        return calculationErrorResponse(e.code, "El cálculo canónico aún no está disponible para este análisis. Ejecuta el cálculo antes de generar la narrativa.");
+      }
+      if (e instanceof UnsupportedCalculationResultError) {
+        return calculationErrorResponse(e.code, "El cálculo disponible no es compatible con la narrativa actual. Vuelve a ejecutar un cálculo compatible.");
+      }
+      throw e;
+    }
+
+    const vm = mapCalculationResultToNarrativeViewModel(calculationResult);
+    const calculationMeta = buildCalculationMeta(calculationResult);
 
     if (!Deno.env.get("ANTHROPIC_API_KEY")) throw new Error("ANTHROPIC_API_KEY not configured");
 
@@ -343,11 +365,21 @@ serve(async (req) => {
     // ── Phase 1: Generate all narrative sections (Bloques 3+4) ──
     const sectionsPayload: Record<string, any> = {};
     let executiveSummary = "";
+    const vmRecord = vm as unknown as Record<string, unknown>;
 
     for (const section of SECTIONS) {
+      // Bloque 1E/Subbloque 2 (corrección + corrección final): sin llamar a
+      // Anthropic para secciones donde el motor canónico no tiene ninguna
+      // métrica/método real que sustente una interpretación — contenido
+      // determinístico, sobrio, sin conclusión financiera inventada.
+      if (SECTIONS_NOT_AVAILABLE[section.key]) {
+        sectionsPayload[section.key] = { title: section.title, content: SECTIONS_NOT_AVAILABLE[section.key], status: "not_available" };
+        continue;
+      }
+
       const sectionData: Record<string, any> = {};
       for (const key of section.dataKeys) {
-        if (calculation_output[key] !== undefined) sectionData[key] = calculation_output[key];
+        if (vmRecord[key] !== undefined) sectionData[key] = vmRecord[key];
       }
       sectionData.companyName = analysis.company_name;
       sectionData.sector = analysis.sector;
@@ -363,9 +395,9 @@ serve(async (req) => {
       await new Promise(r => setTimeout(r, 300));
     }
 
-    // ── Phase 2: Deterministic risk detection (Bloque 5) ──
-    const risks = detectRisks(calculation_output);
-    const recommendations = generateRecommendations(risks, calculation_output.kpis || {});
+    // ── Phase 2: Deterministic risk detection (Bloque 5) — adaptador canónico ──
+    const risks = detectRisks(vm);
+    const recommendations = generateRecommendations(risks, vm.kpis);
 
     // ── Phase 3: AI narrative for risks ──
     let risksNarrative: any[] = [];
@@ -406,9 +438,12 @@ serve(async (req) => {
     }
 
     // ── Phase 5: Conclusion (Bloque 5) ──
-    const estado = (calculation_output.kpis?.margenEBITDA > 0 && (calculation_output.kpis?.leverageDeudaEBITDA == null || calculation_output.kpis?.leverageDeudaEBITDA < 3)) ? "sólido" : (calculation_output.kpis?.margenEBITDA < 0 ? "tensionado" : "en transición");
+    const estado = (vm.kpis.ebitdaMargin > 0 && (vm.kpis.leverage == null || vm.kpis.leverage < 3)) ? "sólido" : (vm.kpis.ebitdaMargin < 0 ? "tensionado" : "en transición");
 
-    const conclusionPrompt = `Redacta la conclusión final del informe:\n\nEmpresa: ${analysis.company_name} · Sector: ${analysis.sector}\n\nDiagnóstico:\n  Margen EBITDA: ${calculation_output.kpis?.margenEBITDA?.toFixed(1) || "N/D"}%\n  Enterprise Value: USD ${calculation_output.enterpriseValue ? Math.round(calculation_output.enterpriseValue).toLocaleString() : "N/D"}\n  WACC: ${calculation_output.wacc ? (calculation_output.wacc * 100).toFixed(1) : "N/D"}%\n\nEstado general: ${estado}\nRiesgo principal: ${risks[0]?.nombre || "Ninguno identificado"}\nRecomendación prioritaria: ${recommendations[0]?.titulo || "Ninguna"}\n\nDevuelve SOLO el texto.`;
+    // wacc/ebitdaMargin ya vienen en porcentaje del motor canónico (p.ej.
+    // 11.2, no 0.112) — a diferencia del contrato legacy anterior, aquí
+    // NO se multiplica por 100 de nuevo.
+    const conclusionPrompt = `Redacta la conclusión final del informe:\n\nEmpresa: ${analysis.company_name} · Sector: ${analysis.sector}\n\nDiagnóstico:\n  Margen EBITDA: ${vm.kpis.ebitdaMargin?.toFixed(1) ?? "N/D"}%\n  Enterprise Value: ${vm.moneda} ${vm.enterpriseValue != null ? Math.round(vm.enterpriseValue).toLocaleString() : "N/D"}\n  WACC: ${vm.wacc != null ? vm.wacc.toFixed(1) : "N/D"}%\n\nEstado general: ${estado}\nRiesgo principal: ${risks[0]?.nombre || "Ninguno identificado"}\nRecomendación prioritaria: ${recommendations[0]?.titulo || "Ninguna"}\n\nDevuelve SOLO el texto.`;
 
     const conclusionContent = await callAnthropic(SYSTEM_CONCLUSION, conclusionPrompt, 800);
     sectionsPayload["conclusion"] = handleAIResult(conclusionContent, "Conclusión General");
@@ -426,16 +461,16 @@ serve(async (req) => {
       .join("\n\n");
 
     const auditPrompt = `Audita este informe financiero.\n\nDATOS CALCULADOS (ground truth):\n${JSON.stringify({
-      enterpriseValue: calculation_output.enterpriseValue,
-      equityValue: calculation_output.equityValue,
-      wacc: calculation_output.wacc,
-      evEbitdaImplied: calculation_output.evEbitdaImplied,
-      evRevenueImplied: calculation_output.evRevenueImplied,
-      netDebt: calculation_output.netDebt,
-      kpis: calculation_output.kpis,
-      growth: calculation_output.growth,
-      evLow: calculation_output.evLow,
-      evHigh: calculation_output.evHigh,
+      enterpriseValue: vm.enterpriseValue,
+      equityValue: vm.equityValue,
+      wacc: vm.wacc,
+      evEbitda: vm.evEbitda,
+      evRevenue: vm.evRevenue,
+      netDebt: vm.netDebt,
+      kpis: vm.kpis,
+      growth: vm.growth,
+      evLow: vm.evLow,
+      evHigh: vm.evHigh,
     }, null, 2)}\n\nNARRATIVA COMPLETA POR SECCIÓN:\n${allNarrative}`;
 
     const auditResult = await callAnthropic(SYSTEM_AUDITOR, auditPrompt, 1200);
@@ -458,23 +493,53 @@ serve(async (req) => {
     }
 
     // ── Phase 7: Store results ──
-    await supabase.from("report_narratives").upsert({
+    // Sin migration: `report_narratives.analysis_id` NO tiene constraint
+    // UNIQUE, así que un upsert con conflicto declarado sobre esa columna
+    // no es válido (Postgres exige un unique/exclusion constraint que lo
+    // respalde). Se busca la narrativa más reciente del analysis y se
+    // actualiza por su id exacto; si no existe ninguna, se inserta. Nunca
+    // se actualizan/borran múltiples filas.
+    const narrativeRow = {
       analysis_id,
       executive_summary: executiveSummary,
-      sections_payload: sectionsPayload,
-      generation_version: "4.0",
+      // Trazabilidad (Bloque 1E/Subbloque 2, sin schema nuevo): metadata
+      // técnica del cálculo consumido, embebida en el JSON ya existente
+      // bajo una clave reservada — nunca se duplica el calculation_result completo.
+      sections_payload: { ...sectionsPayload, _calculation_meta: calculationMeta },
+      generation_version: NARRATIVE_GENERATION_VERSION,
       audit_passed: auditPassed,
       audit_notes: auditNotes,
-    }, { onConflict: "analysis_id" });
+    };
 
-    await supabase.from("analyses").update({
-      status: auditPassed ? "informe_generado" : "revision_manual_requerida",
-    }).eq("id", analysis_id);
+    // Bloque 1E/Subbloque 2 (corrección): cada paso de persistencia revisa
+    // su `error` y lanza — antes se ignoraban, lo que permitía responder
+    // success aunque la narrativa no hubiera quedado realmente guardada o
+    // trazada. Esto NO es una transacción distribuida (sigue siendo un
+    // conjunto de operaciones separadas contra Postgres/Supabase, misma
+    // limitación normal de siempre) — solo deja de silenciar fallos reales.
+    // Orden: persistir report_narratives -> audit_event -> status final de
+    // analyses -> notificación fire-and-forget al final.
+    const { data: existingNarrative, error: existingNarrativeError } = await supabase
+      .from("report_narratives")
+      .select("id")
+      .eq("analysis_id", analysis_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingNarrativeError) throw existingNarrativeError;
 
-    await supabase.from("audit_events").insert({
+    if (existingNarrative) {
+      const { error: updateNarrativeError } = await supabase.from("report_narratives").update(narrativeRow).eq("id", existingNarrative.id);
+      if (updateNarrativeError) throw updateNarrativeError;
+    } else {
+      const { error: insertNarrativeError } = await supabase.from("report_narratives").insert(narrativeRow);
+      if (insertNarrativeError) throw insertNarrativeError;
+    }
+
+    const { error: auditEventError } = await supabase.from("audit_events").insert({
       analysis_id,
       event_type: auditPassed ? "narrative_audit_passed" : "narrative_audit_failed",
-      event_detail: `Narrativa v4.0: ${Object.keys(sectionsPayload).length} secciones, ${risks.length} riesgos, ${recommendations.length} recomendaciones, auditoría ${auditPassed ? "aprobada" : "fallida"} (score: ${auditScore})`,
+      event_detail: `Narrativa v${NARRATIVE_GENERATION_VERSION}: ${Object.keys(sectionsPayload).length} secciones, ${risks.length} riesgos, ${recommendations.length} recomendaciones, auditoría ${auditPassed ? "aprobada" : "fallida"} (score: ${auditScore})`,
       component: "generate-narrative",
       user_id: user.id,
       metadata: {
@@ -485,10 +550,20 @@ serve(async (req) => {
         audit_passed: auditPassed,
         audit_score: auditScore,
         audit_notes: auditNotes,
+        narrative_generation_version: NARRATIVE_GENERATION_VERSION,
+        input_fingerprint: calculationMeta.input_fingerprint,
+        calculation_schema_version: calculationMeta.calculation_schema_version,
       },
     });
+    if (auditEventError) throw auditEventError;
 
-    // Fire notification — fire and forget
+    const { error: finalStatusError } = await supabase.from("analyses").update({
+      status: auditPassed ? "informe_generado" : "revision_manual_requerida",
+    }).eq("id", analysis_id);
+    if (finalStatusError) throw finalStatusError;
+
+    // Fire notification — fire and forget, solo después de que todo lo
+    // anterior se persistió correctamente.
     if (auditPassed) {
       fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/enviar-notificacion`, {
         method: "POST",
@@ -511,7 +586,7 @@ serve(async (req) => {
       meta: {
         analysis_id,
         status: auditPassed ? "informe_generado" : "revision_manual_requerida",
-        version: "4.0",
+        version: NARRATIVE_GENERATION_VERSION,
         sections_count: Object.keys(sectionsPayload).length,
         risks_count: risks.length,
         recommendations_count: recommendations.length,

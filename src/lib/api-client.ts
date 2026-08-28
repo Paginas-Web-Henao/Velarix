@@ -138,10 +138,11 @@ export async function buildStructuredInput(analysisId: string) {
 
 // ─── Narrative Generation ───
 
-export async function generateNarrative(analysisId: string, calculationOutput: any) {
+// Bloque 1E/Subbloque 2: generate-narrative ya no acepta cifras financieras
+// del caller — lee analyses.calculation_result server-side.
+export async function generateNarrative(analysisId: string) {
   return callFunction("generate-narrative", {
     analysis_id: analysisId,
-    calculation_output: calculationOutput,
   });
 }
 
