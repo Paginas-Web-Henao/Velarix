@@ -1,38 +1,43 @@
 // Bloque 3B — Tests-first del comportamiento v5 del Calculation Preflight
 // (docs/velarix-v5/05-financial-engine-audit.md v1.3 §5, RC-3).
 //
-// Estos tests llaman a la función REAL de producción
-// (`evaluateCalculationPreflight`, calculation-preflight.ts) — nunca
-// reimplementan su lógica. Su firma actual es
-// `evaluateCalculationPreflight({ incomeStatement, balanceSheet })` — no
-// acepta todavía `resolvedAssumptions`. Los tests de esta sección la
-// pasan de todos modos, vía un cast explícito `as any`, para expresar la
-// llamada que la firma v5 debería aceptar — hoy ese campo se ignora por
-// completo, así que las aserciones sobre comportamiento v5 fallan
-// legítimamente (ROJO), no por un error de compilación ni por un test
-// mal escrito. NO se modifica calculation-preflight.ts en este bloque.
+// Bloque 3C.1 (implementación): `evaluateCalculationPreflight` acepta
+// ahora una propiedad opcional adicional `resolvedAssumptions` en su
+// (único) objeto de parámetros — no un parámetro posicional adicional,
+// la función sigue teniendo aridad 1. Los 13 tests de validación v5 que
+// antes eran `it.fails` (esperaban RC-3 sin implementar) ahora son `it`
+// normales: se verificó, uno por uno, que cada uno pasa por la razón
+// financiera/estructural correcta (no por coincidencia) antes de
+// convertirlos.
 //
-// Convención de blocker asumida para v5 (documentada aquí, no
-// implementada): cada blocker específico de un supuesto resuelto
-// inválido/faltante debe empezar con el prefijo `RESOLVED_ASSUMPTION_`
-// seguido del nombre EXACTO del campo (ej.
-// `RESOLVED_ASSUMPTION_MISSING: terminalG`). Se eligió un prefijo nuevo,
-// no una coincidencia de substring sobre el texto de los blockers
-// legacy, deliberadamente: los blockers legacy de hoy ya mencionan
+// Bloque 3C.1.1 (esta revisión — corrección de una contradicción real):
+// la distinción legacy/v5 se decide por PRESENCIA de la propiedad
+// `resolvedAssumptions` en el objeto de parámetros
+// (`Object.prototype.hasOwnProperty`), NUNCA por su valor. La versión
+// anterior de `calculation-preflight.ts` comparaba
+// `params.resolvedAssumptions !== undefined` para decidir el modo, lo
+// que hacía indistinguibles "la llamada no incluye la clave" (legacy
+// real) de "la llamada incluye la clave con valor `undefined`" (v5 con
+// nada resuelto todavía) — y además invocaba la validación de los 13
+// campos incondicionalmente, contaminando con blockers
+// `RESOLVED_ASSUMPTION_MISSING_*` incluso una llamada legacy genuina.
+// Corregido: ver `calculation-preflight.ts`. NO se introdujo ningún
+// `executionMode` ni framework nuevo — la distinción es una única
+// comprobación de presencia de propiedad.
+//
+// docs/velarix-v5/06-tests-first-plan.md es canónico y NO fue ni debe
+// ser modificado por Bloque 3C — el detalle de esta implementación vive
+// únicamente en este archivo y en el reporte del bloque, no en `06`.
+//
+// Convención de blocker v5 (implementada en calculation-preflight.ts):
+// cada blocker específico de un supuesto resuelto inválido/faltante
+// empieza con el prefijo `RESOLVED_ASSUMPTION_` seguido del nombre EXACTO
+// del campo (ej. `RESOLVED_ASSUMPTION_MISSING_TERMINALG: ...`). Se eligió
+// un prefijo nuevo, no una coincidencia de substring sobre el texto de
+// los blockers legacy, deliberadamente: los blockers legacy ya mencionan
 // nombres como "terminalGrowthPct", "workingCapitalPctOfRevenue" o
 // "projection_horizon_years" — un test que solo buscara /horizon/i o
-// /working.?capital/i coincidiría por accidente con ESOS nombres legacy
-// y pasaría en falso incluso sin ninguna implementación v5 real. Usar un
-// prefijo que hoy no existe en ningún blocker evita ese falso positivo
-// y fuerza que el rojo sea honesto.
-//
-// Se distinguen dos capas, explícitas en cada describe():
-//  - "HOY (caracterización)": documenta el comportamiento REAL actual,
-//    verde, tal como existe (incluyendo el bloqueo permanente ya
-//    demostrado en 05 v1.3 §1/Hallazgo A).
-//  - "V5 OBJETIVO (rojo esperado)": expresa el comportamiento que
-//    evaluateCalculationPreflight debería tener una vez implementado
-//    RC-3 — no se adapta la aserción para que pase hoy.
+// /working.?capital/i coincidiría por accidente con ESOS nombres legacy.
 
 import { describe, it, expect } from "vitest";
 import { evaluateCalculationPreflight } from "./calculation-preflight";
@@ -42,91 +47,158 @@ import type { ResolvedCalculationAssumptions } from "./resolved-calculation-assu
 const COMPLETE_INCOME_STATEMENT = { revenue: 1_200_000, cost_of_sales: 700_000, opex: 220_000, da: 50_000 };
 const COMPLETE_BALANCE_SHEET = { cash: 300_000, equity: 900_000, financial_debt_total: 100_000 };
 
-/** Verifica que exista un blocker con el prefijo v5 objetivo para el campo dado — nunca coincide con texto de blockers legacy (ver nota de archivo). */
+/** Verifica que exista un blocker con el prefijo v5 para el campo/tema dado — nunca coincide con texto de blockers legacy (ver nota de archivo). */
 function hasResolvedAssumptionBlocker(blockers: string[], fieldNameOrTopic: string): boolean {
   const needle = `RESOLVED_ASSUMPTION_${fieldNameOrTopic}`.toLowerCase();
   return blockers.some((b) => b.toLowerCase().startsWith("resolved_assumption_") && b.toLowerCase().includes(needle.replace("resolved_assumption_", "")));
 }
 
-/** Llamada v5-objetivo: pasa `resolvedAssumptions` además de los inputs financieros — firma que evaluateCalculationPreflight todavía no tiene. */
-function evaluatePreflightV5Target(resolvedAssumptions: ResolvedCalculationAssumptions | Partial<ResolvedCalculationAssumptions>) {
+function evaluatePreflightV5(resolvedAssumptions: ResolvedCalculationAssumptions | Partial<ResolvedCalculationAssumptions> | null | undefined) {
   return evaluateCalculationPreflight({
     incomeStatement: COMPLETE_INCOME_STATEMENT,
     balanceSheet: COMPLETE_BALANCE_SHEET,
     resolvedAssumptions,
-  } as any);
+  });
 }
 
-describe("Calculation Preflight — HOY (caracterización, verde)", () => {
-  it("con inputs completos y resolvedAssumptions completos, sigue bloqueado por METHODOLOGY_APPROVAL_REQUIRED — resolvedAssumptions se ignora por completo hoy", () => {
-    const r = evaluatePreflightV5Target(EXAMPLE_RESOLVED_ASSUMPTIONS);
+// ─────────────────────────────────────────────────────────────────
+// Los 5 casos que distinguen legacy de v5 — exigidos explícitamente:
+// propiedad ausente (legacy) vs. propiedad presente con undefined/null/
+// {}/13-campos-válidos (v5, en sus 4 variantes). Cada uno es un test
+// independiente, sin compartir aserciones entre sí.
+// ─────────────────────────────────────────────────────────────────
+
+describe("Legacy vs. v5 — distinción por presencia de la propiedad, no por su valor", () => {
+  it("1. propiedad `resolvedAssumptions` TOTALMENTE AUSENTE del objeto de parámetros → legacy exacto, estructuralmente idéntico al resultado del commit 884173d", () => {
+    const r = evaluateCalculationPreflight({ incomeStatement: COMPLETE_INCOME_STATEMENT, balanceSheet: COMPLETE_BALANCE_SHEET });
+    // Objeto completo, no solo `passed` — extraído ejecutando el archivo
+    // real tal como existía en 884173d contra este mismo fixture
+    // (verificación puntual documentada en el reporte de este bloque).
+    expect(r).toEqual({
+      passed: false,
+      missing_inputs: [],
+      unapproved_assumptions: [
+        "taxRatePct",
+        "capexPctOfRevenue",
+        "workingCapitalPctOfRevenue",
+        "terminalGrowthPct",
+        "costOfDebtPct",
+        "riskFreeRatePct",
+        "equityRiskPremiumPct",
+        "depreciationPctOfRevenue",
+        "projection_horizon_years",
+      ],
+      blockers: [
+        'METHODOLOGY_APPROVAL_REQUIRED: el supuesto "taxRatePct" no tiene aprobación humana registrada.',
+        'METHODOLOGY_APPROVAL_REQUIRED: el supuesto "capexPctOfRevenue" no tiene aprobación humana registrada.',
+        'METHODOLOGY_APPROVAL_REQUIRED: el supuesto "workingCapitalPctOfRevenue" no tiene aprobación humana registrada.',
+        'METHODOLOGY_APPROVAL_REQUIRED: el supuesto "terminalGrowthPct" no tiene aprobación humana registrada.',
+        'METHODOLOGY_APPROVAL_REQUIRED: el supuesto "costOfDebtPct" no tiene aprobación humana registrada.',
+        'METHODOLOGY_APPROVAL_REQUIRED: el supuesto "riskFreeRatePct" no tiene aprobación humana registrada.',
+        'METHODOLOGY_APPROVAL_REQUIRED: el supuesto "equityRiskPremiumPct" no tiene aprobación humana registrada.',
+        'METHODOLOGY_APPROVAL_REQUIRED: el supuesto "depreciationPctOfRevenue" no tiene aprobación humana registrada.',
+        'METHODOLOGY_APPROVAL_REQUIRED: el supuesto "projection_horizon_years" no tiene aprobación humana registrada.',
+      ],
+    });
+    // Ningún blocker v5 debe aparecer en una llamada legacy genuina —
+    // esto es exactamente lo que la v1 de este archivo NO garantizaba.
+    expect(r.blockers.some((b) => b.startsWith("RESOLVED_ASSUMPTION_"))).toBe(false);
+  });
+
+  it("2. propiedad presente con valor `undefined` → ejecución v5 bloqueada (NO legacy) — los 13 supuestos se reportan como faltantes", () => {
+    const r = evaluatePreflightV5(undefined);
     expect(r.passed).toBe(false);
-    expect(r.unapproved_assumptions).toHaveLength(9);
-    expect(r.blockers.some((b) => b.includes("METHODOLOGY_APPROVAL_REQUIRED"))).toBe(true);
+    expect(r.unapproved_assumptions).toEqual([]); // el mecanismo legacy queda sustituido, no acumulado
+    expect(hasResolvedAssumptionBlocker(r.blockers, "MISSING")).toBe(true);
+    // Los 13 campos, específicamente — no solo "algún" missing.
+    for (const key of ["TAXTREATMENT", "CAPITALSTRUCTURE", "TERMINALG", "PROJECTIONHORIZONYEARS"]) {
+      expect(hasResolvedAssumptionBlocker(r.blockers, `MISSING_${key}`)).toBe(true);
+    }
   });
 
-  it("el resultado no cambia en absoluto si resolvedAssumptions está vacío o ausente (no se lee en ningún punto)", () => {
-    const withAssumptions = evaluatePreflightV5Target(EXAMPLE_RESOLVED_ASSUMPTIONS);
-    const withoutAssumptions = evaluateCalculationPreflight({ incomeStatement: COMPLETE_INCOME_STATEMENT, balanceSheet: COMPLETE_BALANCE_SHEET });
-    expect(withAssumptions).toEqual(withoutAssumptions);
-  });
-
-  it("hoy NUNCA existe ningún blocker con el prefijo RESOLVED_ASSUMPTION_ — confirma que ninguno de los tests de abajo puede pasar hoy por una coincidencia accidental de texto legacy", () => {
-    const r = evaluatePreflightV5Target(EXAMPLE_RESOLVED_ASSUMPTIONS);
-    expect(r.blockers.some((b) => b.toUpperCase().startsWith("RESOLVED_ASSUMPTION_"))).toBe(false);
-  });
-});
-
-describe("Calculation Preflight — V5 OBJETIVO (rojo esperado hasta implementar RC-3)", () => {
-  it.fails("debe PASAR cuando los inputs financieros están completos y los 13 supuestos están resueltos con provenance mínima", () => {
-    const r = evaluatePreflightV5Target(EXAMPLE_RESOLVED_ASSUMPTIONS);
-    expect(r.passed).toBe(true);
-  });
-
-  it.fails("debe FALLAR cuando los inputs financieros están completos pero faltan supuestos metodológicos v5 (resolvedAssumptions ausente)", () => {
-    const r = evaluateCalculationPreflight({ incomeStatement: COMPLETE_INCOME_STATEMENT, balanceSheet: COMPLETE_BALANCE_SHEET } as any);
+  it("3. propiedad presente con valor `null` → ejecución v5 bloqueada, mismo resultado que `undefined`", () => {
+    const r = evaluatePreflightV5(null);
     expect(r.passed).toBe(false);
+    expect(r.unapproved_assumptions).toEqual([]);
     expect(hasResolvedAssumptionBlocker(r.blockers, "MISSING")).toBe(true);
   });
 
-  it.fails("debe FALLAR cuando falta un supuesto requerido específico (ej. terminalG ausente)", () => {
+  it("4. propiedad presente con `{}` → ejecución v5 bloqueada, los 13 campos faltan", () => {
+    const r = evaluatePreflightV5({});
+    expect(r.passed).toBe(false);
+    expect(r.unapproved_assumptions).toEqual([]);
+    let missingCount = 0;
+    for (const key of ["TAXTREATMENT", "CAPITALSTRUCTURE", "RISKFREERATECONSTRUCTION", "MATUREERP", "COUNTRYRISKPREMIUM", "COUNTRYRISKLAMBDA", "BETATREATMENT", "COSTOFDEBT", "CAPEXREINVESTMENTDRIVER", "DEPRECIATIONDADRIVER", "WORKINGCAPITALDRIVER", "TERMINALG", "PROJECTIONHORIZONYEARS"]) {
+      if (hasResolvedAssumptionBlocker(r.blockers, `MISSING_${key}`)) missingCount++;
+    }
+    expect(missingCount).toBe(13);
+  });
+
+  it("5. propiedad presente con los 13 supuestos válidos → ejecución v5 pasa", () => {
+    const r = evaluatePreflightV5(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    expect(r.passed).toBe(true);
+    expect(r.unapproved_assumptions).toEqual([]);
+    expect(r.blockers.some((b) => b.startsWith("RESOLVED_ASSUMPTION_"))).toBe(false);
+  });
+});
+
+describe("Calculation Preflight — legacy (comportamiento histórico, tests adicionales)", () => {
+  it("con inputs incompletos (fixture 'Terra Test S.A.S.'), el modo legacy sigue produciendo missing_inputs/unapproved_assumptions idénticos a antes de 3C.1", () => {
+    const r = evaluateCalculationPreflight({
+      incomeStatement: { revenue: 1_200_000, cost_of_sales: 700_000, opex: 220_000, da: null },
+      balanceSheet: { cash: 300_000, equity: null, financial_debt_total: null },
+    });
+    expect(r.passed).toBe(false);
+    expect(r.missing_inputs.sort()).toEqual(["da", "equity", "financial_debt_total"]);
+    expect(r.unapproved_assumptions).toHaveLength(9);
+    expect(r.blockers.some((b) => b.startsWith("RESOLVED_ASSUMPTION_"))).toBe(false);
+  });
+});
+
+describe("Calculation Preflight — V5 (implementado en Bloque 3C.1)", () => {
+  it("debe PASAR cuando los inputs financieros están completos y los 13 supuestos están resueltos con provenance mínima", () => {
+    const r = evaluatePreflightV5(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    expect(r.passed).toBe(true);
+  });
+
+  it("debe FALLAR cuando falta un supuesto requerido específico (ej. terminalG ausente)", () => {
     const { terminalG: _omitted, ...incomplete } = EXAMPLE_RESOLVED_ASSUMPTIONS;
-    const r = evaluatePreflightV5Target(incomplete);
+    const r = evaluatePreflightV5(incomplete);
     expect(r.passed).toBe(false);
     expect(hasResolvedAssumptionBlocker(r.blockers, "MISSING_TERMINALG")).toBe(true);
   });
 
-  it.fails("debe FALLAR cuando un supuesto resuelto tiene status distinto de 'resolved'", () => {
+  it("debe FALLAR cuando un supuesto resuelto tiene status distinto de 'resolved'", () => {
     const broken: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       terminalG: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG, status: "pending" as unknown as "resolved" },
     };
-    const r = evaluatePreflightV5Target(broken);
+    const r = evaluatePreflightV5(broken);
     expect(r.passed).toBe(false);
     expect(hasResolvedAssumptionBlocker(r.blockers, "STATUS_TERMINALG")).toBe(true);
   });
 
-  it.fails("debe FALLAR cuando falta 'source' en un supuesto resuelto", () => {
+  it("debe FALLAR cuando falta 'source' en un supuesto resuelto", () => {
     const broken: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       costOfDebt: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt, source: "" },
     };
-    const r = evaluatePreflightV5Target(broken);
+    const r = evaluatePreflightV5(broken);
     expect(r.passed).toBe(false);
     expect(hasResolvedAssumptionBlocker(r.blockers, "SOURCE_COSTOFDEBT")).toBe(true);
   });
 
-  it.fails("debe FALLAR cuando falta 'rationale' en un supuesto resuelto", () => {
+  it("debe FALLAR cuando falta 'rationale' en un supuesto resuelto", () => {
     const broken: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       costOfDebt: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt, rationale: "" },
     };
-    const r = evaluatePreflightV5Target(broken);
+    const r = evaluatePreflightV5(broken);
     expect(r.passed).toBe(false);
     expect(hasResolvedAssumptionBlocker(r.blockers, "RATIONALE_COSTOFDEBT")).toBe(true);
   });
 
-  it.fails("debe FALLAR cuando los weights de capital structure son inválidos (negativos)", () => {
+  it("debe FALLAR cuando los weights de capital structure son inválidos (negativos)", () => {
     const broken: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       capitalStructure: {
@@ -134,12 +206,12 @@ describe("Calculation Preflight — V5 OBJETIVO (rojo esperado hasta implementar
         value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.capitalStructure.value, equityWeight: -0.1, debtWeight: 1.1 },
       },
     };
-    const r = evaluatePreflightV5Target(broken);
+    const r = evaluatePreflightV5(broken);
     expect(r.passed).toBe(false);
     expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_CAPITALSTRUCTURE")).toBe(true);
   });
 
-  it.fails("debe FALLAR cuando equityWeight + debtWeight != 100%", () => {
+  it("debe FALLAR cuando equityWeight + debtWeight != 100%", () => {
     const broken: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       capitalStructure: {
@@ -147,12 +219,12 @@ describe("Calculation Preflight — V5 OBJETIVO (rojo esperado hasta implementar
         value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.capitalStructure.value, equityWeight: 0.5, debtWeight: 0.3 },
       },
     };
-    const r = evaluatePreflightV5Target(broken);
+    const r = evaluatePreflightV5(broken);
     expect(r.passed).toBe(false);
     expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_CAPITALSTRUCTURE")).toBe(true);
   });
 
-  it.fails("debe FALLAR cuando projectionHorizonYears != 5 mientras el motor solo soporte 5", () => {
+  it("debe FALLAR cuando projectionHorizonYears != 5 mientras el motor solo soporte 5", () => {
     const broken: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       projectionHorizonYears: {
@@ -160,12 +232,12 @@ describe("Calculation Preflight — V5 OBJETIVO (rojo esperado hasta implementar
         value: { years: 7 },
       },
     };
-    const r = evaluatePreflightV5Target(broken);
+    const r = evaluatePreflightV5(broken);
     expect(r.passed).toBe(false);
     expect(hasResolvedAssumptionBlocker(r.blockers, "INCOMPATIBLE_PROJECTIONHORIZONYEARS")).toBe(true);
   });
 
-  it.fails("debe FALLAR cuando explicit_delta_nwc_by_year no tiene exactamente 5 valores (horizonte=5)", () => {
+  it("debe FALLAR cuando explicit_delta_nwc_by_year no tiene exactamente 5 valores (horizonte=5)", () => {
     const broken: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       workingCapitalDriver: {
@@ -173,12 +245,12 @@ describe("Calculation Preflight — V5 OBJETIVO (rojo esperado hasta implementar
         value: { explicitDeltaNwcByYear: [1, 2, 3, 4] }, // 4 valores, no 5
       },
     };
-    const r = evaluatePreflightV5Target(broken);
+    const r = evaluatePreflightV5(broken);
     expect(r.passed).toBe(false);
     expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_WORKINGCAPITALDRIVER")).toBe(true);
   });
 
-  it.fails("debe FALLAR cuando explicit_delta_nwc_by_year tiene 6 valores (más del horizonte)", () => {
+  it("debe FALLAR cuando explicit_delta_nwc_by_year tiene 6 valores (más del horizonte)", () => {
     const broken: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       workingCapitalDriver: {
@@ -186,12 +258,12 @@ describe("Calculation Preflight — V5 OBJETIVO (rojo esperado hasta implementar
         value: { explicitDeltaNwcByYear: [1, 2, 3, 4, 5, 6] },
       },
     };
-    const r = evaluatePreflightV5Target(broken);
+    const r = evaluatePreflightV5(broken);
     expect(r.passed).toBe(false);
     expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_WORKINGCAPITALDRIVER")).toBe(true);
   });
 
-  it.fails("debe FALLAR cuando explicitFcffTaxRatePctByYear no tiene exactamente la misma longitud que projectionHorizonYears (04 §6.3, Bloque 3B.2)", () => {
+  it("debe FALLAR cuando explicitFcffTaxRatePctByYear no tiene exactamente la misma longitud que projectionHorizonYears (04 §6.3, Bloque 3B.2)", () => {
     const broken: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       taxTreatment: {
@@ -199,16 +271,14 @@ describe("Calculation Preflight — V5 OBJETIVO (rojo esperado hasta implementar
         value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment.value, explicitFcffTaxRatePctByYear: [20, 24, 28, 32] }, // 4 valores, no 5
       },
     };
-    const r = evaluatePreflightV5Target(broken);
+    const r = evaluatePreflightV5(broken);
     expect(r.passed).toBe(false);
     expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_TAXTREATMENT")).toBe(true);
   });
 
-  it.fails("la pregunta del preflight v5 es 'están los supuestos resueltos', no 'los defaults globales están approved=true' — pasar con resolvedAssumptions completos no debe depender de que CANONICAL_METHODOLOGY cambie", () => {
-    const r = evaluatePreflightV5Target(EXAMPLE_RESOLVED_ASSUMPTIONS);
+  it("la pregunta del preflight v5 es 'están los supuestos resueltos', no 'los defaults globales están approved=true' — pasar con resolvedAssumptions completos no depende de que CANONICAL_METHODOLOGY cambie", () => {
+    const r = evaluatePreflightV5(EXAMPLE_RESOLVED_ASSUMPTIONS);
     expect(r.passed).toBe(true);
-    // Ningún supuesto legacy debería seguir bloqueando cuando el equivalente
-    // v5 ya fue resuelto explícitamente.
     expect(r.unapproved_assumptions).toEqual([]);
   });
 });

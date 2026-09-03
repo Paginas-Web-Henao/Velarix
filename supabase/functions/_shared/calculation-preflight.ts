@@ -22,19 +22,49 @@
 // inventa una fuente de aprobación que no existe — solo verifica, ANTES
 // de invocar el motor: (1) que los campos materiales de
 // `structured_input` estén realmente observados (no `null`/`undefined`),
-// y (2) que ningún supuesto metodológico usado por el motor esté marcado
-// `approved: false` en la ÚNICA fuente de verdad que existe hoy
-// (`CANONICAL_METHODOLOGY`).
+// y (2a, legacy) que ningún supuesto metodológico global de
+// `CANONICAL_METHODOLOGY` esté marcado `approved: false` — cuando la
+// LLAMADA no incluye en absoluto la propiedad `resolvedAssumptions`
+// (legacy) — o (2b, v5, Bloque 3C.1) que los 13 supuestos de
+// `ResolvedCalculationAssumptions`
+// (docs/velarix-v5/05-financial-engine-audit.md v1.3 §5-§6) estén
+// explícitamente resueltos y documentados — cuando la llamada SÍ incluye
+// esa propiedad, sea cual sea su valor (`undefined`, `null`, `{}`,
+// parcial o completo).
 //
-// Limitación conocida y documentada, no oculta: no existe HOY ningún
-// mecanismo persistido para que un humano marque estos supuestos como
-// aprobados (verificado — sin schema/RPC para ello). Por tanto
-// `unapproved_assumptions` bloqueará SIEMPRE, para todo análisis, hasta
-// que exista un mecanismo real de aprobación (fuera de alcance de este
-// módulo). Esto es la consecuencia correcta y esperada de no inventar una
-// aprobación que no existe — no un bug de este preflight.
+// Distinción legacy/v5 por PRESENCIA de la propiedad, no por su valor
+// (`Object.prototype.hasOwnProperty`, ver `evaluateCalculationPreflight`)
+// — deliberado: en JS, un objeto que omite la clave y un objeto que la
+// incluye con valor `undefined` son indistinguibles si solo se compara
+// contra `undefined`, pero representan intenciones distintas aquí: la
+// primera es "esta llamada no es una ejecución v5, no la evalúes como
+// tal"; la segunda es "esta ES una ejecución v5, y todavía no se resolvió
+// ningún supuesto" (debe bloquear con blockers `RESOLVED_ASSUMPTION_*`,
+// no con el mecanismo legacy).
+//
+// La pregunta que este módulo responde en modo v5 no es "¿los defaults
+// globales están approved=true?" (nunca puede ser cierto, ver más abajo)
+// sino "¿están los 13 supuestos metodológicos requeridos explícitamente
+// resueltos y documentados para ESTA ejecución?" (05 v1.3 §5). El motor
+// y este preflight no aprueban nada — verifican que la resolución humana
+// ya ocurrió (`04 §17`).
+//
+// Legacy: mientras la llamada no incluya la propiedad
+// `resolvedAssumptions`, el comportamiento es exactamente el de siempre
+// — no existe HOY ningún mecanismo persistido para que un humano marque
+// los 8 supuestos globales como aprobados (verificado — sin schema/RPC
+// para ello), así que `unapproved_assumptions` sigue bloqueando SIEMPRE
+// en ese modo. Esto preserva sin cambios los 13 tests pre-existentes de
+// `calculation-preflight.test.ts` y la integración con
+// `ejecutar-calculo/index.ts` (que hoy no incluye esa propiedad en su
+// llamada).
 
 import { CANONICAL_METHODOLOGY } from "./financial-methodology.ts";
+import {
+  REQUIRED_RESOLVED_ASSUMPTION_KEYS,
+  MOTOR_SUPPORTED_PROJECTION_HORIZON_YEARS,
+  type ResolvedCalculationAssumptions,
+} from "./resolved-calculation-assumptions.ts";
 
 export interface PreflightIncomeStatement {
   revenue?: number | null;
@@ -127,24 +157,166 @@ function findUnapprovedAssumptions(): string[] {
   return unapproved;
 }
 
+/**
+ * Bloque 3C.1 — validación mínima de `ResolvedCalculationAssumptions`
+ * (docs/velarix-v5/05-financial-engine-audit.md v1.3 §5-§6). Verifica,
+ * para cada uno de los 13 campos: presencia; `status === "resolved"`;
+ * `source`/`rationale` no vacíos. Además, verificaciones estructurales/
+ * de compatibilidad puntuales cuando el campo relevante está presente:
+ * pesos de `capitalStructure` válidos ([0,1] y suman 1); horizonte
+ * resuelto compatible con el único valor que el motor soporta hoy (5);
+ * longitud de `explicitDeltaNwcByYear`/`explicitFcffTaxRatePctByYear`
+ * coherente con ese horizonte.
+ *
+ * NO decide si los VALORES son correctos financieramente (eso es
+ * Judgment humano, no de este módulo) — solo que la resolución está
+ * completa, documentada y estructuralmente consistente. NO aprueba
+ * nada — `status` es literalmente `"resolved"`, nunca `"approved"`.
+ *
+ * El llamador (`evaluateCalculationPreflight`) decide legacy vs. v5 por
+ * PRESENCIA de la propiedad `resolvedAssumptions` — esta función solo se
+ * invoca cuando esa propiedad SÍ está presente (aunque su valor sea
+ * `undefined`, `null`, `{}`, parcial o completo). Llamada con `undefined`
+ * o `null`, reporta los 13 campos como faltantes — comportamiento
+ * correcto: "hay una ejecución v5, pero no se resolvió ningún supuesto
+ * todavía", distinto de "no hay ejecución v5 en absoluto" (legacy, nunca
+ * llega a esta función).
+ */
+function findResolvedAssumptionBlockers(
+  resolvedAssumptions: Partial<ResolvedCalculationAssumptions> | null | undefined,
+): string[] {
+  const blockers: string[] = [];
+  const ra = resolvedAssumptions ?? undefined;
+
+  for (const key of REQUIRED_RESOLVED_ASSUMPTION_KEYS) {
+    const entry = ra ? (ra as Record<string, unknown>)[key] : undefined;
+    const upperKey = key.toUpperCase();
+
+    if (entry === undefined || entry === null) {
+      blockers.push(`RESOLVED_ASSUMPTION_MISSING_${upperKey}: el supuesto resuelto "${key}" no está presente en resolvedAssumptions.`);
+      continue;
+    }
+
+    const e = entry as { status?: unknown; source?: unknown; rationale?: unknown };
+    if (e.status !== "resolved") {
+      blockers.push(`RESOLVED_ASSUMPTION_STATUS_${upperKey}: el supuesto "${key}" no tiene status="resolved" (status actual: ${JSON.stringify(e.status)}).`);
+    }
+    if (typeof e.source !== "string" || e.source.trim().length === 0) {
+      blockers.push(`RESOLVED_ASSUMPTION_SOURCE_${upperKey}: el supuesto "${key}" no declara 'source'.`);
+    }
+    if (typeof e.rationale !== "string" || e.rationale.trim().length === 0) {
+      blockers.push(`RESOLVED_ASSUMPTION_RATIONALE_${upperKey}: el supuesto "${key}" no declara 'rationale'.`);
+    }
+  }
+
+  // Verificaciones estructurales/de compatibilidad — solo cuando el campo relevante está presente.
+  const capitalStructureValue = (ra?.capitalStructure as { value?: { equityWeight?: number; debtWeight?: number } } | undefined)?.value;
+  if (capitalStructureValue) {
+    const { equityWeight, debtWeight } = capitalStructureValue;
+    const inUnitRange = (n: number | undefined): n is number => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1;
+    const sumsToOne = inUnitRange(equityWeight) && inUnitRange(debtWeight) && Math.abs((equityWeight as number) + (debtWeight as number) - 1) < 1e-6;
+    if (!inUnitRange(equityWeight) || !inUnitRange(debtWeight) || !sumsToOne) {
+      blockers.push(
+        `RESOLVED_ASSUMPTION_INVALID_CAPITALSTRUCTURE: equityWeight/debtWeight deben estar en [0,1] y sumar 1 (equityWeight=${equityWeight}, debtWeight=${debtWeight}).`,
+      );
+    }
+  }
+
+  const horizonValue = (ra?.projectionHorizonYears as { value?: { years?: number } } | undefined)?.value;
+  if (horizonValue && horizonValue.years !== MOTOR_SUPPORTED_PROJECTION_HORIZON_YEARS) {
+    blockers.push(
+      `RESOLVED_ASSUMPTION_INCOMPATIBLE_PROJECTIONHORIZONYEARS: el motor solo soporta ${MOTOR_SUPPORTED_PROJECTION_HORIZON_YEARS} años (resuelto: ${horizonValue.years}).`,
+    );
+  }
+  // Horizonte efectivo para verificar longitud de paths: el resuelto si está presente, si no el único que el motor soporta.
+  const effectiveHorizon = horizonValue?.years ?? MOTOR_SUPPORTED_PROJECTION_HORIZON_YEARS;
+
+  const workingCapitalValue = (ra?.workingCapitalDriver as { value?: { explicitDeltaNwcByYear?: number[] } } | undefined)?.value;
+  if (workingCapitalValue && workingCapitalValue.explicitDeltaNwcByYear.length !== effectiveHorizon) {
+    blockers.push(
+      `RESOLVED_ASSUMPTION_INVALID_WORKINGCAPITALDRIVER: explicitDeltaNwcByYear tiene ${workingCapitalValue.explicitDeltaNwcByYear.length} valores, se esperaban ${effectiveHorizon}.`,
+    );
+  }
+
+  const taxValue = (ra?.taxTreatment as { value?: { explicitFcffTaxRatePctByYear?: number[] } } | undefined)?.value;
+  if (taxValue && taxValue.explicitFcffTaxRatePctByYear.length !== effectiveHorizon) {
+    blockers.push(
+      `RESOLVED_ASSUMPTION_INVALID_TAXTREATMENT: explicitFcffTaxRatePctByYear tiene ${taxValue.explicitFcffTaxRatePctByYear.length} valores, se esperaban ${effectiveHorizon}.`,
+    );
+  }
+
+  return blockers;
+}
+
 export function evaluateCalculationPreflight(params: {
   incomeStatement: PreflightIncomeStatement | null | undefined;
   balanceSheet: PreflightBalanceSheet | null | undefined;
+  /**
+   * Bloque 3C.1 — supuestos metodológicos resueltos (05 v1.3 §6). Campo
+   * opcional de este mismo objeto de parámetros (no un parámetro
+   * adicional de la función, que sigue teniendo un único argumento).
+   *
+   * Lo que distingue legacy de v5 es la PRESENCIA de esta propiedad en
+   * el objeto `params`, no su valor — un llamador legacy real omite la
+   * clave por completo; un llamador v5 la incluye siempre, aunque su
+   * valor sea `undefined`, `null`, `{}`, parcial o completo (en los
+   * cuatro últimos casos, la validación de los 13 campos determina qué
+   * falta o es inválido vía `findResolvedAssumptionBlockers`).
+   */
+  resolvedAssumptions?: Partial<ResolvedCalculationAssumptions> | null;
 }): CalculationPreflightResult {
   const missing_inputs = findMissingRequiredInputs(params.incomeStatement, params.balanceSheet);
-  const unapproved_assumptions = findUnapprovedAssumptions();
+
+  // Distinción legacy vs. v5 — corregida en esta revisión: por
+  // PRESENCIA de la propiedad `resolvedAssumptions` en `params`, no por
+  // su valor. Una llamada legacy real no incluye esa clave en absoluto
+  // — `params.resolvedAssumptions` sería `undefined` de todos modos,
+  // indistinguible en JS de "la llamada incluyó la clave con valor
+  // `undefined`" si solo se mirara el valor (`!== undefined`). Por eso
+  // la distinción legacy/v5 se decide con `hasOwnProperty` sobre la
+  // clave, nunca con una comparación de valor.
+  const hasResolvedAssumptionsKey = Object.prototype.hasOwnProperty.call(params, "resolvedAssumptions");
+
+  if (!hasResolvedAssumptionsKey) {
+    // Legacy exacto: la clave ni siquiera formó parte de la ejecución.
+    // Comportamiento IDÉNTICO, campo por campo, al preflight anterior a
+    // Bloque 3C.1 — `findResolvedAssumptionBlockers` ni se invoca.
+    const unapproved_assumptions = findUnapprovedAssumptions();
+    const blockers: string[] = [
+      ...missing_inputs.map(
+        (field) => `INPUT_MISSING: "${field}" ausente en structured_input — no se puede calcular sin fabricar un valor.`,
+      ),
+      ...unapproved_assumptions.map(
+        (name) => `METHODOLOGY_APPROVAL_REQUIRED: el supuesto "${name}" no tiene aprobación humana registrada.`,
+      ),
+    ];
+    return {
+      passed: missing_inputs.length === 0 && unapproved_assumptions.length === 0,
+      missing_inputs,
+      unapproved_assumptions,
+      blockers,
+    };
+  }
+
+  // Ejecución v5: la clave está presente, sea cual sea su valor
+  // (`undefined`, `null`, `{}`, parcial o completo) — todos exigen que
+  // los 13 supuestos resueltos se validen; ninguno cae al fallback
+  // legacy. Los 13 supuestos resueltos SUSTITUYEN la pregunta legacy de
+  // "¿los 8 defaults globales están approved=true?" (que nunca puede
+  // responderse afirmativamente, ver cabecera) — no tiene sentido exigir
+  // ambas simultáneamente para la MISMA ejecución.
+  const unapproved_assumptions: string[] = [];
+  const resolved_assumption_blockers = findResolvedAssumptionBlockers(params.resolvedAssumptions);
 
   const blockers: string[] = [
     ...missing_inputs.map(
       (field) => `INPUT_MISSING: "${field}" ausente en structured_input — no se puede calcular sin fabricar un valor.`,
     ),
-    ...unapproved_assumptions.map(
-      (name) => `METHODOLOGY_APPROVAL_REQUIRED: el supuesto "${name}" no tiene aprobación humana registrada.`,
-    ),
+    ...resolved_assumption_blockers,
   ];
 
   return {
-    passed: missing_inputs.length === 0 && unapproved_assumptions.length === 0,
+    passed: missing_inputs.length === 0 && resolved_assumption_blockers.length === 0,
     missing_inputs,
     unapproved_assumptions,
     blockers,
