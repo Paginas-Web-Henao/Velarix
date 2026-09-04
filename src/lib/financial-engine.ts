@@ -160,7 +160,16 @@ export interface KPIResult {
   ebitdaMargin: number;
   ebitMargin: number;
   netMargin: number;
-  roe: number;
+  /**
+   * Bloque 3C.2 (cierre de consistencia) — `number | null` para poder
+   * transportar sin fabricar un valor el ROE no interpretable
+   * (`equity <= 0` o ausente) que produce el motor canónico
+   * (`_shared/canonical-financial-engine.ts::CanonicalKPIs.roe`) vía
+   * `pdf-canonical-mapper.ts`. El motor DEMO (`runAnalysis` en este mismo
+   * archivo) sigue produciendo siempre un `number` real — este ensanche
+   * de tipo no cambia su lógica ni su comportamiento.
+   */
+  roe: number | null;
   roa: number;
   revenueGrowth: number;
   netDebt: number;

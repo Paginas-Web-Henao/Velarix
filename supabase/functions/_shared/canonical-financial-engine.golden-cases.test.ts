@@ -80,6 +80,25 @@ const EXPECTED_CASE_B: ExpectedCanonicalResult = {
   waccWarning: null,
 };
 
+// Bloque 3C.2 (RC-1 + RC-2, docs/velarix-v5/05-financial-engine-audit.md
+// v1.3 §4) — decisión de diseño explícita, no un olvido: los valores de
+// este caso NO cambiaron. `runCanonicalFinancialEngine` invoca
+// `computeCapitalStructure` con la firma legacy de 3 argumentos, sin la
+// propiedad `resolvedAssumptions` — eso es "legacy" por PRESENCIA de la
+// clave (`capital-structure.ts`, mismo criterio que
+// `calculation-preflight.ts` desde 3C.1), sin importar el signo de
+// `equity`. `04 §3.2`/RC-1 exige que Evidence (`resolveEffectiveEquity`)
+// preserve el signo real (-500_000_000, ya no +500_000_000 vía
+// `Math.abs()`) — pero `05 v1.3 §4` autoriza explícitamente que el
+// cálculo MECÁNICO legacy reproduzca su comportamiento histórico
+// mientras no exista contexto v5, para no romper los golden cases A/B/C.
+// La rama legacy de `computeCapitalStructure` aplica esa compatibilidad
+// de forma local y documentada (`Math.abs(equity ?? 0)`, SOLO para
+// derivar los weights) sin alterar el `equity` de Evidence en ningún
+// otro punto del pipeline — así que el resultado numérico de este caso
+// es idéntico al de antes de la corrección: el bug de signo vivía en
+// Evidence (ya corregido), no en la fórmula legacy en sí (deliberadamente
+// preservada).
 const EXPECTED_CASE_C: ExpectedCanonicalResult = {
   wacc: 10.480044,
   betaLevered: 7.788,

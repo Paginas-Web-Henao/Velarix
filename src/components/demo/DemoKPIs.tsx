@@ -42,7 +42,12 @@ const DemoKPIs = ({ result, inputs }: Props) => {
         { label: "Margen EBITDA", value: formatPct(kpis.ebitdaMargin), benchmark: bm.ebitdaMargin, interpretation: `Sector referencia: ${bm.ebitdaMargin}%`, higherIsBetter: true },
         { label: "Margen EBIT", value: formatPct(kpis.ebitMargin), benchmark: null, interpretation: "Rentabilidad operativa después de D&A" },
         { label: "Margen Neto", value: formatPct(kpis.netMargin), benchmark: null, interpretation: "Rentabilidad final después de impuestos e intereses" },
-        { label: "ROE", value: formatPct(kpis.roe), benchmark: null, interpretation: "Retorno sobre el patrimonio de los accionistas" },
+        // Bloque 3C.2 (cierre de consistencia) — `kpis.roe` puede ser `null`
+        // (ROE no interpretable para equity <= 0 o ausente, propagado desde
+        // el motor canónico vía `pdf-canonical-mapper.ts`); nunca se pasa a
+        // `formatPct` (que asume `number`) ni se fabrica 0 — "N/D" es el
+        // mismo patrón ya usado en `pdf-generator.ts` para valores ausentes.
+        { label: "ROE", value: kpis.roe == null ? "N/D" : formatPct(kpis.roe), benchmark: null, interpretation: "Retorno sobre el patrimonio de los accionistas" },
         { label: "ROA", value: formatPct(kpis.roa), benchmark: null, interpretation: "Retorno sobre activos totales" },
       ],
     },

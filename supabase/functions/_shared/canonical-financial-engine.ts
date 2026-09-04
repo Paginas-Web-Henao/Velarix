@@ -95,7 +95,13 @@ export interface CanonicalKPIs {
   ebitdaMargin: number;
   ebitMargin: number;
   netMargin: number;
-  roe: number;
+  /**
+   * Bloque 3C.2 (`04 §3.2`, `05 v1.3 §4`) — `null` cuando `equity <= 0`:
+   * no interpretable, y deliberadamente distinguible de un ROE real de
+   * `0%`. No se infiere aquí ninguna causa del patrimonio no positivo
+   * (`04 §17`).
+   */
+  roe: number | null;
   roa: number;
   netDebt: number;
   leverage: number;
@@ -265,7 +271,7 @@ export function runCanonicalFinancialEngine(
     ebitdaMargin,
     ebitMargin: (ebit0 / revenue) * 100,
     netMargin: (netIncome0 / revenue) * 100,
-    roe: equity > 0 ? (netIncome0 / equity) * 100 : 0,
+    roe: equity > 0 ? (netIncome0 / equity) * 100 : null,
     roa: totalAssets > 0 ? (netIncome0 / totalAssets) * 100 : 0,
     netDebt,
     leverage: ebitda0 > 0 ? netDebt / ebitda0 : 0,

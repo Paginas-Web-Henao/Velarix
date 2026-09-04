@@ -223,7 +223,14 @@ export interface CanonicalKPIs {
   ebitdaMargin: number;
   ebitMargin: number;
   netMargin: number;
-  roe: number;
+  /**
+   * Bloque 3C.2 — `null` cuando `equity <= 0` o ausente (no interpretable),
+   * distinguible de un ROE real de `0%`. Mismo contrato que
+   * `_shared/canonical-financial-engine.ts::CanonicalKPIs.roe` — este tipo
+   * describe el mismo `calculation_result` persistido, no un contrato
+   * distinto.
+   */
+  roe: number | null;
   roa: number;
   netDebt: number;
   leverage: number;

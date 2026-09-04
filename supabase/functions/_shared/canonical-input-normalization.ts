@@ -57,10 +57,39 @@ export function resolveEffectiveCash(bs: NormalizableBalanceSheet | undefined): 
   return Math.abs((bs || {}).cash || 0);
 }
 
-/** Misma regla exacta que antes vivía inline: `Math.abs(bs.equity || bs.total_equity || 0)`. */
-export function resolveEffectiveEquity(bs: NormalizableBalanceSheet | undefined): number {
+/**
+ * Bloque 3C.2 (RC-1, `04 §3.2`, `05 v1.3 §4`) — corrección: ya NO aplica
+ * `Math.abs()`, y ya NO fabrica `0` cuando el patrimonio no fue
+ * observado. El patrimonio es Evidence y conserva su estado real:
+ *
+ * - positivo/negativo/cero observado → se devuelve exactamente ese
+ *   valor, con su signo, sin transformación;
+ * - ausente (`null`/`undefined`, o la propiedad ni siquiera presente) →
+ *   se devuelve `null` — nunca `0`. Un patrimonio negativo, una
+ *   reversión de gasto y "no hay evidencia de patrimonio" significan
+ *   cosas económicamente distintas entre sí; colapsarlas en el mismo `0`
+ *   destruye esa distinción antes de que llegue al motor. Este módulo no
+ *   interpreta POR QUÉ el patrimonio es negativo o por qué está ausente
+ *   (`04 §17`) — solo deja de destruir esa información.
+ *
+ * `total_equity` (nombre alterno) se usa ÚNICAMENTE cuando `equity`
+ * realmente no fue observado (`null`/`undefined`) — nunca como
+ * "segunda opción" ante un `equity` observado en cero, que ya es un
+ * valor válido y final. El valor de `total_equity`, si se usa, preserva
+ * su propio signo de la misma forma.
+ *
+ * Los consumidores de este `number | null` (`canonical-financial-engine.ts`,
+ * `capital-structure.ts`) son responsables de decidir qué hacer ante
+ * `null` — esta función no decide eso por ellos. La distinción entre
+ * "ausente" y "observado en cero" para efectos de BLOQUEAR el cálculo
+ * (no solo de propagar el tipo) sigue viviendo en el preflight
+ * (`calculation-preflight.ts::isObserved` sobre el valor crudo).
+ */
+export function resolveEffectiveEquity(bs: NormalizableBalanceSheet | undefined): number | null {
   const b = bs || {};
-  return Math.abs(b.equity || b.total_equity || 0);
+  if (b.equity !== null && b.equity !== undefined) return b.equity;
+  if (b.total_equity !== null && b.total_equity !== undefined) return b.total_equity;
+  return null;
 }
 
 export const SECTOR_BENCHMARKS: Record<string, { beta: number; ebitdaMargin: number; evEbitda: number; evRevenue: number; waccRef: number }> = {

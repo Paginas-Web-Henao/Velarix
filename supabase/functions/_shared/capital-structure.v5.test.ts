@@ -1,11 +1,15 @@
-// Bloque 3B — Tests-first de RC-1 (signo de equity) + RC-2 (capital
-// structure no debe depender de book equity en una ejecución v5),
-// docs/velarix-v5/05-financial-engine-audit.md v1.3 §4.
+// Bloque 3B (tests-first) + Bloque 3C.2 (implementación) — RC-1 (signo de
+// equity) + RC-2 (capital structure no debe depender de book equity en
+// una ejecución v5), docs/velarix-v5/05-financial-engine-audit.md v1.3 §4.
 //
 // Llaman a las funciones REALES de producción
 // (`resolveEffectiveEquity`, `computeCapitalStructure`) — nunca
-// reimplementan su lógica. No se modifica canonical-input-normalization.ts
-// ni capital-structure.ts en este bloque.
+// reimplementan su lógica. Bloque 3C.2 implementó RC-1/RC-2 en
+// `canonical-input-normalization.ts`/`capital-structure.ts`: los tests de
+// RC-1/RC-2 de este archivo pasaron de `it.fails` a `it`. La sección
+// RC-3 (consumo de componentes de Ke/WACC vía `resolvedAssumptions`, más
+// abajo) permanece `it.fails` — WACC/Hamada/Ke completos son Bloque 3C.3,
+// fuera de alcance de 3C.2.
 
 import { describe, it, expect } from "vitest";
 import { resolveEffectiveEquity } from "./canonical-input-normalization";
@@ -20,107 +24,161 @@ const BASE_CAPM: Omit<CapitalStructureInput, "totalDebt" | "cash" | "equity"> = 
   erpPct: 5.80,
 };
 
-describe("RC-1 — resolveEffectiveEquity — HOY (caracterización, verde)", () => {
-  it("Math.abs() destruye el signo negativo hoy — comportamiento actual confirmado", () => {
-    expect(resolveEffectiveEquity({ equity: -500_000_000 })).toBe(500_000_000);
-  });
-});
+// Bloque 3C.2 — el describe "HOY" que documentaba `Math.abs()` destruyendo
+// el signo se retira: ese comportamiento ya no existe en producción
+// (RC-1 corregido) y preservarlo como caracterización sería preservar el
+// bug, no documentarlo (docs/velarix-v5/05-financial-engine-audit.md v1.3 §4).
 
-describe("RC-1 — resolveEffectiveEquity — V5 OBJETIVO (rojo esperado)", () => {
-  it.fails("debe preservar el signo negativo de equity — Decisión 6, 04 §3.2, vinculante", () => {
-    expect(resolveEffectiveEquity({ equity: -500_000_000 })).toBe(-500_000_000);
-  });
-
-  it("debe preservar equity positivo sin alterarlo (esto ya funciona hoy — no debe romperse al corregir el signo)", () => {
+describe("RC-1 — resolveEffectiveEquity — V5 OBJETIVO", () => {
+  it("1. equity positivo: se preserva sin alterar", () => {
     expect(resolveEffectiveEquity({ equity: 500_000_000 })).toBe(500_000_000);
   });
 
-  it("debe preservar equity observado en cero como 0 — no es 'ausente'", () => {
+  it("2. equity = 0 observado: se preserva exactamente 0 — no es 'ausente'", () => {
     expect(resolveEffectiveEquity({ equity: 0 })).toBe(0);
   });
-});
 
-describe("Book equity ausente — ya manejado correctamente aguas arriba (preflight), no por resolveEffectiveEquity", () => {
-  it("equity ausente y equity=0 producen hoy el mismo valor normalizado (0) en esta capa — la distinción 'ausente vs. cero' vive en el preflight (isObserved sobre el valor crudo), no aquí; ver calculation-preflight.test.ts test 5-6", () => {
-    expect(resolveEffectiveEquity({})).toBe(resolveEffectiveEquity({ equity: 0 }));
+  it("3. equity negativo: se preserva el signo negativo — Decisión 6, 04 §3.2, vinculante", () => {
+    expect(resolveEffectiveEquity({ equity: -500_000_000 })).toBe(-500_000_000);
+  });
+
+  it("4. equity: null (observado explícitamente como no disponible): nunca se fabrica 0", () => {
+    expect(resolveEffectiveEquity({ equity: null })).toBeNull();
+  });
+
+  it("5. equity: undefined (presente en el objeto pero sin valor): nunca se fabrica 0", () => {
+    expect(resolveEffectiveEquity({ equity: undefined })).toBeNull();
+  });
+
+  it("6. propiedad equity ausente por completo del balance_sheet: nunca se fabrica 0", () => {
+    expect(resolveEffectiveEquity({})).toBeNull();
+  });
+
+  it("7. fallback a total_equity SOLO cuando equity realmente no fue observado, preservando también su signo", () => {
+    expect(resolveEffectiveEquity({ total_equity: -800_000_000 })).toBe(-800_000_000);
+    expect(resolveEffectiveEquity({ equity: null, total_equity: -800_000_000 })).toBe(-800_000_000);
+    // equity=0 observado es un valor final — NUNCA cae a total_equity, aunque total_equity esté presente.
+    expect(resolveEffectiveEquity({ equity: 0, total_equity: -800_000_000 })).toBe(0);
   });
 });
 
-describe("RC-2 — computeCapitalStructure — LEGACY (sin resolvedAssumptions, verde — compatibilidad con golden cases)", () => {
+describe("Zero observado ≠ missing — distinción preservada por resolveEffectiveEquity (no solo por el preflight)", () => {
+  it("equity=0 observado y equity ausente ya NO producen el mismo valor normalizado — 0 real vs. null", () => {
+    expect(resolveEffectiveEquity({ equity: 0 })).toBe(0);
+    expect(resolveEffectiveEquity({})).toBeNull();
+    expect(resolveEffectiveEquity({ equity: 0 })).not.toBe(resolveEffectiveEquity({}));
+  });
+
+  it("distinguible también con Object.is (0 vs. null nunca son el mismo valor, a diferencia de -0 vs. 0)", () => {
+    expect(Object.is(resolveEffectiveEquity({ equity: 0 }), resolveEffectiveEquity({}))).toBe(false);
+  });
+});
+
+describe("RC-2 — computeCapitalStructure — LEGACY (sin resolvedAssumptions, verde — compatibilidad con golden cases, 05 v1.3 §4)", () => {
   it("equity > 0 deriva equityWeight de book equity/deuda (comportamiento legacy sin cambios)", () => {
     const r = computeCapitalStructure({ ...BASE_CAPM, totalDebt: 4_000_000_000, cash: 50_000_000, equity: 500_000_000 });
     expect(r.equityWeight).toBeCloseTo(500_000_000 / (500_000_000 + 4_000_000_000), 6);
   });
 
-  it("equity <= 0 (incluyendo el resultado post-Math.abs de un equity negativo real) cae al fallback 70/30 (comportamiento legacy sin cambios)", () => {
+  it("equity = 0 cae al fallback 70/30 (comportamiento legacy sin cambios)", () => {
     const r = computeCapitalStructure({ ...BASE_CAPM, totalDebt: 4_000_000_000, cash: 50_000_000, equity: 0 });
     expect(r.equityWeight).toBe(0.70);
   });
+
+  it("equity ausente (null) cae al mismo fallback 70/30 que equity=0 — comportamiento legacy sin cambios (no es una ejecución v5, no se bloquea aquí)", () => {
+    const r = computeCapitalStructure({ ...BASE_CAPM, totalDebt: 4_000_000_000, cash: 50_000_000, equity: null });
+    expect(r.equityWeight).toBe(0.70);
+  });
+
+  it("equity negativo real, SIN resolvedAssumptions (ninguna ejecución v5 anunciada): reproduce el comportamiento mecánico histórico — nunca 'requiere juicio', nunca NaN. La compatibilidad legacy está explícitamente autorizada por 05 v1.3 §4, incluso tras corregir RC-1 en Evidence", () => {
+    const r = computeCapitalStructure({ ...BASE_CAPM, totalDebt: 4_000_000_000, cash: 50_000_000, equity: -500_000_000 });
+    // Paridad exacta con el cálculo histórico: antes de RC-1, `Math.abs()`
+    // ya convertía el equity a +500_000_000 ANTES de llegar aquí, así que
+    // el resultado histórico era equivalente a invocar con +500_000_000.
+    const asHistoricallyComputed = computeCapitalStructure({ ...BASE_CAPM, totalDebt: 4_000_000_000, cash: 50_000_000, equity: 500_000_000 });
+    expect(r.equityWeight).toBeCloseTo(asHistoricallyComputed.equityWeight, 10);
+    expect(r.waccPct).toBeCloseTo(asHistoricallyComputed.waccPct, 10);
+    expect(Number.isNaN(r.equityWeight)).toBe(false);
+    expect(Number.isNaN(r.waccPct)).toBe(false);
+    // El book equity de Evidence preservado por el resultado SÍ conserva el signo real — solo el cálculo mecánico de weights usa la compatibilidad local.
+    expect(r.bookEquityReference).toBe(-500_000_000);
+  });
 });
 
-describe("RC-2 — computeCapitalStructure — V5 OBJETIVO (rojo esperado hasta implementar RC-2/RC-3)", () => {
+describe("RC-2 — computeCapitalStructure — V5 OBJETIVO", () => {
   const resolvedCS = EXAMPLE_RESOLVED_ASSUMPTIONS.capitalStructure.value; // equityWeight 0.6 / debtWeight 0.4 / comparables
 
-  it.fails("con resolvedAssumptions.capitalStructure presente y equity positivo, usa los weights resueltos — NO los derivados de book equity", () => {
+  it("con resolvedAssumptions.capitalStructure presente y equity positivo, usa los weights resueltos — NO los derivados de book equity", () => {
     const r = computeCapitalStructure({
       ...BASE_CAPM,
       totalDebt: 4_000_000_000,
       cash: 50_000_000,
       equity: 3_000_000_000, // book equity positivo — el legacy lo usaría para derivar equityWeight
       resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS,
-    } as any);
+    });
     expect(r.equityWeight).toBeCloseTo(resolvedCS.equityWeight, 6);
     expect(r.equityWeight).not.toBeCloseTo(3_000_000_000 / (3_000_000_000 + 4_000_000_000), 3);
   });
 
-  it.fails("con resolvedAssumptions.capitalStructure presente y equity = 0, usa los weights resueltos — NUNCA el fallback 70/30 silencioso", () => {
+  it("con resolvedAssumptions.capitalStructure presente y equity = 0, usa los weights resueltos — NUNCA el fallback 70/30 silencioso", () => {
     const r = computeCapitalStructure({
       ...BASE_CAPM,
       totalDebt: 4_000_000_000,
       cash: 50_000_000,
       equity: 0,
       resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS,
-    } as any);
+    });
     expect(r.equityWeight).toBeCloseTo(resolvedCS.equityWeight, 6);
     expect(r.equityWeight).not.toBe(0.70);
   });
 
-  it.fails("con resolvedAssumptions.capitalStructure presente y equity negativo real (signo preservado), usa los weights resueltos — sin Hamada mecánica sobre book D/E negativo", () => {
+  it("con resolvedAssumptions.capitalStructure presente y equity negativo real (signo preservado), usa los weights resueltos — sin Hamada mecánica sobre book D/E negativo", () => {
     const r = computeCapitalStructure({
       ...BASE_CAPM,
       totalDebt: 4_000_000_000,
       cash: 50_000_000,
       equity: -500_000_000, // signo preservado (RC-1 ya corregido en este escenario objetivo)
       resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS,
-    } as any);
+    });
     expect(r.equityWeight).toBeCloseTo(resolvedCS.equityWeight, 6);
     expect(r.equityWeight).not.toBe(0.70);
     expect(Number.isFinite(r.betaLevered)).toBe(true);
   });
 
-  it.fails("con equity negativo real y SIN resolvedAssumptions.capitalStructure, el motor debe señalar que se requiere juicio explícito — nunca calcular silenciosamente vía book D/E ni vía 70/30", () => {
-    const r = computeCapitalStructure({
-      ...BASE_CAPM,
-      totalDebt: 4_000_000_000,
-      cash: 50_000_000,
-      equity: -500_000_000,
-    } as any);
-    // Campo objetivo (05 v1.3 §8) — no existe todavía en CapitalStructureResult.
-    expect((r as any).requiresCapitalStructureJudgment).toBe(true);
-    expect(r.equityWeight).not.toBe(0.70);
+  it("ejecución v5 anunciada (clave resolvedAssumptions presente) pero SIN capitalStructure resuelto: lanza explícitamente — nunca calcula silenciosamente vía book D/E, vía 70/30, ni produce NaN. El preflight v5 (calculation-preflight.ts) debe bloquear esto antes de llegar al motor; llegar aquí de todos modos es un estado inválido, no un resultado a fabricar", () => {
+    expect(() =>
+      computeCapitalStructure({
+        ...BASE_CAPM,
+        totalDebt: 4_000_000_000,
+        cash: 50_000_000,
+        equity: -500_000_000,
+        resolvedAssumptions: undefined, // clave PRESENTE (anuncia v5), valor sin resolver — igual que un preflight v5 que no debería haber dejado pasar esto
+      }),
+    ).toThrow(/capitalStructure resuelto/);
   });
 
-  it.fails("book equity (positivo, cero o negativo) se conserva siempre como referencia/sanity check en el resultado, nunca se descarta — la referencia viene del parámetro `equity` de Evidence, NUNCA de resolvedAssumptions (Bloque 3B.1: capitalStructure ya no transporta book equity, es puro Judgment)", () => {
+  it("misma señal defensiva con resolvedAssumptions parcial (capitalStructure ausente de un objeto por lo demás con forma de ResolvedCalculationAssumptions)", () => {
+    expect(() =>
+      computeCapitalStructure({
+        ...BASE_CAPM,
+        totalDebt: 4_000_000_000,
+        cash: 50_000_000,
+        equity: 3_000_000_000, // el signo/valor de equity es irrelevante aquí — la señal depende solo de la ausencia de capitalStructure resuelto en un contexto v5 anunciado
+        resolvedAssumptions: {} as any,
+      }),
+    ).toThrow(/capitalStructure resuelto/);
+  });
+
+  it("book equity (positivo, cero o negativo) se conserva siempre como referencia/sanity check en el resultado, nunca se descarta — la referencia viene del parámetro `equity` de Evidence, NUNCA de resolvedAssumptions (Bloque 3B.1: capitalStructure ya no transporta book equity, es puro Judgment)", () => {
     const r = computeCapitalStructure({
       ...BASE_CAPM,
       totalDebt: 4_000_000_000,
       cash: 50_000_000,
       equity: 3_000_000_000,
       resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS,
-    } as any);
-    // Campo objetivo (05 v1.3 §4) — no existe todavía en CapitalStructureResult.
+    });
     // Debe reflejar el `equity` de Evidence recibido como parámetro, no ningún campo de resolvedAssumptions.
-    expect((r as any).bookEquityReference).toBe(3_000_000_000);
+    expect(r.bookEquityReference).toBe(3_000_000_000);
   });
 });
 

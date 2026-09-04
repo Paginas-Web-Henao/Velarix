@@ -97,7 +97,12 @@ export function formatMoneda(v: number | null | undefined, currency: ReportingCu
 }
 const fPctVal = (v: number | null | undefined) =>
   v != null ? `${(typeof v === "number" && v < 1 && v > -1 ? v * 100 : v).toFixed(1)}%` : "N/D";
-const fPctRaw = (v: number) => `${v.toFixed(1)}%`;
+// Bloque 3C.2 (cierre de consistencia) — `roe` puede ser `null` (ROE no
+// interpretable para equity <= 0 o ausente, `_shared/canonical-financial-engine.ts`
+// vía `pdf-canonical-mapper.ts`). `fPctRaw` amplía su firma para aceptar
+// `null` y mostrar "N/D", mismo patrón ya usado por `fPctVal`/`fNum`/
+// `fDelta` arriba — nunca fabrica un porcentaje a partir de `null`.
+const fPctRaw = (v: number | null) => (v != null ? `${v.toFixed(1)}%` : "N/D");
 const fNum = (v: number | null | undefined, d = 1) =>
   v != null ? v.toFixed(d) : "N/D";
 const fDelta = (v: number | null | undefined) =>
@@ -659,7 +664,7 @@ export async function generatePDF(
         ["Margen EBITDA", fPctRaw(result.kpis.ebitdaMargin), `${bm.ebitdaMargin}%`, evalChip(result.kpis.ebitdaMargin, bm.ebitdaMargin)],
         ["Margen EBIT", fPctRaw(result.kpis.ebitMargin), "—", "—"],
         ["Margen neto", fPctRaw(result.kpis.netMargin), "—", "—"],
-        ["ROE", fPctRaw(result.kpis.roe), "—", result.kpis.roe > 15 ? "✓ Sólido" : "⚠ Moderado"],
+        ["ROE", fPctRaw(result.kpis.roe), "—", result.kpis.roe == null ? "N/D" : result.kpis.roe > 15 ? "✓ Sólido" : "⚠ Moderado"],
         ["ROA", fPctRaw(result.kpis.roa), "—", result.kpis.roa > 10 ? "✓ Eficiente" : "⚠ Moderado"],
       ],
       headStyles: { fillColor: DS.color.azulOscuro, textColor: DS.color.blanco, fontStyle: "bold", fontSize: 9 },
@@ -669,7 +674,10 @@ export async function generatePDF(
     });
     let yEnd = getTableEnd() + 6;
     const ebitdaDelta = result.kpis.ebitdaMargin - bm.ebitdaMargin;
-    dibujarParrafo(doc, `La empresa presenta un margen EBITDA de ${fPctRaw(result.kpis.ebitdaMargin)}, ${ebitdaDelta > 0 ? `${ebitdaDelta.toFixed(1)}pp por encima` : `${Math.abs(ebitdaDelta).toFixed(1)}pp por debajo`} del benchmark sectorial (${bm.ebitdaMargin}%). El ROE de ${fPctRaw(result.kpis.roe)} indica ${result.kpis.roe > 20 ? "un retorno sólido sobre el capital" : "retornos que deben evaluarse en contexto"}.`, yEnd);
+    const roeFrase = result.kpis.roe == null
+      ? "El ROE no es interpretable con el patrimonio reportado."
+      : `El ROE de ${fPctRaw(result.kpis.roe)} indica ${result.kpis.roe > 20 ? "un retorno sólido sobre el capital" : "retornos que deben evaluarse en contexto"}.`;
+    dibujarParrafo(doc, `La empresa presenta un margen EBITDA de ${fPctRaw(result.kpis.ebitdaMargin)}, ${ebitdaDelta > 0 ? `${ebitdaDelta.toFixed(1)}pp por encima` : `${Math.abs(ebitdaDelta).toFixed(1)}pp por debajo`} del benchmark sectorial (${bm.ebitdaMargin}%). ${roeFrase}`, yEnd);
   };
 
   const renderLiquidez = () => {
@@ -1139,7 +1147,13 @@ export async function generatePDF(
     const leverageStatus = result.kpis.leverage < 2 ? "bajo" : result.kpis.leverage < 4 ? "moderado" : "elevado";
     const marginStatus = inputs.ebitdaMargin > bm.ebitdaMargin ? "por encima" : "por debajo";
 
-    y = dibujarParrafo(doc, `${empresa} es una empresa del sector ${sectorLabel} con un perfil financiero ${result.kpis.roe > 15 && result.kpis.leverage < 3 ? "sólido" : "que requiere seguimiento"}. El margen EBITDA de ${inputs.ebitdaMargin.toFixed(1)}% se ubica ${marginStatus} del benchmark (${bm.ebitdaMargin}%), con leverage ${leverageStatus} de ${fNum(result.kpis.leverage)}x DN/EBITDA.\n\nEnterprise Value estimado: ${fUSD(result.enterpriseValue)}, rango: ${fUSD(result.evLow)} — ${fUSD(result.evHigh)}. Equity Value: ${fUSD(result.equityValue)} tras deducir deuda neta de ${fUSD(result.netDebt)}.\n\nEstos resultados son estimaciones. Una valoración definitiva requiere información adicional y contexto estratégico. Se recomienda utilizar este análisis como punto de partida para conversaciones informadas con asesores financieros.`, y);
+    // ROE null (no interpretable, equity <= 0 o ausente) nunca debe
+    // participar en la comparación numérica de "perfil sólido" — se
+    // trata explícitamente aparte, nunca como si fuera 0 o un ROE bajo.
+    const perfilFinanciero = result.kpis.roe == null
+      ? "que requiere seguimiento (ROE no interpretable con el patrimonio reportado)"
+      : result.kpis.roe > 15 && result.kpis.leverage < 3 ? "sólido" : "que requiere seguimiento";
+    y = dibujarParrafo(doc, `${empresa} es una empresa del sector ${sectorLabel} con un perfil financiero ${perfilFinanciero}. El margen EBITDA de ${inputs.ebitdaMargin.toFixed(1)}% se ubica ${marginStatus} del benchmark (${bm.ebitdaMargin}%), con leverage ${leverageStatus} de ${fNum(result.kpis.leverage)}x DN/EBITDA.\n\nEnterprise Value estimado: ${fUSD(result.enterpriseValue)}, rango: ${fUSD(result.evLow)} — ${fUSD(result.evHigh)}. Equity Value: ${fUSD(result.equityValue)} tras deducir deuda neta de ${fUSD(result.netDebt)}.\n\nEstos resultados son estimaciones. Una valoración definitiva requiere información adicional y contexto estratégico. Se recomienda utilizar este análisis como punto de partida para conversaciones informadas con asesores financieros.`, y);
 
     y += 10;
     doc.setDrawColor(...DS.color.grisLinea);
