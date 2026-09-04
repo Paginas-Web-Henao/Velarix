@@ -41,9 +41,12 @@ export interface CapitalStructureInput {
    * /debtWeight` gobierna SIEMPRE los weights, sin importar el signo del
    * book `equity` recibido arriba — el book equity nunca decide el WACC
    * en una ejecución v5, permanece únicamente como Evidence/sanity-check
-   * (`bookEquityReference` abajo). No se consumen aquí los demás campos
-   * del contrato (Rf/ERP/CRP/λ/beta/Kd) — ese consumo completo de Ke/WACC
-   * es RC-3, fuera de alcance de este bloque.
+   * (`bookEquityReference` abajo). Bloque 3C.3 (RC-3) además consume los
+   * demás 7 componentes del contrato (Rf local, ERP maduro, CRP, λ, beta
+   * desapalancado, Kd, `debtTaxShieldRatePct`) para recomponer Ke/WACC
+   * completos vía CAPM/Hamada — nunca cae a los parámetros legacy
+   * (`sectorBetaUnlevered`/`taxRatePct`/`costOfDebtPct`/`riskFreeRatePct`/
+   * `erpPct`), exclusivos de la rama sin `resolvedAssumptions`.
    */
   resolvedAssumptions?: ResolvedCalculationAssumptions | null;
 }
@@ -79,9 +82,14 @@ export function computeCapitalStructure(input: CapitalStructureInput): CapitalSt
 
   let equityWeight: number;
   let debtWeight: number;
+  let betaLevered: number;
+  let costOfEquityPct: number;
+  let costOfDebtAfterTaxPct: number;
+  let waccPct: number;
 
   if (isV5Execution) {
-    const resolvedCapitalStructure = input.resolvedAssumptions?.capitalStructure?.value;
+    const resolved = input.resolvedAssumptions;
+    const resolvedCapitalStructure = resolved?.capitalStructure?.value;
     if (!resolvedCapitalStructure) {
       // Llamada v5 inválida: el preflight v5 (`calculation-preflight.ts`)
       // debe bloquear esto ANTES de invocar el motor — nunca debería
@@ -99,6 +107,53 @@ export function computeCapitalStructure(input: CapitalStructureInput): CapitalSt
     // nunca la rama mecánica derivada de book equity, sin importar su signo.
     equityWeight = resolvedCapitalStructure.equityWeight;
     debtWeight = resolvedCapitalStructure.debtWeight;
+
+    // RC-3 (Bloque 3C.3, `04 §10.2/§10.5/§10.6`, `05 v1.3 §6-§7`) — los
+    // demás 7 componentes resueltos de Ke/WACC (además de los weights ya
+    // resueltos arriba). Ninguno cae a los parámetros legacy
+    // (`sectorBetaUnlevered`/`taxRatePct`/`costOfDebtPct`/
+    // `riskFreeRatePct`/`erpPct`) — esos son EXCLUSIVOS de la rama legacy
+    // de abajo. Igual que con `capitalStructure`, el preflight v5 debe
+    // garantizar que estos componentes están presentes ANTES de invocar
+    // el motor; si de todos modos falta alguno, se lanza explícitamente
+    // en vez de fabricar un fallback silencioso o dejar pasar un `NaN`.
+    const rfLocal = resolved?.riskFreeRateConstruction?.value?.localRatePct;
+    const matureErp = resolved?.matureErp?.value?.valuePct;
+    const crp = resolved?.countryRiskPremium?.value?.valuePct;
+    const lambda = resolved?.countryRiskLambda?.value?.value;
+    const unleveredBeta = resolved?.betaTreatment?.value?.unleveredBeta;
+    const kd = resolved?.costOfDebt?.value?.valuePct;
+    // `debtTaxShieldRatePct` — NO `marginalRatePct` ni
+    // `explicitFcffTaxRatePctByYear` — es la única de las tres tasas
+    // fiscales del contrato que gobierna la deducibilidad del interés
+    // (Hamada y `Kd × (1-T)`), la pregunta económica que WACC/beta
+    // apalancado necesitan (`04 §10.6`, `05 v1.3 §6`). Las otras dos
+    // tasas fiscales pertenecen al NOPAT/FCFF (Bloque 3C.4), nunca a este
+    // módulo.
+    const debtTaxShieldRatePct = resolved?.taxTreatment?.value?.debtTaxShieldRatePct;
+
+    const missing: string[] = [];
+    if (rfLocal === undefined || rfLocal === null) missing.push("riskFreeRateConstruction.localRatePct");
+    if (matureErp === undefined || matureErp === null) missing.push("matureErp.valuePct");
+    if (crp === undefined || crp === null) missing.push("countryRiskPremium.valuePct");
+    if (lambda === undefined || lambda === null) missing.push("countryRiskLambda.value");
+    if (unleveredBeta === undefined || unleveredBeta === null) missing.push("betaTreatment.unleveredBeta");
+    if (kd === undefined || kd === null) missing.push("costOfDebt.valuePct");
+    if (debtTaxShieldRatePct === undefined || debtTaxShieldRatePct === null) missing.push("taxTreatment.debtTaxShieldRatePct");
+    if (missing.length > 0) {
+      throw new Error(
+        `computeCapitalStructure: ejecución v5 sin todos los componentes resueltos de Ke/WACC (05 v1.3 §5/§6) — faltan: ${missing.join(", ")}.`,
+      );
+    }
+
+    const debtTaxShieldT = (debtTaxShieldRatePct as number) / 100;
+    const deRatio = debtWeight / equityWeight;
+    // Hamada — SIEMPRE desde el unlevered beta de Judgment, nunca desde un beta sectorial legacy.
+    betaLevered = (unleveredBeta as number) * (1 + (1 - debtTaxShieldT) * deRatio);
+    // CAPM v5 — incluye el término λ×CRP que la rama legacy no modela.
+    costOfEquityPct = (rfLocal as number) + betaLevered * (matureErp as number) + (lambda as number) * (crp as number);
+    costOfDebtAfterTaxPct = (kd as number) * (1 - debtTaxShieldT);
+    waccPct = costOfEquityPct * equityWeight + costOfDebtAfterTaxPct * debtWeight;
   } else {
     // LEGACY — comportamiento histórico preservado EXPLÍCITAMENTE, tal
     // como autoriza `05 v1.3 §4` ("Legacy compatibility vs. v5 canonical
@@ -114,18 +169,19 @@ export function computeCapitalStructure(input: CapitalStructureInput): CapitalSt
     const legacyEquityForWeights = Math.abs(equity ?? 0);
     equityWeight = legacyEquityForWeights > 0 ? legacyEquityForWeights / (legacyEquityForWeights + totalDebt) : defaultEquityWeight;
     debtWeight = 1 - equityWeight;
+
+    // Hamada — re-apalancamiento del beta sectorial (legacy: un único
+    // `taxRatePct` global, sin componentes de Ke/WACC resueltos).
+    const deRatio = debtWeight / equityWeight;
+    betaLevered = sectorBetaUnlevered * (1 + (1 - taxRatePct / 100) * deRatio);
+
+    // CAPM legacy — sin término de riesgo país (CRP/lambda no existen en este camino).
+    costOfEquityPct = riskFreeRatePct + betaLevered * erpPct;
+    costOfDebtAfterTaxPct = costOfDebtPct * (1 - taxRatePct / 100);
+
+    // WACC
+    waccPct = costOfEquityPct * equityWeight + costOfDebtAfterTaxPct * debtWeight;
   }
-
-  // Hamada — re-apalancamiento del beta sectorial
-  const deRatio = debtWeight / equityWeight;
-  const betaLevered = sectorBetaUnlevered * (1 + (1 - taxRatePct / 100) * deRatio);
-
-  // CAPM
-  const costOfEquityPct = riskFreeRatePct + betaLevered * erpPct;
-  const costOfDebtAfterTaxPct = costOfDebtPct * (1 - taxRatePct / 100);
-
-  // WACC
-  const waccPct = costOfEquityPct * equityWeight + costOfDebtAfterTaxPct * debtWeight;
 
   const netDebt = totalDebt - cash;
 

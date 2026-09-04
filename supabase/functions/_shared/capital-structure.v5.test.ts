@@ -1,15 +1,14 @@
-// Bloque 3B (tests-first) + Bloque 3C.2 (implementación) — RC-1 (signo de
-// equity) + RC-2 (capital structure no debe depender de book equity en
-// una ejecución v5), docs/velarix-v5/05-financial-engine-audit.md v1.3 §4.
+// Bloque 3B (tests-first) + Bloque 3C.2 (RC-1/RC-2) + Bloque 3C.3 (RC-3) —
+// signo de equity, capital structure v5 vs. legacy, y consumo completo de
+// Ke/WACC/Hamada vía `resolvedAssumptions`,
+// docs/velarix-v5/05-financial-engine-audit.md v1.3 §4/§6/§7.
 //
 // Llaman a las funciones REALES de producción
 // (`resolveEffectiveEquity`, `computeCapitalStructure`) — nunca
-// reimplementan su lógica. Bloque 3C.2 implementó RC-1/RC-2 en
-// `canonical-input-normalization.ts`/`capital-structure.ts`: los tests de
-// RC-1/RC-2 de este archivo pasaron de `it.fails` a `it`. La sección
-// RC-3 (consumo de componentes de Ke/WACC vía `resolvedAssumptions`, más
-// abajo) permanece `it.fails` — WACC/Hamada/Ke completos son Bloque 3C.3,
-// fuera de alcance de 3C.2.
+// reimplementan su lógica. Bloque 3C.2 implementó RC-1/RC-2; Bloque 3C.3
+// implementó RC-3 (Ke/WACC/Hamada completos, sección más abajo) — todos
+// los `it.fails` de este archivo pasaron a `it`, verificados uno por uno
+// contra la fórmula correcta antes de convertirlos.
 
 import { describe, it, expect } from "vitest";
 import { resolveEffectiveEquity } from "./canonical-input-normalization";
@@ -238,20 +237,20 @@ function withCapm(resolved: ResolvedCalculationAssumptions) {
     cash: 50_000_000,
     equity: 3_000_000_000,
     resolvedAssumptions: resolved,
-  } as any);
+  });
 }
 
-describe("RC-3 — consumo de componentes de Ke/WACC — V5 OBJETIVO (rojo esperado hasta implementar RC-3)", () => {
+describe("RC-3 — consumo de componentes de Ke/WACC — V5 OBJETIVO", () => {
   const base = EXAMPLE_RESOLVED_ASSUMPTIONS;
   const baseTarget = computeTargetCapm(base);
 
-  it.fails("baseline: computeCapitalStructure debería reproducir Ke/WACC objetivo con los 7 componentes resueltos", () => {
+  it("baseline: computeCapitalStructure debería reproducir Ke/WACC objetivo con los 7 componentes resueltos", () => {
     const r = withCapm(base);
     expect(r.costOfEquityPct).toBeCloseTo(baseTarget.ke, 6);
     expect(r.waccPct).toBeCloseTo(baseTarget.wacc, 6);
   });
 
-  it.fails("Risk-free: cambiar únicamente el risk-free local resuelto cambia Ke 1:1 (coeficiente 1 en la fórmula)", () => {
+  it("Risk-free: cambiar únicamente el risk-free local resuelto cambia Ke 1:1 (coeficiente 1 en la fórmula)", () => {
     const modified: ResolvedCalculationAssumptions = {
       ...base,
       riskFreeRateConstruction: { ...base.riskFreeRateConstruction, value: { ...base.riskFreeRateConstruction.value, localRatePct: base.riskFreeRateConstruction.value.localRatePct + 1 } },
@@ -262,7 +261,7 @@ describe("RC-3 — consumo de componentes de Ke/WACC — V5 OBJETIVO (rojo esper
     expect(r.costOfEquityPct).toBeCloseTo(modifiedTarget.ke, 6);
   });
 
-  it.fails("Mature ERP: cambiar únicamente mature ERP cambia Ke según βL × ΔERP", () => {
+  it("Mature ERP: cambiar únicamente mature ERP cambia Ke según βL × ΔERP", () => {
     const deltaErp = 1;
     const modified: ResolvedCalculationAssumptions = {
       ...base,
@@ -274,7 +273,7 @@ describe("RC-3 — consumo de componentes de Ke/WACC — V5 OBJETIVO (rojo esper
     expect(r.costOfEquityPct).toBeCloseTo(modifiedTarget.ke, 6);
   });
 
-  it.fails("CRP: cambiar únicamente el country risk premium cambia Ke según λ × ΔCRP", () => {
+  it("CRP: cambiar únicamente el country risk premium cambia Ke según λ × ΔCRP", () => {
     const deltaCrp = 1;
     const modified: ResolvedCalculationAssumptions = {
       ...base,
@@ -286,7 +285,7 @@ describe("RC-3 — consumo de componentes de Ke/WACC — V5 OBJETIVO (rojo esper
     expect(r.costOfEquityPct).toBeCloseTo(modifiedTarget.ke, 6);
   });
 
-  it.fails("Lambda: cambiar únicamente lambda cambia Ke según CRP × Δλ", () => {
+  it("Lambda: cambiar únicamente lambda cambia Ke según CRP × Δλ", () => {
     const deltaLambda = 0.2;
     const modified: ResolvedCalculationAssumptions = {
       ...base,
@@ -298,7 +297,7 @@ describe("RC-3 — consumo de componentes de Ke/WACC — V5 OBJETIVO (rojo esper
     expect(r.costOfEquityPct).toBeCloseTo(modifiedTarget.ke, 6);
   });
 
-  it.fails("Beta: cambiar únicamente unleveredBeta recompone betaLevered vía Hamada usando la estructura resuelta, y por tanto Ke — nunca un leveredBeta independiente (contrato ya no lo permite, ver resolved-calculation-assumptions.test.ts)", () => {
+  it("Beta: cambiar únicamente unleveredBeta recompone betaLevered vía Hamada usando la estructura resuelta, y por tanto Ke — nunca un leveredBeta independiente (contrato ya no lo permite, ver resolved-calculation-assumptions.test.ts)", () => {
     const modified: ResolvedCalculationAssumptions = {
       ...base,
       betaTreatment: { ...base.betaTreatment, value: { ...base.betaTreatment.value, unleveredBeta: base.betaTreatment.value.unleveredBeta + 0.1 } },
@@ -310,7 +309,7 @@ describe("RC-3 — consumo de componentes de Ke/WACC — V5 OBJETIVO (rojo esper
     expect(r.costOfEquityPct).toBeCloseTo(modifiedTarget.ke, 6);
   });
 
-  it.fails("Cost of debt: cambiar únicamente Kd resuelto cambia costOfDebtAfterTax y el componente de deuda del WACC", () => {
+  it("Cost of debt: cambiar únicamente Kd resuelto cambia costOfDebtAfterTax y el componente de deuda del WACC", () => {
     const modified: ResolvedCalculationAssumptions = {
       ...base,
       costOfDebt: { ...base.costOfDebt, value: { ...base.costOfDebt.value, valuePct: base.costOfDebt.value.valuePct + 1 } },
@@ -322,7 +321,7 @@ describe("RC-3 — consumo de componentes de Ke/WACC — V5 OBJETIVO (rojo esper
     expect(r.waccPct).toBeCloseTo(modifiedTarget.wacc, 6);
   });
 
-  it.fails("Capital structure: cambiar únicamente los weights resueltos cambia WACC (y betaLevered vía D/E), usando esos weights — sin depender del book equity", () => {
+  it("Capital structure: cambiar únicamente los weights resueltos cambia WACC (y betaLevered vía D/E), usando esos weights — sin depender del book equity", () => {
     const modified: ResolvedCalculationAssumptions = {
       ...base,
       capitalStructure: { ...base.capitalStructure, value: { equityWeight: 0.8, debtWeight: 0.2, structureSource: "target" } },
