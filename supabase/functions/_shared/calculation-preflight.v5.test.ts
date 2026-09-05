@@ -276,6 +276,75 @@ describe("Calculation Preflight — V5 (implementado en Bloque 3C.1)", () => {
     expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_TAXTREATMENT")).toBe(true);
   });
 
+  // Bloque 3C.4 (cierre de cobertura) — mismo principio que
+  // explicit_delta_nwc_by_year/explicitFcffTaxRatePctByYear arriba,
+  // aplicado a los dos drivers de reinversión cuando usan
+  // `mode: "explicit_path"`. El modo `percent_of_revenue` (usado por
+  // EXAMPLE_RESOLVED_ASSUMPTIONS por defecto) no tiene longitud que
+  // verificar, así que estos tests construyen explícitamente un driver
+  // en modo `explicit_path` con longitud incorrecta.
+  it("debe FALLAR cuando capexReinvestmentDriver.explicitPath (mode explicit_path) no tiene exactamente 5 valores", () => {
+    const broken: ResolvedCalculationAssumptions = {
+      ...EXAMPLE_RESOLVED_ASSUMPTIONS,
+      capexReinvestmentDriver: {
+        ...EXAMPLE_RESOLVED_ASSUMPTIONS.capexReinvestmentDriver,
+        value: { mode: "explicit_path", explicitPath: [1, 2, 3, 4] }, // 4 valores, no 5
+      },
+    };
+    const r = evaluatePreflightV5(broken);
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_CAPEXREINVESTMENTDRIVER")).toBe(true);
+  });
+
+  it("debe FALLAR cuando capexReinvestmentDriver.explicitPath (mode explicit_path) tiene 6 valores (más del horizonte)", () => {
+    const broken: ResolvedCalculationAssumptions = {
+      ...EXAMPLE_RESOLVED_ASSUMPTIONS,
+      capexReinvestmentDriver: {
+        ...EXAMPLE_RESOLVED_ASSUMPTIONS.capexReinvestmentDriver,
+        value: { mode: "explicit_path", explicitPath: [1, 2, 3, 4, 5, 6] },
+      },
+    };
+    const r = evaluatePreflightV5(broken);
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_CAPEXREINVESTMENTDRIVER")).toBe(true);
+  });
+
+  it("NO debe fallar por longitud cuando capexReinvestmentDriver usa mode: percent_of_revenue (sin explicitPath que verificar)", () => {
+    const r = evaluatePreflightV5(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_CAPEXREINVESTMENTDRIVER")).toBe(false);
+  });
+
+  it("debe FALLAR cuando depreciationDaDriver.explicitPath (mode explicit_path) no tiene exactamente 5 valores", () => {
+    const broken: ResolvedCalculationAssumptions = {
+      ...EXAMPLE_RESOLVED_ASSUMPTIONS,
+      depreciationDaDriver: {
+        ...EXAMPLE_RESOLVED_ASSUMPTIONS.depreciationDaDriver,
+        value: { mode: "explicit_path", explicitPath: [1, 2, 3, 4] }, // 4 valores, no 5
+      },
+    };
+    const r = evaluatePreflightV5(broken);
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_DEPRECIATIONDADRIVER")).toBe(true);
+  });
+
+  it("debe FALLAR cuando depreciationDaDriver.explicitPath (mode explicit_path) tiene 6 valores (más del horizonte)", () => {
+    const broken: ResolvedCalculationAssumptions = {
+      ...EXAMPLE_RESOLVED_ASSUMPTIONS,
+      depreciationDaDriver: {
+        ...EXAMPLE_RESOLVED_ASSUMPTIONS.depreciationDaDriver,
+        value: { mode: "explicit_path", explicitPath: [1, 2, 3, 4, 5, 6] },
+      },
+    };
+    const r = evaluatePreflightV5(broken);
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_DEPRECIATIONDADRIVER")).toBe(true);
+  });
+
+  it("NO debe fallar por longitud cuando depreciationDaDriver usa mode: percent_of_revenue (sin explicitPath que verificar)", () => {
+    const r = evaluatePreflightV5(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_DEPRECIATIONDADRIVER")).toBe(false);
+  });
+
   it("la pregunta del preflight v5 es 'están los supuestos resueltos', no 'los defaults globales están approved=true' — pasar con resolvedAssumptions completos no depende de que CANONICAL_METHODOLOGY cambie", () => {
     const r = evaluatePreflightV5(EXAMPLE_RESOLVED_ASSUMPTIONS);
     expect(r.passed).toBe(true);

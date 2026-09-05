@@ -34,6 +34,11 @@ import {
   resolveEffectiveMoneda,
   resolveEffectiveFactorConversion,
 } from "./canonical-input-normalization.ts";
+import type {
+  ResolvedCalculationAssumptions,
+  CapexReinvestmentDriverValue,
+  DepreciationDaDriverValue,
+} from "./resolved-calculation-assumptions.ts";
 
 export { SECTOR_BENCHMARKS };
 
@@ -62,6 +67,18 @@ export interface CanonicalStructuredInput {
   balance_sheet?: CanonicalBalanceSheet;
   moneda_analisis?: string;
   factor_conversion?: number;
+  /**
+   * Bloque 3C.4 (RC-3/RC-4, `04 §6-§8`, `05 v1.3 §5-§6/§8`) — supuestos
+   * metodológicos resueltos para esta ejecución. Legacy vs. v5 se
+   * distingue por PRESENCIA de esta propiedad (`Object.hasOwnProperty`),
+   * no por su valor — mismo patrón ya usado en
+   * `calculation-preflight.ts` (3C.1) y `capital-structure.ts` (3C.2/
+   * 3C.3). Nombre en `snake_case` porque describe el mismo
+   * `structured_input` que persiste `build-structured-input/index.ts`
+   * (todos sus demás campos son `snake_case`), no el estilo interno
+   * `camelCase` del motor.
+   */
+  resolved_assumptions?: ResolvedCalculationAssumptions | null;
 }
 
 export interface YearProjection {
@@ -140,10 +157,28 @@ export interface CanonicalFinancialEngineResult {
   factor_conversion: number;
 }
 
+/**
+ * Bloque 3C.4 — drivers de forecast resueltos por Judgment (`04 §6-§8`,
+ * `05 v1.3 §6/§8`) que reemplazan, SOLO para `nopat`/`depreciation`/
+ * `capex`/`deltaWC` (los términos de FCFF), los porcentajes legacy
+ * globales — cuando están presentes. `taxes`/`netIncome`/`interest`
+ * (líneas contables, no de FCFF — `04 §6`: "el interés no se resta")
+ * permanecen sobre la tasa/costo de deuda legacy en ambos casos; no son
+ * parte del alcance de este bloque.
+ */
+interface V5ProjectionDrivers {
+  /** `taxTreatment.value.explicitFcffTaxRatePctByYear` — NUNCA `debtTaxShieldRatePct` (WACC) ni `marginalRatePct` (no sustituye el path explícito), `04 §6.3/§6.4`, `05 v1.3 §6`. Longitud 5, índice `t-1`. */
+  explicitFcffTaxRatePctByYear: number[];
+  capexDriver: CapexReinvestmentDriverValue;
+  depreciationDriver: DepreciationDaDriverValue;
+  /** `workingCapitalDriver.value.explicitDeltaNwcByYear` — consumido literalmente, nunca recalculado como `% revenue` (`05 v1.3 §3/§8`). Longitud 5, índice `t-1`. */
+  explicitDeltaNwcByYear: number[];
+}
+
 function computeProjections(
   revenue0: number, costRatio: number, totalDebt: number, costOfDebt: number,
   taxRate: number, growth: number, ebitdaMargin: number, capexPct: number,
-  wcPct: number, waccDecimal: number
+  wcPct: number, waccDecimal: number, v5?: V5ProjectionDrivers
 ): YearProjection[] {
   const projections: YearProjection[] = [];
   for (let t = 1; t <= 5; t++) {
@@ -151,15 +186,24 @@ function computeProjections(
     const costOfSales = revenue * costRatio;
     const grossProfit = revenue - costOfSales;
     const ebitda = revenue * (ebitdaMargin / 100);
-    const depreciation = revenue * (CANONICAL_METHODOLOGY.assumptions.depreciationPctOfRevenue.value / 100);
+    const depreciation = v5
+      ? (v5.depreciationDriver.mode === "explicit_path"
+          ? v5.depreciationDriver.explicitPath[t - 1]
+          : revenue * (v5.depreciationDriver.daPctOfRevenue / 100))
+      : revenue * (CANONICAL_METHODOLOGY.assumptions.depreciationPctOfRevenue.value / 100);
     const ebit = ebitda - depreciation;
     const interest = totalDebt * (costOfDebt / 100);
     const ebt = ebit - interest;
     const taxes = Math.max(ebt, 0) * (taxRate / 100);
     const netIncome = ebt - taxes;
-    const nopat = ebit - ebit * (taxRate / 100);
-    const capex = revenue * (capexPct / 100);
-    const deltaWC = revenue * (wcPct / 100);
+    const nopatTaxRatePct = v5 ? v5.explicitFcffTaxRatePctByYear[t - 1] : taxRate;
+    const nopat = ebit - ebit * (nopatTaxRatePct / 100);
+    const capex = v5
+      ? (v5.capexDriver.mode === "explicit_path"
+          ? v5.capexDriver.explicitPath[t - 1]
+          : revenue * (v5.capexDriver.capexPctOfRevenue / 100))
+      : revenue * (capexPct / 100);
+    const deltaWC = v5 ? v5.explicitDeltaNwcByYear[t - 1] : revenue * (wcPct / 100);
     const fcff = nopat + depreciation - capex - deltaWC;
     const discountedFcf = fcff / Math.pow(1 + waccDecimal, t);
     projections.push({ year: t, revenue, costOfSales, grossProfit, ebitda, depreciation, ebit, interest, ebt, taxes, netIncome, nopat, capex, deltaWC, fcff, discountedFcf });
@@ -202,6 +246,12 @@ export function runCanonicalFinancialEngine(
   const riskFreeRate = assumptions.riskFreeRatePct.value;
   const erp = assumptions.equityRiskPremiumPct.value;
 
+  // Legacy vs. v5: por presencia de la clave `resolved_assumptions` en
+  // `input`, no por su valor — mismo patrón que `capital-structure.ts`
+  // (3C.2/3C.3) y `calculation-preflight.ts` (3C.1).
+  const isV5Execution = Object.prototype.hasOwnProperty.call(input, "resolved_assumptions");
+  const resolved = input.resolved_assumptions;
+
   const capitalStructure = computeCapitalStructure({
     totalDebt, cash, equity,
     sectorBetaUnlevered: bench.beta,
@@ -209,14 +259,49 @@ export function runCanonicalFinancialEngine(
     costOfDebtPct: costOfDebt,
     riskFreeRatePct: riskFreeRate,
     erpPct: erp,
+    // Propaga la MISMA presencia de clave — `computeCapitalStructure` ya
+    // implementa RC-2/RC-3 (3C.2/3C.3): pesos, Ke y WACC completos desde
+    // `resolvedAssumptions` cuando la clave está presente, o lanza si el
+    // contrato v5 está incompleto. Nunca cae al cálculo legacy en v5.
+    ...(isV5Execution ? { resolvedAssumptions: resolved } : {}),
   });
   const { betaLevered, costOfEquityPct, costOfDebtAfterTaxPct, waccPct, netDebt } = capitalStructure;
   const waccDecimal = waccPct / 100;
 
   const growth = resolveEffectiveGrowth(expectedGrowth);
 
-  // Projections
-  const projections = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, waccDecimal);
+  // Projections — Bloque 3C.4 (RC-4, `04 §6-§8`, `05 v1.3 §6/§8`): en v5,
+  // NOPAT/CAPEX/D&A/ΔWC consumen los drivers resueltos; nunca caen
+  // silenciosamente a los porcentajes legacy de `CANONICAL_METHODOLOGY`.
+  // El horizonte de proyección sigue fijo en 5 años (ya validado por el
+  // preflight v5 de 3C.1) — no se implementa horizonte dinámico aquí.
+  let projections: YearProjection[];
+  if (isV5Execution) {
+    const explicitFcffTaxRatePctByYear = resolved?.taxTreatment?.value?.explicitFcffTaxRatePctByYear;
+    const capexDriver = resolved?.capexReinvestmentDriver?.value;
+    const depreciationDriver = resolved?.depreciationDaDriver?.value;
+    const explicitDeltaNwcByYear = resolved?.workingCapitalDriver?.value?.explicitDeltaNwcByYear;
+
+    const missing: string[] = [];
+    if (!explicitFcffTaxRatePctByYear) missing.push("taxTreatment.explicitFcffTaxRatePctByYear");
+    if (!capexDriver) missing.push("capexReinvestmentDriver");
+    if (!depreciationDriver) missing.push("depreciationDaDriver");
+    if (!explicitDeltaNwcByYear) missing.push("workingCapitalDriver.explicitDeltaNwcByYear");
+    if (missing.length > 0) {
+      throw new Error(
+        `runCanonicalFinancialEngine: ejecución v5 sin todos los drivers de forecast resueltos (05 v1.3 §5/§6) — faltan: ${missing.join(", ")}.`,
+      );
+    }
+
+    projections = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, waccDecimal, {
+      explicitFcffTaxRatePctByYear: explicitFcffTaxRatePctByYear as number[],
+      capexDriver: capexDriver as CapexReinvestmentDriverValue,
+      depreciationDriver: depreciationDriver as DepreciationDaDriverValue,
+      explicitDeltaNwcByYear: explicitDeltaNwcByYear as number[],
+    });
+  } else {
+    projections = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, waccDecimal);
+  }
 
   // Terminal value
   const g = terminalGrowth / 100;

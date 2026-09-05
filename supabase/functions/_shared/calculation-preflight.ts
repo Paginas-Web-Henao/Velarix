@@ -165,8 +165,10 @@ function findUnapprovedAssumptions(): string[] {
  * de compatibilidad puntuales cuando el campo relevante está presente:
  * pesos de `capitalStructure` válidos ([0,1] y suman 1); horizonte
  * resuelto compatible con el único valor que el motor soporta hoy (5);
- * longitud de `explicitDeltaNwcByYear`/`explicitFcffTaxRatePctByYear`
- * coherente con ese horizonte.
+ * longitud de `explicitDeltaNwcByYear`/`explicitFcffTaxRatePctByYear`/
+ * `capexReinvestmentDriver.explicitPath`/`depreciationDaDriver.explicitPath`
+ * (estos dos últimos solo cuando `mode === "explicit_path"`) coherente
+ * con ese horizonte.
  *
  * NO decide si los VALORES son correctos financieramente (eso es
  * Judgment humano, no de este módulo) — solo que la resolución está
@@ -242,6 +244,29 @@ function findResolvedAssumptionBlockers(
   if (taxValue && taxValue.explicitFcffTaxRatePctByYear.length !== effectiveHorizon) {
     blockers.push(
       `RESOLVED_ASSUMPTION_INVALID_TAXTREATMENT: explicitFcffTaxRatePctByYear tiene ${taxValue.explicitFcffTaxRatePctByYear.length} valores, se esperaban ${effectiveHorizon}.`,
+    );
+  }
+
+  // Bloque 3C.4 (cierre de cobertura) — mismo principio que
+  // workingCapitalDriver/taxTreatment arriba: cuando el driver resuelto
+  // usa `mode: "explicit_path"`, su longitud debe coincidir exactamente
+  // con el horizonte efectivo. Sin esta verificación, un path corto/largo
+  // llegaría al motor y produciría `undefined`/`NaN` en años fuera de
+  // rango (`canonical-financial-engine.ts::computeProjections`,
+  // `explicitPath[t-1]`) en vez de bloquearse aquí, antes del cálculo.
+  // El modo `percent_of_revenue` no tiene longitud que verificar — se
+  // omite deliberadamente.
+  const capexValue = (ra?.capexReinvestmentDriver as { value?: { mode?: string; explicitPath?: number[] } } | undefined)?.value;
+  if (capexValue?.mode === "explicit_path" && (capexValue.explicitPath?.length ?? -1) !== effectiveHorizon) {
+    blockers.push(
+      `RESOLVED_ASSUMPTION_INVALID_CAPEXREINVESTMENTDRIVER: explicitPath tiene ${capexValue.explicitPath?.length ?? 0} valores, se esperaban ${effectiveHorizon}.`,
+    );
+  }
+
+  const depreciationValue = (ra?.depreciationDaDriver as { value?: { mode?: string; explicitPath?: number[] } } | undefined)?.value;
+  if (depreciationValue?.mode === "explicit_path" && (depreciationValue.explicitPath?.length ?? -1) !== effectiveHorizon) {
+    blockers.push(
+      `RESOLVED_ASSUMPTION_INVALID_DEPRECIATIONDADRIVER: explicitPath tiene ${depreciationValue.explicitPath?.length ?? 0} valores, se esperaban ${effectiveHorizon}.`,
     );
   }
 
