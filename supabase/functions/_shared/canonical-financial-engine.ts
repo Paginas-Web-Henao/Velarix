@@ -102,7 +102,17 @@ export interface YearProjection {
 
 export interface ScenarioResult {
   projections: YearProjection[];
-  ev: number;
+  /**
+   * Bloque 3C.5 (cierre) — `null` cuando `scenarioWacc <= scenarioTerminalG`
+   * (Gordon Growth no converge para este escenario): antes se representaba
+   * como `0`, ambiguo con un Enterprise Value real y que además
+   * descartaba el PV de los 5 FCFF explícitos ya calculados. `projections`
+   * permanece siempre disponible — el escenario no converge en el
+   * terminal, no dejó de tener flujo explícito. Mismo principio que
+   * `CanonicalKPIs.roe` (3C.2): nunca fabricar un número plausible para
+   * "no interpretable".
+   */
+  ev: number | null;
   assumptions: { growth: number; ebitdaMargin: number; wacc: number; terminalGrowth: number };
   label?: string;
 }
@@ -275,7 +285,17 @@ export function runCanonicalFinancialEngine(
   // silenciosamente a los porcentajes legacy de `CANONICAL_METHODOLOGY`.
   // El horizonte de proyección sigue fijo en 5 años (ya validado por el
   // preflight v5 de 3C.1) — no se implementa horizonte dinámico aquí.
-  let projections: YearProjection[];
+  //
+  // Bloque 3C.5 (cierre) — `v5Drivers` se extrae UNA vez y se reutiliza
+  // tanto para las proyecciones del caso base como para las de
+  // `mkScenario` (más abajo): antes, los escenarios pesimista/optimista
+  // llamaban a `computeProjections` sin este argumento, así que una
+  // ejecución v5 terminaba usando tax/CAPEX/D&A/ΔWC LEGACY dentro de
+  // `scenarios.pessimistic`/`scenarios.optimistic` — exactamente el
+  // fallback silencioso que `04 §6-§8`/`05 v1.3 §6` prohíben. Los
+  // modificadores de escenario (growth/margen/WACC) no cambian — solo se
+  // corrige qué drivers de reinversión/impuestos alimentan su FCFF.
+  let v5Drivers: V5ProjectionDrivers | undefined;
   if (isV5Execution) {
     const explicitFcffTaxRatePctByYear = resolved?.taxTreatment?.value?.explicitFcffTaxRatePctByYear;
     const capexDriver = resolved?.capexReinvestmentDriver?.value;
@@ -293,18 +313,49 @@ export function runCanonicalFinancialEngine(
       );
     }
 
-    projections = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, waccDecimal, {
+    v5Drivers = {
       explicitFcffTaxRatePctByYear: explicitFcffTaxRatePctByYear as number[],
       capexDriver: capexDriver as CapexReinvestmentDriverValue,
       depreciationDriver: depreciationDriver as DepreciationDaDriverValue,
       explicitDeltaNwcByYear: explicitDeltaNwcByYear as number[],
-    });
-  } else {
-    projections = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, waccDecimal);
+    };
   }
+  const projections = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, waccDecimal, v5Drivers);
 
-  // Terminal value
-  const g = terminalGrowth / 100;
+  // Terminal value — Bloque 3C.5 (RC-3, `04 §11`, `05 v1.3 §5/§6`): en
+  // v5, `g` viene EXCLUSIVAMENTE de `resolvedAssumptions.terminalG.value.
+  // valuePct` — nunca del `terminalGrowthPct` legacy de
+  // `CANONICAL_METHODOLOGY`, ni de un fallback silencioso al 3%/2%/4%.
+  // El terminal value parte del FCFF_5 ya calculado (por la rama
+  // legacy o v5 de `computeProjections` de arriba, sin recalcularlo aquí)
+  // — no se introduce un NOPAT terminal ni un FCFF terminal normalizado
+  // distinto (`04 §11` no lo exige; ampliarlo sería scope de un bloque
+  // futuro, no de 3C.5). La guardia `WACC <= g` reutiliza EXACTAMENTE el
+  // mecanismo ya existente (`waccWarning` + `terminalValue`/`discountedTV`
+  // en `0`, nunca `NaN`) — `04 §11` ya la documenta como "verificación ya
+  // implementada" y `05 v1.3 §5` pide mantenerla donde ya vive
+  // correctamente, no duplicarla. `evLow`/`evHigh`/`sensitivityMatrix`
+  // (más abajo) reutilizan esta MISMA variable `g` — a diferencia de
+  // capexPct/wcPct/taxRate (3C.4), que sí requieren un argumento v5
+  // aparte para cada llamada de sensibilidad y permanecen en su versión
+  // legacy en esas rutas (fuera de alcance), `g` nunca tuvo esa
+  // duplicación: es un único escalar ya resuelto arriba, así que la
+  // sensibilidad de WACC/g hereda automáticamente el `g` v5 sin código
+  // adicional — comportamiento correcto, no una inconsistencia. Los
+  // escenarios (`mkScenario`, más abajo) usan su PROPIO g de escenario
+  // (pesimista/optimista) — en v5 viene de
+  // `terminalG.pessimisticScenarioPct`/`optimisticScenarioPct` resueltos,
+  // nunca del hardcode legacy 2%/4% (ver bloque de scenarios más abajo).
+  let terminalGResolvedPct: number | undefined;
+  if (isV5Execution) {
+    terminalGResolvedPct = resolved?.terminalG?.value?.valuePct;
+    if (terminalGResolvedPct === undefined || terminalGResolvedPct === null) {
+      throw new Error(
+        "runCanonicalFinancialEngine: ejecución v5 sin terminalG resuelto (05 v1.3 §5/§6) — falta: terminalG.valuePct.",
+      );
+    }
+  }
+  const g = isV5Execution ? (terminalGResolvedPct as number) / 100 : terminalGrowth / 100;
   let terminalValue = 0, discountedTV = 0, waccWarning: string | null = null;
   if (waccDecimal <= g) {
     waccWarning = "WACC ≤ g terminal: modelo DCF no converge.";
@@ -363,22 +414,73 @@ export function runCanonicalFinancialEngine(
     interestCoverage: interestExpense > 0 ? ebit0 / interestExpense : 0,
   };
 
-  // Scenarios — NO varía capexPct/wcPct por escenario (ver nota de
-  // reversión arriba y en ejecutar-calculo/index.ts).
+  // Scenarios — NO varía capexPct/wcPct/taxRate LEGACY por escenario (ver
+  // nota de reversión arriba y en ejecutar-calculo/index.ts) — siguen
+  // pasándose como argumentos porque `computeProjections` los usa para
+  // `taxes`/`netIncome`/`interest` (líneas contables, no de FCFF) incluso
+  // en v5. Bloque 3C.5 (cierre): `v5Drivers` (el MISMO objeto ya resuelto
+  // arriba para el caso base) se pasa también aquí — antes no se pasaba,
+  // así que una ejecución v5 terminaba calculando el FCFF de
+  // `scenarios.pessimistic`/`optimistic` con tax/CAPEX/D&A/ΔWC legacy,
+  // exactamente el fallback silencioso prohibido por `05 v1.3 §6`.
+  //
+  // `sEV: number | null` — antes `sEV = 0` cuando `sW <= sTg`, ambiguo
+  // con un Enterprise Value real y que además descartaba el PV de los 5
+  // FCFF explícitos (`sSumDCF` ahora se calcula SIEMPRE, fuera del if).
+  // `null` es la representación explícita de "no interpretable" (mismo
+  // principio que `CanonicalKPIs.roe`, 3C.2) — nunca `NaN`, nunca un
+  // clamp, nunca se ajusta `g`/WACC automáticamente. `sP` (las
+  // proyecciones de 5 años del escenario) permanecen siempre disponibles
+  // — el escenario no converge en el terminal, no en el horizonte
+  // explícito.
   const mkScenario = (gMod: number, mMod: number, wMod: number, tg: number): ScenarioResult => {
     const sG = growth * gMod, sM = ebitdaMargin + mMod, sW = (waccPct + wMod) / 100;
-    const sP = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, sG, sM, capexPct, wcPct, sW);
+    const sP = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, sG, sM, capexPct, wcPct, sW, v5Drivers);
     const sTg = tg / 100;
-    let sEV = 0;
+    const sSumDCF = sP.reduce((s, p) => s + p.discountedFcf, 0);
+    let sEV: number | null = null;
     if (sW > sTg) {
       const sTV = (sP[4].fcff * (1 + sTg)) / (sW - sTg);
-      sEV = sP.reduce((s, p) => s + p.discountedFcf, 0) + sTV / Math.pow(1 + sW, 5);
+      sEV = sSumDCF + sTV / Math.pow(1 + sW, 5);
     }
     return { projections: sP, ev: sEV, assumptions: { growth: sG, ebitdaMargin: sM, wacc: waccPct + wMod, terminalGrowth: tg } };
   };
 
-  const pessimistic = mkScenario(0.6, -3, 1.5, 2);
-  const optimistic = mkScenario(1.4, 3, -1.5, 4);
+  // Bloque 3C.5 (cierre) — `04 §11`: "Cualquier g de escenario
+  // (pesimista/optimista) debe derivarse explícitamente del g base con
+  // lógica documentada — nunca ser un literal sin relación declarada".
+  // El contrato (`TerminalGValue`) YA representa estructuralmente esos
+  // dos valores (`pessimisticScenarioPct`/`optimisticScenarioPct`,
+  // opcionales junto a `valuePct` base) — la derivación documentada vive
+  // en el `rationale` de la entrada resuelta (`04 §16`), no en una
+  // fórmula del motor. El motor solo CONSUME los tres números ya
+  // resueltos — no deriva nada él mismo, mismo principio que CAPEX/D&A/
+  // ΔWC (3C.4). En v5, nunca caen silenciosamente a los literales legacy
+  // 2%/4% — si el caso resolvió `terminalG` pero no sus dos escenarios,
+  // se lanza explícitamente en vez de fabricar un valor.
+  let pessimisticTg: number;
+  let optimisticTg: number;
+  if (isV5Execution) {
+    const pessimisticScenarioPct = resolved?.terminalG?.value?.pessimisticScenarioPct;
+    const optimisticScenarioPct = resolved?.terminalG?.value?.optimisticScenarioPct;
+    const missingScenarioG: string[] = [];
+    if (pessimisticScenarioPct === undefined || pessimisticScenarioPct === null) missingScenarioG.push("terminalG.pessimisticScenarioPct");
+    if (optimisticScenarioPct === undefined || optimisticScenarioPct === null) missingScenarioG.push("terminalG.optimisticScenarioPct");
+    if (missingScenarioG.length > 0) {
+      throw new Error(
+        `runCanonicalFinancialEngine: ejecución v5 sin los g de escenario resueltos de terminalG (05 v1.3 §6) — faltan: ${missingScenarioG.join(", ")}.`,
+      );
+    }
+    pessimisticTg = pessimisticScenarioPct as number;
+    optimisticTg = optimisticScenarioPct as number;
+  } else {
+    // LEGACY — comportamiento histórico preservado exactamente (2%/4%).
+    pessimisticTg = 2;
+    optimisticTg = 4;
+  }
+
+  const pessimistic = mkScenario(0.6, -3, 1.5, pessimisticTg);
+  const optimistic = mkScenario(1.4, 3, -1.5, optimisticTg);
 
   return {
     projections,

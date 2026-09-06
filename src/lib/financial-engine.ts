@@ -233,7 +233,16 @@ export interface AnalysisResult {
   evRevenue: number;
   sectorBenchmark: SectorBenchmark;
   sensitivityMatrix: { waccDelta: number; growthDelta: number; ev: number }[];
-  scenarioEVs: { pessimistic: number; base: number; optimistic: number };
+  /**
+   * Bloque 3C.5 (cierre) — `pessimistic`/`optimistic` pueden ser `null`
+   * cuando el motor canónico (vía `pdf-canonical-mapper.ts`) reporta un
+   * escenario donde `scenarioWacc <= scenarioTerminalG` (Gordon Growth no
+   * converge) — nunca se fabrica un `0` que se confundiría con un
+   * Enterprise Value real. El motor DEMO (`runAnalysis`, este mismo
+   * archivo) sigue produciendo siempre `number` para los tres — este
+   * ensanche de tipo no cambia su lógica ni su comportamiento.
+   */
+  scenarioEVs: { pessimistic: number | null; base: number | null; optimistic: number | null };
   waccWarning: string | null;
 }
 

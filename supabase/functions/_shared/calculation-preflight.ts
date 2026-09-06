@@ -270,6 +270,29 @@ function findResolvedAssumptionBlockers(
     );
   }
 
+  // Bloque 3C.5 (cierre) — `04 §11`/`05 v1.3 §6`: el motor
+  // (`canonical-financial-engine.ts`) exige, en v5, los TRES números de
+  // `terminalG` (`valuePct` base + `pessimisticScenarioPct`/
+  // `optimisticScenarioPct` de escenario) — sin ellos lanza
+  // explícitamente en vez de caer al hardcode legacy 3%/2%/4%. El tipo
+  // (`TerminalGValue`) los declara opcionales a nivel de contrato
+  // (compatibilidad general), pero para que UNA EJECUCIÓN v5 esté
+  // completa, el preflight los exige aquí — no se vuelven obligatorios
+  // globalmente, solo se bloquea antes del motor si faltan.
+  const terminalGValue = (ra?.terminalG as { value?: { valuePct?: number; pessimisticScenarioPct?: number; optimisticScenarioPct?: number } } | undefined)?.value;
+  if (terminalGValue) {
+    const isFiniteNumber = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
+    if (!isFiniteNumber(terminalGValue.valuePct)) {
+      blockers.push(`RESOLVED_ASSUMPTION_INVALID_TERMINALG: valuePct debe ser un número finito (valor actual: ${JSON.stringify(terminalGValue.valuePct)}).`);
+    }
+    if (!isFiniteNumber(terminalGValue.pessimisticScenarioPct)) {
+      blockers.push(`RESOLVED_ASSUMPTION_INVALID_TERMINALG: pessimisticScenarioPct debe ser un número finito (valor actual: ${JSON.stringify(terminalGValue.pessimisticScenarioPct)}).`);
+    }
+    if (!isFiniteNumber(terminalGValue.optimisticScenarioPct)) {
+      blockers.push(`RESOLVED_ASSUMPTION_INVALID_TERMINALG: optimisticScenarioPct debe ser un número finito (valor actual: ${JSON.stringify(terminalGValue.optimisticScenarioPct)}).`);
+    }
+  }
+
   return blockers;
 }
 

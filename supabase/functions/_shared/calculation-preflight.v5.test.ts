@@ -345,6 +345,55 @@ describe("Calculation Preflight — V5 (implementado en Bloque 3C.1)", () => {
     expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_DEPRECIATIONDADRIVER")).toBe(false);
   });
 
+  // Bloque 3C.5 (cierre) — mismo principio que capexReinvestmentDriver/
+  // depreciationDaDriver arriba: el motor exige, en v5, los tres números
+  // de `terminalG` (`valuePct` base + `pessimisticScenarioPct`/
+  // `optimisticScenarioPct` de escenario) — sin ellos lanza en vez de
+  // caer al hardcode legacy 3%/2%/4%.
+  it("debe FALLAR cuando terminalG.valuePct no es un número finito", () => {
+    const broken: ResolvedCalculationAssumptions = {
+      ...EXAMPLE_RESOLVED_ASSUMPTIONS,
+      terminalG: {
+        ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG,
+        value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value, valuePct: undefined as unknown as number },
+      },
+    };
+    const r = evaluatePreflightV5(broken);
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_TERMINALG")).toBe(true);
+  });
+
+  it("debe FALLAR cuando terminalG.pessimisticScenarioPct no está resuelto", () => {
+    const broken: ResolvedCalculationAssumptions = {
+      ...EXAMPLE_RESOLVED_ASSUMPTIONS,
+      terminalG: {
+        ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG,
+        value: { valuePct: EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.valuePct, optimisticScenarioPct: EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.optimisticScenarioPct },
+      },
+    };
+    const r = evaluatePreflightV5(broken);
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_TERMINALG")).toBe(true);
+  });
+
+  it("debe FALLAR cuando terminalG.optimisticScenarioPct no está resuelto", () => {
+    const broken: ResolvedCalculationAssumptions = {
+      ...EXAMPLE_RESOLVED_ASSUMPTIONS,
+      terminalG: {
+        ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG,
+        value: { valuePct: EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.valuePct, pessimisticScenarioPct: EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.pessimisticScenarioPct },
+      },
+    };
+    const r = evaluatePreflightV5(broken);
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_TERMINALG")).toBe(true);
+  });
+
+  it("NO debe fallar por terminalG cuando los tres campos (valuePct/pessimisticScenarioPct/optimisticScenarioPct) están resueltos", () => {
+    const r = evaluatePreflightV5(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_TERMINALG")).toBe(false);
+  });
+
   it("la pregunta del preflight v5 es 'están los supuestos resueltos', no 'los defaults globales están approved=true' — pasar con resolvedAssumptions completos no depende de que CANONICAL_METHODOLOGY cambie", () => {
     const r = evaluatePreflightV5(EXAMPLE_RESOLVED_ASSUMPTIONS);
     expect(r.passed).toBe(true);

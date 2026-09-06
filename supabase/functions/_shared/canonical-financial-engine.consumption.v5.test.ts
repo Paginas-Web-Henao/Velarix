@@ -312,6 +312,22 @@ describe("D&A — V5 OBJETIVO", () => {
 // y debe seguir respetando WACC > g.
 // ─────────────────────────────────────────────────────────────────
 
+// Bloque 3C.5 — corrección: la "LEGACY" (antes "HOY tras 3C.4") original
+// comparaba dos ejecuciones v5 idénticas salvo terminalG y esperaba
+// terminalValue igual — válido solo mientras terminalG NO se consumía.
+// Ahora que sí se consume, esa comparación queda invertida (ver "SÍ
+// cambia" abajo); se retira, y se reemplaza por una verificación LEGACY
+// genuina (sin la clave `resolved_assumptions`).
+describe("Terminal g — LEGACY (sin resolved_assumptions, verde — compatibilidad con golden cases)", () => {
+  it("usa terminalGrowthPct legacy (3%, financial-methodology.ts) — no se ve afectado por ningún terminalG resuelto", () => {
+    const r = runCanonicalFinancialEngine(BASE_INPUT, SECTOR, GROWTH);
+    const gLegacy = 0.03;
+    const waccDecimal = r.valuation.wacc / 100;
+    const expectedTv = r.projections[4].fcff * (1 + gLegacy) / (waccDecimal - gLegacy);
+    expect(r.valuation.terminalValue).toBeCloseTo(expectedTv, 2);
+  });
+});
+
 describe("Terminal g — V5 OBJETIVO", () => {
   function withTerminalG(valuePct: number) {
     return runCanonicalFinancialEngine(
@@ -319,24 +335,6 @@ describe("Terminal g — V5 OBJETIVO", () => {
       SECTOR, GROWTH,
     );
   }
-
-  // Bloque 3C.4 — corrección: la "HOY" original comparaba una ejecución
-  // v5 completa (`withResolved({})`) contra el comportamiento legacy
-  // (`BASE_INPUT`) y esperaba `terminalValue` igual — válido solo
-  // mientras NADA se consumía. Ahora que Tax/CAPEX/D&A/WC/capital
-  // structure SÍ se consumen en v5 (3C.2-3C.4), esa comparación ya no
-  // aísla la afirmación real de este bloque ("terminalG específicamente
-  // no se consume todavía, eso es 3C.5") — el FCFF del año 5 y el WACC ya
-  // difieren legítimamente entre v5 y legacy por razones ajenas a
-  // terminalG. Se reemplaza por una comparación entre DOS ejecuciones v5
-  // idénticas salvo por `terminalG.valuePct`, que aísla correctamente la
-  // afirmación: mientras terminalG no se implemente (3C.5), moverlo no
-  // debe mover terminalValue.
-  it("terminalG resuelto no se usa todavía (3C.5) — dos ejecuciones v5 idénticas salvo terminalG.valuePct producen el mismo terminalValue", () => {
-    const a = withTerminalG(3.5);
-    const b = withTerminalG(4.8);
-    expect(b.valuation.terminalValue).toBeCloseTo(a.valuation.terminalValue, 2);
-  });
 
   it("cambiar terminalG.valuePct NO cambia el FCFF de ningún año explícito", () => {
     const resultA = withTerminalG(3.5);
@@ -346,16 +344,289 @@ describe("Terminal g — V5 OBJETIVO", () => {
     }
   });
 
-  it.fails("cambiar terminalG.valuePct SÍ cambia el terminal value y el Enterprise Value", () => {
+  it("cambiar terminalG.valuePct NO cambia revenue/EBIT/NOPAT/D&A/CAPEX/ΔWC de ningún año explícito (estructuralmente iguales, no solo el fcff agregado)", () => {
+    const resultA = withTerminalG(3.5);
+    const resultB = withTerminalG(4.8);
+    for (let t = 0; t < 5; t++) {
+      const pA = resultA.projections[t];
+      const pB = resultB.projections[t];
+      expect(pB.revenue).toBe(pA.revenue);
+      expect(pB.ebit).toBe(pA.ebit);
+      expect(pB.nopat).toBe(pA.nopat);
+      expect(pB.depreciation).toBe(pA.depreciation);
+      expect(pB.capex).toBe(pA.capex);
+      expect(pB.deltaWC).toBe(pA.deltaWC);
+    }
+  });
+
+  it("cambiar terminalG.valuePct NO cambia WACC, beta apalancado, costo de equity ni costo de deuda after-tax", () => {
+    const resultA = withTerminalG(3.5);
+    const resultB = withTerminalG(4.8);
+    expect(resultB.valuation.wacc).toBeCloseTo(resultA.valuation.wacc, 10);
+    expect(resultB.valuation.betaLevered).toBeCloseTo(resultA.valuation.betaLevered, 10);
+    expect(resultB.valuation.costOfEquity).toBeCloseTo(resultA.valuation.costOfEquity, 10);
+    expect(resultB.valuation.costOfDebtAfterTax).toBeCloseTo(resultA.valuation.costOfDebtAfterTax, 10);
+  });
+
+  it("cambiar terminalG.valuePct SÍ cambia el terminal value y el Enterprise Value", () => {
     const resultA = withTerminalG(3.5);
     const resultB = withTerminalG(4.8);
     expect(resultB.valuation.terminalValue).not.toBeCloseTo(resultA.valuation.terminalValue, 2);
     expect(resultB.valuation.enterpriseValue).not.toBeCloseTo(resultA.valuation.enterpriseValue, 2);
   });
 
-  it.fails("un terminalG.valuePct resuelto que violaría WACC > g debe seguir respetando esa guardia (waccWarning), consistente con el `g` efectivamente usado", () => {
-    const extreme = withTerminalG(99); // muy por encima de cualquier WACC plausible
-    // Si el motor efectivamente consumiera este `g` resuelto, WACC<=g y debería advertir.
-    expect(extreme.valuation.waccWarning).not.toBeNull();
+  it("fórmula: TV_5 = FCFF_5 × (1+g) / (WACC-g), verificada algebraicamente contra el propio resultado (no un número mágico externo)", () => {
+    const valuePct = 3.5;
+    const r = withTerminalG(valuePct);
+    const gDecimal = valuePct / 100;
+    const waccDecimal = r.valuation.wacc / 100;
+    const expectedTv = (r.projections[4].fcff * (1 + gDecimal)) / (waccDecimal - gDecimal);
+    expect(r.valuation.terminalValue).toBeCloseTo(expectedTv, 2);
+  });
+
+  describe("guardia WACC vs. g", () => {
+    it("WACC > g: terminal value válido (número positivo, sin advertencia)", () => {
+      const r = withTerminalG(3.5); // el WACC resuelto del fixture es sustancialmente mayor a 3.5%
+      expect(r.valuation.waccWarning).toBeNull();
+      expect(r.valuation.terminalValue).toBeGreaterThan(0);
+      expect(Number.isFinite(r.valuation.terminalValue)).toBe(true);
+    });
+
+    it("WACC = g: no se permite un cálculo terminal normal — waccWarning explícito, terminalValue/discountedTV en 0 (nunca NaN)", () => {
+      const waccPct = withTerminalG(3.5).valuation.wacc; // terminalG no afecta WACC — reutilizable como referencia
+      const r = withTerminalG(waccPct); // g == WACC exactamente
+      expect(r.valuation.waccWarning).not.toBeNull();
+      expect(r.valuation.terminalValue).toBe(0);
+      expect(r.valuation.discountedTV).toBe(0);
+      expect(Number.isNaN(r.valuation.terminalValue)).toBe(false);
+    });
+
+    it("WACC < g: no se permite un cálculo terminal normal — waccWarning explícito, terminalValue/discountedTV en 0 (nunca NaN)", () => {
+      const waccPct = withTerminalG(3.5).valuation.wacc;
+      const r = withTerminalG(waccPct + 2); // g > WACC
+      expect(r.valuation.waccWarning).not.toBeNull();
+      expect(r.valuation.terminalValue).toBe(0);
+      expect(r.valuation.discountedTV).toBe(0);
+      expect(Number.isNaN(r.valuation.terminalValue)).toBe(false);
+    });
+
+    it("un terminalG.valuePct resuelto extremo (99%) sigue respetando la guardia (waccWarning), consistente con el `g` efectivamente usado", () => {
+      const extreme = withTerminalG(99); // muy por encima de cualquier WACC plausible
+      expect(extreme.valuation.waccWarning).not.toBeNull();
+      expect(extreme.valuation.terminalValue).toBe(0);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Terminal g de escenario (pesimista/optimista) — 04 §11: "Cualquier g
+// de escenario debe derivarse explícitamente del g base con lógica
+// documentada — nunca ser un literal sin relación declarada". El
+// contrato (`TerminalGValue`) ya representa esos dos valores
+// (`pessimisticScenarioPct`/`optimisticScenarioPct`) junto al `valuePct`
+// base — la derivación documentada vive en el `rationale` de la entrada
+// resuelta, no en el motor. El motor solo los consume literalmente,
+// nunca cae silenciosamente a los literales legacy 2%/4%.
+// ─────────────────────────────────────────────────────────────────
+
+describe("Terminal g de escenario (pesimista/optimista) — LEGACY (sin resolved_assumptions, verde — compatibilidad con golden cases)", () => {
+  it("usa exactamente los literales históricos 2% (pesimista) / 4% (optimista)", () => {
+    const r = runCanonicalFinancialEngine(BASE_INPUT, SECTOR, GROWTH);
+    expect(r.scenarios.pessimistic.assumptions.terminalGrowth).toBe(2);
+    expect(r.scenarios.optimistic.assumptions.terminalGrowth).toBe(4);
+  });
+});
+
+describe("Terminal g de escenario (pesimista/optimista) — V5 OBJETIVO", () => {
+  function withScenarioG(pessimisticScenarioPct: number, optimisticScenarioPct: number) {
+    return runCanonicalFinancialEngine(
+      withResolved({
+        terminalG: {
+          ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG,
+          value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value, pessimisticScenarioPct, optimisticScenarioPct },
+        },
+      }),
+      SECTOR, GROWTH,
+    );
+  }
+
+  // 1.1%/5.5% elegidos deliberadamente distintos de los literales legacy
+  // 2%/4% — el fixture por defecto ya tiene pessimisticScenarioPct=2.0
+  // (coincide por casualidad con el legacy), así que estos tests los
+  // sobre-escriben explícitamente para que ninguna aserción pueda pasar
+  // por coincidencia numérica.
+  it("una ejecución v5 no usa los literales legacy 2%/4% para pessimistic/optimistic — usa terminalG.pessimisticScenarioPct/optimisticScenarioPct resueltos", () => {
+    const r = withScenarioG(1.1, 5.5);
+    expect(r.scenarios.pessimistic.assumptions.terminalGrowth).toBe(1.1);
+    expect(r.scenarios.optimistic.assumptions.terminalGrowth).toBe(5.5);
+    expect(r.scenarios.pessimistic.assumptions.terminalGrowth).not.toBe(2);
+    expect(r.scenarios.optimistic.assumptions.terminalGrowth).not.toBe(4);
+  });
+
+  it("cambiar únicamente terminalG.pessimisticScenarioPct cambia el EV del escenario pesimista, sin afectar el optimista ni el caso base", () => {
+    const a = withScenarioG(1.1, 5.5);
+    const b = withScenarioG(2.9, 5.5); // solo pesimista cambia
+    expect(b.scenarios.pessimistic.ev).not.toBeCloseTo(a.scenarios.pessimistic.ev, 2);
+    expect(b.scenarios.optimistic.ev).toBeCloseTo(a.scenarios.optimistic.ev, 6);
+    expect(b.valuation.enterpriseValue).toBeCloseTo(a.valuation.enterpriseValue, 6);
+  });
+
+  it("cambiar únicamente terminalG.optimisticScenarioPct cambia el EV del escenario optimista, sin afectar el pesimista ni el caso base", () => {
+    const a = withScenarioG(1.1, 5.5);
+    const b = withScenarioG(1.1, 6.8); // solo optimista cambia
+    expect(b.scenarios.optimistic.ev).not.toBeCloseTo(a.scenarios.optimistic.ev, 2);
+    expect(b.scenarios.pessimistic.ev).toBeCloseTo(a.scenarios.pessimistic.ev, 6);
+    expect(b.valuation.enterpriseValue).toBeCloseTo(a.valuation.enterpriseValue, 6);
+  });
+
+  it("cambiar los g de escenario no cambia los 5 FCFF explícitos del caso base", () => {
+    const a = withScenarioG(1.1, 5.5);
+    const b = withScenarioG(2.9, 6.8);
+    for (let t = 0; t < 5; t++) {
+      expect(b.projections[t].fcff).toBe(a.projections[t].fcff);
+    }
+  });
+
+  it("cambiar los g de escenario no cambia los 5 FCFF proyectados dentro de cada escenario (mismo growth/margen de escenario — solo cambia el terminal)", () => {
+    const a = withScenarioG(1.1, 5.5);
+    const b = withScenarioG(2.9, 6.8);
+    for (let t = 0; t < 5; t++) {
+      expect(b.scenarios.pessimistic.projections[t].fcff).toBe(a.scenarios.pessimistic.projections[t].fcff);
+      expect(b.scenarios.optimistic.projections[t].fcff).toBe(a.scenarios.optimistic.projections[t].fcff);
+    }
+  });
+
+  it("ejecución v5 sin terminalG.pessimisticScenarioPct/optimisticScenarioPct resueltos lanza explícitamente — nunca cae silenciosamente a 2%/4%", () => {
+    expect(() =>
+      runCanonicalFinancialEngine(
+        withResolved({ terminalG: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG, value: { valuePct: 3.5 } } }), // sin los dos campos de escenario
+        SECTOR, GROWTH,
+      ),
+    ).toThrow(/pessimisticScenarioPct|optimisticScenarioPct/);
+  });
+
+  // Bloque 3C.5 (cierre) — corrección: `ev` pasó de `0` (ambiguo con un
+  // EV real, y que además descartaba el PV de los 5 FCFF explícitos) a
+  // `number | null`. `null` es la representación explícita de "no
+  // interpretable" cuando `scenarioWacc <= scenarioTerminalG` — mismo
+  // principio que `CanonicalKPIs.roe` (3C.2). `projections` (los 5 años
+  // del escenario) permanecen siempre disponibles, incluso cuando el
+  // terminal no converge.
+  describe("guardia scenarioWacc vs. scenarioTerminalG", () => {
+    it("scenarioWacc > scenarioTerminalG: ev numérico válido", () => {
+      const r = withScenarioG(1.1, 5.5); // el WACC del escenario pesimista es sustancialmente mayor a 1.1%
+      expect(typeof r.scenarios.pessimistic.ev).toBe("number");
+      expect(r.scenarios.pessimistic.ev).toBeGreaterThan(0);
+      expect(Number.isFinite(r.scenarios.pessimistic.ev)).toBe(true);
+    });
+
+    it("scenarioWacc = scenarioTerminalG: no hay ev numérico normal — ev es null (nunca NaN, nunca 0)", () => {
+      const scenarioWaccPct = withScenarioG(1.1, 5.5).scenarios.pessimistic.assumptions.wacc;
+      const r = withScenarioG(scenarioWaccPct, 5.5); // pessimisticScenarioPct == WACC del escenario pesimista exactamente
+      expect(r.scenarios.pessimistic.ev).toBeNull();
+      expect(Number.isNaN(r.scenarios.pessimistic.ev)).toBe(false);
+    });
+
+    it("scenarioWacc < scenarioTerminalG: no hay ev numérico normal — ev es null (nunca NaN, nunca 0)", () => {
+      const scenarioWaccPct = withScenarioG(1.1, 5.5).scenarios.pessimistic.assumptions.wacc;
+      const r = withScenarioG(scenarioWaccPct + 3, 5.5); // pessimisticScenarioPct > WACC del escenario pesimista
+      expect(r.scenarios.pessimistic.ev).toBeNull();
+      expect(Number.isNaN(r.scenarios.pessimistic.ev)).toBe(false);
+    });
+
+    it("cuando el escenario no converge (ev: null), los 5 FCFF explícitos del escenario siguen disponibles — el terminal no converge, el horizonte explícito sí existe", () => {
+      const scenarioWaccPct = withScenarioG(1.1, 5.5).scenarios.pessimistic.assumptions.wacc;
+      const r = withScenarioG(scenarioWaccPct, 5.5);
+      expect(r.scenarios.pessimistic.ev).toBeNull();
+      expect(r.scenarios.pessimistic.projections).toHaveLength(5);
+      for (const p of r.scenarios.pessimistic.projections) {
+        expect(typeof p.fcff).toBe("number");
+        expect(Number.isFinite(p.fcff)).toBe(true);
+      }
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Escenarios (pesimista/optimista) — consumo de forecast drivers v5.
+// Bloque 3C.5 (cierre): antes, `mkScenario` llamaba a `computeProjections`
+// SIN el argumento `v5Drivers` — una ejecución v5 con terminal g/WACC
+// resueltos podía terminar calculando el FCFF de
+// `scenarios.pessimistic`/`optimistic` con tax/CAPEX/D&A/ΔWC LEGACY,
+// exactamente el fallback silencioso que `05 v1.3 §6` prohíbe. Corregido
+// para que ambos escenarios reciban el MISMO `v5Drivers` ya resuelto que
+// el caso base — los modificadores de growth/margen/WACC de escenario no
+// cambian.
+// ─────────────────────────────────────────────────────────────────
+
+describe("Escenarios (pesimista/optimista) — LEGACY: sin cambios (compatibilidad con golden cases)", () => {
+  it("un escenario sin resolved_assumptions sigue usando tax/CAPEX/D&A/WC legacy — igual que siempre", () => {
+    const r = runCanonicalFinancialEngine(BASE_INPUT, SECTOR, GROWTH);
+    const p1 = r.scenarios.pessimistic.projections[0];
+    // Legacy (financial-methodology.ts): capexPct=5%, depreciationPct=3%, wcPct=3%, taxRate=30%.
+    expect(p1.capex).toBeCloseTo(p1.revenue * 0.05, 2);
+    expect(p1.depreciation).toBeCloseTo(p1.revenue * 0.03, 2);
+    expect(p1.deltaWC).toBeCloseTo(p1.revenue * 0.03, 2);
+    expect(p1.nopat).toBeCloseTo(p1.ebit * (1 - 0.30), 2);
+  });
+});
+
+describe("Escenarios (pesimista/optimista) — V5 OBJETIVO: consumen los mismos drivers resueltos que el caso base", () => {
+  it("cambiar únicamente explicitFcffTaxRatePctByYear cambia el NOPAT del escenario pesimista — nunca el 30% legacy", () => {
+    const changedPath = [15, 15, 15, 15, 15];
+    const modified = withResolved({
+      taxTreatment: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment, value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment.value, explicitFcffTaxRatePctByYear: changedPath } },
+    });
+    const r = runCanonicalFinancialEngine(modified, SECTOR, GROWTH);
+    const p1 = r.scenarios.pessimistic.projections[0];
+    expect(p1.nopat).toBeCloseTo(p1.ebit * (1 - 0.15), 2);
+    expect(p1.nopat).not.toBeCloseTo(p1.ebit * (1 - 0.30), 2);
+  });
+
+  it("CAPEX explicit_path: pesimista y optimista usan el mismo valor literal que el caso base, año por año — no revenue×capexPct%", () => {
+    const path = [10_000_000, 11_000_000, 12_000_000, 13_000_000, 14_000_000];
+    const modified = withResolved({
+      capexReinvestmentDriver: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.capexReinvestmentDriver, value: { mode: "explicit_path", explicitPath: path } },
+    });
+    const r = runCanonicalFinancialEngine(modified, SECTOR, GROWTH);
+    for (let t = 0; t < 5; t++) {
+      expect(r.scenarios.pessimistic.projections[t].capex).toBe(path[t]);
+      expect(r.scenarios.optimistic.projections[t].capex).toBe(path[t]);
+    }
+  });
+
+  it("CAPEX percent_of_revenue: se aplica al revenue propio de cada escenario (distinto del revenue del caso base, por el modificador de growth de escenario)", () => {
+    const modified = withResolved({
+      capexReinvestmentDriver: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.capexReinvestmentDriver, value: { mode: "percent_of_revenue", capexPctOfRevenue: 7 } },
+    });
+    const r = runCanonicalFinancialEngine(modified, SECTOR, GROWTH);
+    const p1Pess = r.scenarios.pessimistic.projections[0];
+    const p1Base = r.projections[0];
+    expect(p1Pess.capex).toBeCloseTo(p1Pess.revenue * 0.07, 2);
+    expect(p1Pess.revenue).not.toBe(p1Base.revenue); // growth de escenario distinto del caso base
+    expect(p1Pess.capex).not.toBeCloseTo(p1Base.capex, 2); // por tanto el CAPEX resultante también difiere
+  });
+
+  it("D&A explicit_path: el escenario optimista usa el mismo valor literal que el caso base, año por año", () => {
+    const path = [8_000_000, 9_000_000, 10_000_000, 11_000_000, 12_000_000];
+    const modified = withResolved({
+      depreciationDaDriver: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.depreciationDaDriver, value: { mode: "explicit_path", explicitPath: path } },
+    });
+    const r = runCanonicalFinancialEngine(modified, SECTOR, GROWTH);
+    for (let t = 0; t < 5; t++) {
+      expect(r.scenarios.optimistic.projections[t].depreciation).toBe(path[t]);
+    }
+  });
+
+  it("explicitDeltaNwcByYear: pesimista y optimista usan el mismo valor literal que el caso base, año por año — nunca el %revenue legacy", () => {
+    const path = [1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000];
+    const modified = withResolved({
+      workingCapitalDriver: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.workingCapitalDriver, value: { explicitDeltaNwcByYear: path } },
+    });
+    const r = runCanonicalFinancialEngine(modified, SECTOR, GROWTH);
+    for (let t = 0; t < 5; t++) {
+      expect(r.scenarios.pessimistic.projections[t].deltaWC).toBe(path[t]);
+      expect(r.scenarios.optimistic.projections[t].deltaWC).toBe(path[t]);
+    }
   });
 });

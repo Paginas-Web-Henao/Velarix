@@ -213,7 +213,13 @@ export interface CanonicalYearProjection {
 
 export interface CanonicalScenarioResult {
   projections: CanonicalYearProjection[];
-  ev: number;
+  /**
+   * Bloque 3C.5 (cierre) — `null` cuando `scenarioWacc <= scenarioTerminalG`
+   * (Gordon Growth no converge para este escenario) — mismo contrato que
+   * `_shared/canonical-financial-engine.ts::ScenarioResult.ev`. `projections`
+   * permanece siempre disponible aunque el terminal no converja.
+   */
+  ev: number | null;
   assumptions: { growth: number; ebitdaMargin: number; wacc: number; terminalGrowth: number };
   label?: string;
 }

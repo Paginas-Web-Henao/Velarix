@@ -72,7 +72,12 @@ const DemoSensitivity = ({ result, inputs }: Props) => {
           ]).map((s) => (
             <div key={s.label} className="metallic-border rounded bg-background p-4 text-center">
               <p className="font-body text-xs text-muted-foreground mb-1">{s.label}</p>
-              <p className={`font-display text-lg font-bold ${s.color}`}>{formatCurrency(s.value)}</p>
+              {/* Bloque 3C.5 (cierre) — `s.value` puede ser `null` cuando el
+                  escenario no converge (scenarioWacc <= scenarioTerminalG);
+                  nunca se pasa a `formatCurrency` (que asume `number`) ni se
+                  fabrica un `0` — "N/D" es el mismo patrón ya usado en
+                  `pdf-generator.ts` para valores ausentes. */}
+              <p className={`font-display text-lg font-bold ${s.color}`}>{s.value == null ? "N/D" : formatCurrency(s.value)}</p>
             </div>
           ))}
         </div>
