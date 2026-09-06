@@ -16,35 +16,35 @@ function buildVersionV5Target(resolvedAssumptions?: ResolvedCalculationAssumptio
     inputFingerprint: "abc123",
     provenanceStatus: "complete",
     resolvedAssumptions,
-  } as any);
+  });
 }
 
-describe("Versioning — HOY (caracterización, verde)", () => {
-  it("assumptions_snapshot siempre refleja CANONICAL_METHODOLOGY (los 8 defaults globales), sin importar si se pasan resolvedAssumptions", () => {
-    const withResolved = buildVersionV5Target(EXAMPLE_RESOLVED_ASSUMPTIONS);
-    const withoutResolved = buildCalculationVersionInfo({ inputFingerprint: "abc123", provenanceStatus: "complete" });
-    expect(withResolved.assumptions_snapshot).toEqual(withoutResolved.assumptions_snapshot);
-    expect(Object.keys(withResolved.assumptions_snapshot).sort()).toEqual(Object.keys(CANONICAL_METHODOLOGY.assumptions).sort());
-  });
-
-  it("no existe ningún campo assumptions_source en el resultado hoy", () => {
-    const info = buildVersionV5Target(EXAMPLE_RESOLVED_ASSUMPTIONS);
-    expect((info as any).assumptions_source).toBeUndefined();
+// Bloque 3C.6 — corrección: las dos aserciones "HOY" originales
+// documentaban el gap real de 05 v1.3 §7 (versioning ignoraba
+// resolvedAssumptions) — premisa inválida una vez implementado. Se
+// retiran; reemplazadas por una verificación LEGACY genuina (sin la
+// clave `resolvedAssumptions` en absoluto), que confirma que el
+// versioning histórico no cambió de comportamiento.
+describe("Versioning — LEGACY (sin resolvedAssumptions, verde — compatibilidad histórica)", () => {
+  it("assumptions_snapshot sigue reflejando CANONICAL_METHODOLOGY (los 8 defaults globales) y assumptions_source = 'legacy_canonical_default'", () => {
+    const info = buildCalculationVersionInfo({ inputFingerprint: "abc123", provenanceStatus: "complete" });
+    expect(Object.keys(info.assumptions_snapshot).sort()).toEqual(Object.keys(CANONICAL_METHODOLOGY.assumptions).sort());
+    expect(info.assumptions_source).toBe("legacy_canonical_default");
   });
 });
 
-describe("Versioning — V5 OBJETIVO (rojo esperado hasta implementar RC-3)", () => {
-  it.fails("una ejecución legacy (sin resolvedAssumptions) declara assumptions_source = 'legacy_canonical_default'", () => {
+describe("Versioning — V5 OBJETIVO", () => {
+  it("una ejecución legacy (sin resolvedAssumptions) declara assumptions_source = 'legacy_canonical_default'", () => {
     const info = buildVersionV5Target(undefined);
-    expect((info as any).assumptions_source).toBe("legacy_canonical_default");
+    expect(info.assumptions_source).toBe("legacy_canonical_default");
   });
 
-  it.fails("una ejecución v5 (con resolvedAssumptions) declara assumptions_source = 'resolved_case_input'", () => {
+  it("una ejecución v5 (con resolvedAssumptions) declara assumptions_source = 'resolved_case_input'", () => {
     const info = buildVersionV5Target(EXAMPLE_RESOLVED_ASSUMPTIONS);
-    expect((info as any).assumptions_source).toBe("resolved_case_input");
+    expect(info.assumptions_source).toBe("resolved_case_input");
   });
 
-  it.fails("el snapshot/resumen de supuestos usados corresponde a los valores REALMENTE resueltos de la ejecución, no a CANONICAL_METHODOLOGY", () => {
+  it("el snapshot/resumen de supuestos usados corresponde a los valores REALMENTE resueltos de la ejecución, no a CANONICAL_METHODOLOGY", () => {
     const info = buildVersionV5Target(EXAMPLE_RESOLVED_ASSUMPTIONS);
     const serialized = JSON.stringify(info.assumptions_snapshot);
     // El terminal g resuelto (3.5%) debe aparecer reflejado; el legacy (terminalGrowthPct=3) no debe presentarse como si fuera el usado.
@@ -56,7 +56,7 @@ describe("Versioning — V5 OBJETIVO (rojo esperado hasta implementar RC-3)", ()
     );
   });
 
-  it.fails("cambiar el judgment (terminal_g resuelto) produce una identidad de versión/snapshot distinta", () => {
+  it("cambiar el judgment (terminal_g resuelto) produce una identidad de versión/snapshot distinta", () => {
     const changed: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       terminalG: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG, value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value, valuePct: 4.75 } },
@@ -66,7 +66,7 @@ describe("Versioning — V5 OBJETIVO (rojo esperado hasta implementar RC-3)", ()
     expect(JSON.stringify(info1.assumptions_snapshot)).not.toBe(JSON.stringify(info2.assumptions_snapshot));
   });
 
-  it.fails("versioning no reporta los 8 defaults globales de CANONICAL_METHODOLOGY como si hubieran sido usados cuando la ejecución consumió valores resueltos", () => {
+  it("versioning no reporta los 8 defaults globales de CANONICAL_METHODOLOGY como si hubieran sido usados cuando la ejecución consumió valores resueltos", () => {
     // OJO (corregido en Bloque 3B.2): un `toContain("35")` sobre el JSON
     // serializado es frágil — `riskFreeRatePct: 4.35` (legacy) YA
     // contiene la subcadena "35", lo que haría pasar este test en verde

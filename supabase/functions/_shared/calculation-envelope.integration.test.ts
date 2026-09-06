@@ -23,12 +23,14 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { runCanonicalFinancialEngine } from "./canonical-financial-engine";
+import { runCanonicalFinancialEngine, type CanonicalStructuredInput } from "./canonical-financial-engine";
 import { computeInputFingerprint } from "./calculation-fingerprint";
 import { buildCalculationVersionInfo, CANONICAL_ENGINE_VERSION } from "./calculation-versioning";
 import { buildMissingProvenance } from "./calculation-provenance";
 import { buildSourceInputSnapshot } from "./source-input-snapshot";
+import { buildResolvedAssumptionsSnapshot } from "./resolved-assumptions-snapshot";
 import { CANONICAL_METHODOLOGY } from "./financial-methodology";
+import { EXAMPLE_RESOLVED_ASSUMPTIONS } from "./resolved-calculation-assumptions.fixtures";
 import {
   CASO_A_ESTABLE_SERVIDOR,
   CASO_B_ALTO_CRECIMIENTO_SERVIDOR,
@@ -91,9 +93,12 @@ describe("Compatibilidad del envelope (versionado + procedencia) sobre el result
       sector: fixture.sector,
       input: fixture.input,
     });
+    // Bloque 3C.6: `resolved_assumptions_used` es `null` para este golden
+    // case legacy (nunca se inventa Judgment retroactivo).
+    const resolvedAssumptionsUsed = buildResolvedAssumptionsSnapshot(undefined);
     // Misma composición que ejecutar-calculo/index.ts:
-    // `{ ...result, version, provenance, source_input_snapshot: sourceInputSnapshot }`.
-    const enveloped = { ...result, version, provenance, source_input_snapshot: sourceInputSnapshot };
+    // `{ ...result, version, provenance, source_input_snapshot: sourceInputSnapshot, resolved_assumptions_used: resolvedAssumptionsUsed }`.
+    const enveloped = { ...result, version, provenance, source_input_snapshot: sourceInputSnapshot, resolved_assumptions_used: resolvedAssumptionsUsed };
 
     // El schema del envelope subió (campo aditivo nuevo: source_input_snapshot).
     expect(enveloped.version.calculation_schema_version).toBe("1.1.0");
@@ -106,6 +111,57 @@ describe("Compatibilidad del envelope (versionado + procedencia) sobre el result
     expect(enveloped.source_input_snapshot).toBeDefined();
     expect(enveloped.source_input_snapshot.income_statement.revenue).toBe(fixture.input.income_statement?.revenue ?? null);
     expect(enveloped.version.input_fingerprint).toBe(inputFingerprint);
+    // Legacy: assumptions_source explícito, sin Judgment inventado.
+    expect(enveloped.version.assumptions_source).toBe("legacy_canonical_default");
+    expect(enveloped.resolved_assumptions_used).toBeNull();
+  });
+
+  it("17. Bloque 3C.6: una ejecución v5 (input_payload con resolved_assumptions) produce un envelope con las 4 capas separadas — fingerprint/version/resolved_assumptions_used reflejan el Judgment, source_input_snapshot permanece limitado a Evidence", () => {
+    const fixture = CASO_A_ESTABLE_SERVIDOR;
+    // Mismo patrón que ejecutar-calculo/index.ts: `input_payload` con la
+    // clave `resolved_assumptions` presente activa la ejecución v5 en
+    // TODOS los módulos por igual (motor, fingerprint, preflight,
+    // versioning) — nunca por inferencia del contenido financiero.
+    const v5Input: CanonicalStructuredInput = { ...fixture.input, resolved_assumptions: EXAMPLE_RESOLVED_ASSUMPTIONS };
+
+    const legacyFingerprint = computeInputFingerprint(fixture.input, fixture.sector, fixture.expectedGrowth);
+    const v5Fingerprint = computeInputFingerprint(v5Input, fixture.sector, fixture.expectedGrowth);
+    const provenance = buildMissingProvenance({
+      analysisId: "test-analysis",
+      monedaAnalisis: v5Input.moneda_analisis || "COP",
+      monedaDocumento: null,
+      factorConversion: v5Input.factor_conversion || 1,
+      builtAt: "2026-09-05T00:00:00.000Z",
+    });
+    const version = buildCalculationVersionInfo({
+      inputFingerprint: v5Fingerprint,
+      provenanceStatus: provenance.overall_status,
+      calculatedAt: "2026-09-05T00:00:00.000Z",
+      resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS,
+    });
+    const sourceInputSnapshot = buildSourceInputSnapshot({
+      structuredInputId: "struct-1",
+      versionInput: "2.3",
+      sector: fixture.sector,
+      input: v5Input,
+    });
+    const resolvedAssumptionsUsed = buildResolvedAssumptionsSnapshot(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    const enveloped = { version, provenance, source_input_snapshot: sourceInputSnapshot, resolved_assumptions_used: resolvedAssumptionsUsed };
+
+    // Fingerprint: cambia porque el Judgment entró a la identidad de Calculation.
+    expect(v5Fingerprint).not.toBe(legacyFingerprint);
+    // Version: assumptions_source distingue explícitamente v5 de legacy.
+    expect(enveloped.version.assumptions_source).toBe("resolved_case_input");
+    expect(enveloped.version.input_fingerprint).toBe(v5Fingerprint);
+    // resolved_assumptions_used: Judgment completo, congelado.
+    expect(enveloped.resolved_assumptions_used).toEqual(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    // source_input_snapshot: permanece limitado a Evidence, sin Judgment mezclado.
+    expect(enveloped.source_input_snapshot).not.toHaveProperty("resolved_assumptions");
+    expect(JSON.stringify(enveloped.source_input_snapshot)).not.toContain("terminalG");
+    // Las tres capas coexisten sin solaparse.
+    const snapshotKeys = new Set(Object.keys(enveloped.source_input_snapshot));
+    const judgmentKeys = new Set(Object.keys(enveloped.resolved_assumptions_used as object));
+    expect([...snapshotKeys].filter((k) => judgmentKeys.has(k))).toEqual([]);
   });
 
   it("15. revenue=0 sigue siendo rechazado por el motor incluso cuando se compone el envelope alrededor (comportamiento conservado, no re-decidido aquí)", () => {
@@ -132,8 +188,20 @@ describe("ejecutar-calculo/index.ts usa realmente el contrato nuevo (verificaci�
   it("13. invoca las funciones importadas y persiste version/provenance dentro de calculation_result", () => {
     expect(source).toContain("computeInputFingerprint(typedInput, analysis.sector, analysis.expected_growth)");
     expect(source).toContain("buildCalculationVersionInfo({");
-    expect(source).toContain("const enrichedResult = { ...result, version, provenance, source_input_snapshot: sourceInputSnapshot };");
+    expect(source).toContain("source_input_snapshot: sourceInputSnapshot,");
     expect(source).toContain("calculation_result: enrichedResult,");
+  });
+
+  it("Bloque 3C.6: incluye resolved_assumptions_used en el envelope, vía la función real buildResolvedAssumptionsSnapshot — nunca una copia manual ni mezclado con source_input_snapshot", () => {
+    expect(source).toContain('import { buildResolvedAssumptionsSnapshot } from "../_shared/resolved-assumptions-snapshot.ts"');
+    expect(source).toContain("buildResolvedAssumptionsSnapshot(inputResolvedAssumptions)");
+    expect(source).toContain("resolved_assumptions_used: resolvedAssumptionsUsed,");
+  });
+
+  it("Bloque 3C.6: legacy vs. v5 por presencia de la clave resolved_assumptions en input_payload (Object.hasOwnProperty), no por inferencia de contenido financiero", () => {
+    expect(source).toContain('Object.prototype.hasOwnProperty.call(input || {}, "resolved_assumptions")');
+    // Preflight y versioning reciben resolvedAssumptions SOLO cuando isV5Input es verdadero — nunca incondicionalmente.
+    expect(source).toContain("...(isV5Input ? { resolvedAssumptions: inputResolvedAssumptions } : {})");
   });
 
   it("Bloque 1E/Subbloque 1 (corrección): el snapshot del structured input se construye del MISMO `input` usado para fingerprint, no de una consulta nueva", () => {

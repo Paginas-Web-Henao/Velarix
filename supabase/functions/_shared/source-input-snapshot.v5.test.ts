@@ -1,17 +1,19 @@
-// Bloque 3B — Tests-first de la separación Evidence/Judgment en
-// snapshots, docs/velarix-v5/05-financial-engine-audit.md v1.3 §7.
+// Bloque 3B (tests-first) + Bloque 3C.6 (implementación) — separación
+// Evidence/Judgment en snapshots, docs/velarix-v5/05-financial-engine-audit.md
+// v1.3 §7.
 //
 // `source_input_snapshot` (buildSourceInputSnapshot, función REAL de
 // producción, sin modificar) debe permanecer exclusivamente como
-// Evidence. `resolved_assumptions_used` es un snapshot separado de
-// Judgment que todavía no existe como función productiva — aquí se
-// define como helper/fixture de especificación (explícitamente
-// permitido: "puede ser un helper/test fixture por ahora"), NO como
-// parte de _shared/ productivo. No se implementa el envelope de
-// ejecutar-calculo en este bloque.
+// Evidence. `resolved_assumptions_used` (buildResolvedAssumptionsSnapshot,
+// `./resolved-assumptions-snapshot.ts`, Bloque 3C.6) es el snapshot
+// separado de Judgment — antes vivía únicamente como especificación
+// local en este archivo (`buildResolvedAssumptionsSnapshotSpec`); ahora
+// se importa la función productiva real, y este archivo verifica esa
+// función real en vez de una reimplementación local.
 
 import { describe, it, expect } from "vitest";
 import { buildSourceInputSnapshot } from "./source-input-snapshot";
+import { buildResolvedAssumptionsSnapshot } from "./resolved-assumptions-snapshot";
 import { EXAMPLE_RESOLVED_ASSUMPTIONS } from "./resolved-calculation-assumptions.fixtures";
 import type { ResolvedCalculationAssumptions } from "./resolved-calculation-assumptions";
 
@@ -42,32 +44,43 @@ describe("source_input_snapshot — permanece limitado a Evidence (verde — ya 
     const withoutJudgmentSnapshot = buildSourceInputSnapshot({ structuredInputId: "s1", versionInput: "2.3", sector: "Software / Tecnología", input: withoutJudgment });
     expect(withJudgment).toEqual(withoutJudgmentSnapshot);
   });
+
+  it("equity negativo conserva su signo real en el snapshot (RC-1, 04 §3.2) — nunca Math.abs()", () => {
+    const negativeEquityInput = { ...FULL_INPUT, balance_sheet: { ...FULL_INPUT.balance_sheet, equity: -500_000 } };
+    const snapshot = buildSourceInputSnapshot({ structuredInputId: "s1", versionInput: "2.3", sector: "Manufactura", input: negativeEquityInput });
+    expect(snapshot.balance_sheet.equity).toBe(-500_000);
+  });
+
+  it("equity ausente permanece null en el snapshot — nunca se fabrica 0", () => {
+    const { equity: _omittedEquity, ...balanceSheetWithoutEquity } = FULL_INPUT.balance_sheet;
+    const missingEquityInput = { ...FULL_INPUT, balance_sheet: balanceSheetWithoutEquity };
+    const snapshot = buildSourceInputSnapshot({ structuredInputId: "s1", versionInput: "2.3", sector: "Manufactura", input: missingEquityInput });
+    expect(snapshot.balance_sheet.equity).toBeNull();
+    // Observado en cero es un valor final distinto de ausente — no colapsan al mismo resultado.
+    const zeroEquityInput = { ...FULL_INPUT, balance_sheet: { ...FULL_INPUT.balance_sheet, equity: 0 } };
+    const zeroSnapshot = buildSourceInputSnapshot({ structuredInputId: "s1", versionInput: "2.3", sector: "Manufactura", input: zeroEquityInput });
+    expect(zeroSnapshot.balance_sheet.equity).toBe(0);
+    expect(zeroSnapshot.balance_sheet.equity).not.toBe(snapshot.balance_sheet.equity);
+  });
+
+  it("mutar el objeto de entrada DESPUÉS de construir el snapshot no lo altera retroactivamente", () => {
+    const mutableInput = { ...FULL_INPUT, balance_sheet: { ...FULL_INPUT.balance_sheet } };
+    const snapshot = buildSourceInputSnapshot({ structuredInputId: "s1", versionInput: "2.3", sector: "Manufactura", input: mutableInput });
+    const originalEquity = snapshot.balance_sheet.equity;
+    mutableInput.balance_sheet.equity = 999_999_999;
+    expect(snapshot.balance_sheet.equity).toBe(originalEquity);
+    expect(snapshot.balance_sheet.equity).not.toBe(999_999_999);
+  });
 });
 
-// ─────────────────────────────────────────────────────────────────
-// resolved_assumptions_used — helper/fixture de especificación.
-// NO es producción. Vive solo en este archivo de test. Define el
-// comportamiento que una futura `buildResolvedAssumptionsSnapshot`
-// (Bloque 3C) debería tener: copia literal, sin recalcular, sin
-// sustituir valores, sin mezclar evidencia financiera salvo las
-// referencias/source que cada supuesto ya declara por sí mismo.
-// ─────────────────────────────────────────────────────────────────
-
-function buildResolvedAssumptionsSnapshotSpec(
-  resolvedAssumptions: ResolvedCalculationAssumptions,
-): ResolvedCalculationAssumptions {
-  // Passthrough literal — ninguna transformación, ningún cálculo.
-  return JSON.parse(JSON.stringify(resolvedAssumptions));
-}
-
-describe("resolved_assumptions_used — especificación (helper de test, no producción)", () => {
+describe("resolved_assumptions_used (buildResolvedAssumptionsSnapshot, ./resolved-assumptions-snapshot.ts) — Judgment completo, función productiva real", () => {
   it("conserva exactamente los supuestos usados, sin omitir ninguno de los 13", () => {
-    const snapshot = buildResolvedAssumptionsSnapshotSpec(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    const snapshot = buildResolvedAssumptionsSnapshot(EXAMPLE_RESOLVED_ASSUMPTIONS);
     expect(snapshot).toEqual(EXAMPLE_RESOLVED_ASSUMPTIONS);
   });
 
   it("no recalcula ningún valor — el mismo objeto de entrada produce el mismo objeto de salida byte a byte", () => {
-    const snapshot = buildResolvedAssumptionsSnapshotSpec(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    const snapshot = buildResolvedAssumptionsSnapshot(EXAMPLE_RESOLVED_ASSUMPTIONS);
     expect(JSON.stringify(snapshot)).toBe(JSON.stringify(EXAMPLE_RESOLVED_ASSUMPTIONS));
   });
 
@@ -76,12 +89,12 @@ describe("resolved_assumptions_used — especificación (helper de test, no prod
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       terminalG: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG, value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value, valuePct: 0.01 } },
     };
-    const snapshot = buildResolvedAssumptionsSnapshotSpec(unusual);
-    expect(snapshot.terminalG.value.valuePct).toBe(0.01);
+    const snapshot = buildResolvedAssumptionsSnapshot(unusual);
+    expect(snapshot?.terminalG.value.valuePct).toBe(0.01);
   });
 
   it("no mezcla evidencia financiera (income_statement/balance_sheet) dentro del objeto — solo lo que cada supuesto ya declara como source/rationale propios", () => {
-    const snapshot = buildResolvedAssumptionsSnapshotSpec(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    const snapshot = buildResolvedAssumptionsSnapshot(EXAMPLE_RESOLVED_ASSUMPTIONS);
     const serialized = JSON.stringify(snapshot);
     expect(serialized).not.toContain("income_statement");
     expect(serialized).not.toContain("balance_sheet");
@@ -89,10 +102,24 @@ describe("resolved_assumptions_used — especificación (helper de test, no prod
 
   it("es conceptualmente distinto de source_input_snapshot — ambos pueden coexistir en el mismo envelope sin solaparse", () => {
     const evidenceSnapshot = buildSourceInputSnapshot({ structuredInputId: "s1", versionInput: "2.3", sector: "Manufactura", input: FULL_INPUT });
-    const judgmentSnapshot = buildResolvedAssumptionsSnapshotSpec(EXAMPLE_RESOLVED_ASSUMPTIONS);
+    const judgmentSnapshot = buildResolvedAssumptionsSnapshot(EXAMPLE_RESOLVED_ASSUMPTIONS);
     const evidenceKeys = new Set(Object.keys(evidenceSnapshot));
-    const judgmentKeys = new Set(Object.keys(judgmentSnapshot));
+    const judgmentKeys = new Set(Object.keys(judgmentSnapshot as object));
     const overlap = [...evidenceKeys].filter((k) => judgmentKeys.has(k));
     expect(overlap).toEqual([]);
+  });
+
+  it("legacy: sin resolved_assumptions, el snapshot de Judgment es null — nunca se inventa Judgment retroactivamente", () => {
+    expect(buildResolvedAssumptionsSnapshot(null)).toBeNull();
+    expect(buildResolvedAssumptionsSnapshot(undefined)).toBeNull();
+  });
+
+  it("mutar el objeto de entrada DESPUÉS de construir el snapshot no lo altera retroactivamente (copia estructural, no referencia compartida)", () => {
+    const mutableAssumptions: ResolvedCalculationAssumptions = JSON.parse(JSON.stringify(EXAMPLE_RESOLVED_ASSUMPTIONS));
+    const snapshot = buildResolvedAssumptionsSnapshot(mutableAssumptions);
+    const originalValuePct = snapshot?.terminalG.value.valuePct;
+    mutableAssumptions.terminalG.value.valuePct = 999;
+    expect(snapshot?.terminalG.value.valuePct).toBe(originalValuePct);
+    expect(snapshot?.terminalG.value.valuePct).not.toBe(999);
   });
 });

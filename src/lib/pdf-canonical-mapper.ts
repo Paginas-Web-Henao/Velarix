@@ -22,7 +22,6 @@
 
 import type {
   AnalysisResult,
-  FinancialInputs,
   ReportingCurrency,
 } from "./financial-engine";
 import type {
@@ -30,6 +29,7 @@ import type {
   CanonicalScenarioResult,
   CanonicalCalculationVersion,
   HistoricalFinancials,
+  PdfFinancialInputs,
 } from "@/types/calculation-result";
 
 function getAssumption(version: CanonicalCalculationVersion, key: string): number {
@@ -38,6 +38,68 @@ function getAssumption(version: CanonicalCalculationVersion, key: string): numbe
     throw new Error(`calculation_result.version.assumptions_snapshot no contiene "${key}" — no se puede mapear a PDF sin inventar el valor.`);
   }
   return entry.value;
+}
+
+// Bloque 3C.6 (cierre) — supuestos escalares consumidos por el PDF,
+// resueltos explícitamente según `assumptions_source`:
+//
+// - legacy_canonical_default: comportamiento IDÉNTICO al anterior — los
+//   8 defaults metodológicos vía `getAssumption`/`assumptions_snapshot`.
+// - resolved_case_input: el Judgment real (`resolved_assumptions_used`,
+//   `ResolvedCalculationAssumptions`) — nunca se reinterpreta
+//   `assumptions_snapshot` para v5 (ese campo existe para
+//   fingerprint/versioning, no para que este mapper lo vuelva a leer).
+//
+// Regla dura de este bloque: nunca se fabrica una equivalencia legacy
+// falsa. taxRatePct y workingCapitalPctOfRevenue NO tienen equivalente
+// escalar en el contrato v5 (taxTreatment resuelve 3 tasas económicamente
+// distintas — 04 §6.3/§6.4/§10.6 — ninguna es "la" tasa; el contrato de
+// working capital solo tiene `explicitDeltaNwcByYear[]`, nunca un % de
+// ingresos) — ambos quedan `null` en v5, nunca 0. capexPctOfRevenue solo
+// tiene equivalencia cuando el Judgment resolvió expresamente el modo
+// `percent_of_revenue`; si resolvió `explicit_path`, queda `null` — no se
+// convierte a un porcentaje que el Judgment nunca declaró.
+interface DerivedScalarAssumptions {
+  taxRatePct: number | null;
+  capexPctOfRevenue: number | null;
+  workingCapitalPctOfRevenue: number | null;
+  terminalGrowthPct: number;
+  costOfDebtPct: number;
+  riskFreeRatePct: number;
+  equityRiskPremiumPct: number;
+}
+
+function deriveScalarAssumptions(cr: PersistedCalculationResult): DerivedScalarAssumptions {
+  if (cr.version.assumptions_source !== "resolved_case_input") {
+    return {
+      taxRatePct: getAssumption(cr.version, "taxRatePct"),
+      capexPctOfRevenue: getAssumption(cr.version, "capexPctOfRevenue"),
+      workingCapitalPctOfRevenue: getAssumption(cr.version, "workingCapitalPctOfRevenue"),
+      terminalGrowthPct: getAssumption(cr.version, "terminalGrowthPct"),
+      costOfDebtPct: getAssumption(cr.version, "costOfDebtPct"),
+      riskFreeRatePct: getAssumption(cr.version, "riskFreeRatePct"),
+      equityRiskPremiumPct: getAssumption(cr.version, "equityRiskPremiumPct"),
+    };
+  }
+
+  const ra = cr.resolved_assumptions_used;
+  if (!ra) {
+    throw new Error(
+      "calculation_result.version.assumptions_source es \"resolved_case_input\" pero resolved_assumptions_used es null — no se puede mapear a PDF sin inventar el Judgment.",
+    );
+  }
+
+  const capexDriver = ra.capexReinvestmentDriver.value;
+
+  return {
+    taxRatePct: null,
+    capexPctOfRevenue: capexDriver.mode === "percent_of_revenue" ? capexDriver.capexPctOfRevenue : null,
+    workingCapitalPctOfRevenue: null,
+    terminalGrowthPct: ra.terminalG.value.valuePct,
+    costOfDebtPct: ra.costOfDebt.value.valuePct,
+    riskFreeRatePct: ra.riskFreeRateConstruction.value.localRatePct,
+    equityRiskPremiumPct: ra.matureErp.value.valuePct,
+  };
 }
 
 function toScenarioProjections(scenario: CanonicalScenarioResult): AnalysisResult["scenarios"]["base"] {
@@ -52,7 +114,7 @@ export interface MapCanonicalCalculationParams {
 
 export interface MappedPdfData {
   result: AnalysisResult & { calculationMeta: CanonicalCalculationVersion };
-  inputs: FinancialInputs;
+  inputs: PdfFinancialInputs;
   historicals: HistoricalFinancials;
 }
 
@@ -116,6 +178,7 @@ export function mapCanonicalCalculationToPdfData(params: MapCanonicalCalculation
 
   const baseGrowth = cr.scenarios.base.assumptions.growth;
   const baseEbitdaMargin = cr.scenarios.base.assumptions.ebitdaMargin;
+  const derived = deriveScalarAssumptions(cr);
 
   const result: AnalysisResult & { calculationMeta: CanonicalCalculationVersion } = {
     projections: cr.projections,
@@ -131,9 +194,11 @@ export function mapCanonicalCalculationToPdfData(params: MapCanonicalCalculation
         ebitdaMargin: cr.scenarios.pessimistic.assumptions.ebitdaMargin,
         // capexPct/wcPct no varían por escenario en el motor canónico
         // (ver canonical-financial-engine.ts) — el único valor real es
-        // el del snapshot de supuestos, igual para los 3 escenarios.
-        capexPct: getAssumption(cr.version, "capexPctOfRevenue"),
-        wcPct: getAssumption(cr.version, "workingCapitalPctOfRevenue"),
+        // el derivado de los supuestos, igual para los 3 escenarios.
+        // Nullable en v5 cuando no hay equivalencia escalar (ver
+        // `deriveScalarAssumptions` arriba) — nunca un % fabricado.
+        capexPct: derived.capexPctOfRevenue,
+        wcPct: derived.workingCapitalPctOfRevenue,
         wacc: cr.scenarios.pessimistic.assumptions.wacc,
         terminalGrowth: cr.scenarios.pessimistic.assumptions.terminalGrowth,
       },
@@ -141,8 +206,8 @@ export function mapCanonicalCalculationToPdfData(params: MapCanonicalCalculation
         label: cr.scenarios.base.label || "Base",
         growth: baseGrowth,
         ebitdaMargin: baseEbitdaMargin,
-        capexPct: getAssumption(cr.version, "capexPctOfRevenue"),
-        wcPct: getAssumption(cr.version, "workingCapitalPctOfRevenue"),
+        capexPct: derived.capexPctOfRevenue,
+        wcPct: derived.workingCapitalPctOfRevenue,
         wacc: cr.scenarios.base.assumptions.wacc,
         terminalGrowth: cr.scenarios.base.assumptions.terminalGrowth,
       },
@@ -150,8 +215,8 @@ export function mapCanonicalCalculationToPdfData(params: MapCanonicalCalculation
         label: cr.scenarios.optimistic.label || "Optimista",
         growth: cr.scenarios.optimistic.assumptions.growth,
         ebitdaMargin: cr.scenarios.optimistic.assumptions.ebitdaMargin,
-        capexPct: getAssumption(cr.version, "capexPctOfRevenue"),
-        wcPct: getAssumption(cr.version, "workingCapitalPctOfRevenue"),
+        capexPct: derived.capexPctOfRevenue,
+        wcPct: derived.workingCapitalPctOfRevenue,
         wacc: cr.scenarios.optimistic.assumptions.wacc,
         terminalGrowth: cr.scenarios.optimistic.assumptions.terminalGrowth,
       },
@@ -211,15 +276,24 @@ export function mapCanonicalCalculationToPdfData(params: MapCanonicalCalculation
   };
 
   // inputs: solo companyName/sector/reportingCurrency (metadata) y los
-  // SUPUESTOS del motor (siempre presentes en assumptions_snapshot, nunca
-  // ausentes — por eso pueden ser `number` no-nullable). Los campos
-  // históricos de FinancialInputs (revenue/costOfSales/opex/depreciation/
-  // totalDebt/cash/equity/interestExpense) y equityWeight/debtWeight
-  // quedan en `0` — placeholders INERTES, nunca leídos por pdf-generator.ts
-  // en el camino canónico (que lee `historicals`, no `inputs`, para esas
-  // cifras). NO se deriva equityWeight/debtWeight de ninguna fórmula de
-  // capital-structure aquí — ver ETAPA 7.
-  const inputs: FinancialInputs = {
+  // SUPUESTOS con equivalencia escalar directa (terminalGrowth/costOfDebt/
+  // riskFreeRate/erp — reales en legacy y en v5, ver `deriveScalarAssumptions`).
+  // Los campos históricos de FinancialInputs (revenue/costOfSales/opex/
+  // depreciation/totalDebt/cash/equity/interestExpense) y equityWeight/
+  // debtWeight quedan en `0` — placeholders INERTES, nunca leídos por
+  // pdf-generator.ts en el camino canónico (que lee `historicals`, no
+  // `inputs`, para esas cifras). NO se deriva equityWeight/debtWeight de
+  // ninguna fórmula de capital-structure aquí — ver ETAPA 7.
+  //
+  // Bloque 3C.6 (cierre): taxRate/capexPct/wcPct salen 1:1 de
+  // `derived` — el mismo valor legacy real, o `null` en v5 cuando el
+  // Judgment no tiene equivalente escalar (taxTreatment, working capital
+  // explícito, CAPEX en `explicit_path`; ver `deriveScalarAssumptions`
+  // arriba). `PdfFinancialInputs` permite `null` en estos 3 campos
+  // precisamente para que este objeto nunca sea semánticamente falso:
+  // ningún consumidor futuro puede leer un `0` aquí e interpretarlo como
+  // "la tasa/porcentaje es cero".
+  const inputs: PdfFinancialInputs = {
     companyName,
     sector,
     reportingCurrency,
@@ -233,14 +307,14 @@ export function mapCanonicalCalculationToPdfData(params: MapCanonicalCalculation
     interestExpense: 0,
     growth: baseGrowth,
     ebitdaMargin: baseEbitdaMargin,
-    taxRate: getAssumption(cr.version, "taxRatePct"),
-    capexPct: getAssumption(cr.version, "capexPctOfRevenue"),
-    wcPct: getAssumption(cr.version, "workingCapitalPctOfRevenue"),
-    terminalGrowth: getAssumption(cr.version, "terminalGrowthPct"),
+    taxRate: derived.taxRatePct,
+    capexPct: derived.capexPctOfRevenue,
+    wcPct: derived.workingCapitalPctOfRevenue,
+    terminalGrowth: derived.terminalGrowthPct,
     diasMinCaja: 0,
-    costOfDebt: getAssumption(cr.version, "costOfDebtPct"),
-    riskFreeRate: getAssumption(cr.version, "riskFreeRatePct"),
-    erp: getAssumption(cr.version, "equityRiskPremiumPct"),
+    costOfDebt: derived.costOfDebtPct,
+    riskFreeRate: derived.riskFreeRatePct,
+    erp: derived.equityRiskPremiumPct,
     equityWeight: 0,
     debtWeight: 0,
   };

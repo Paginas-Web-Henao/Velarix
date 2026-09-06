@@ -36,31 +36,27 @@ const BASE_INPUT: CanonicalStructuredInput = {
 };
 
 function withJudgment(resolvedAssumptions: ResolvedCalculationAssumptions): CanonicalStructuredInput {
-  return { ...BASE_INPUT, resolved_assumptions: resolvedAssumptions } as any;
+  return { ...BASE_INPUT, resolved_assumptions: resolvedAssumptions };
 }
 
-describe("Fingerprint — HOY (caracterización, verde)", () => {
-  it("cambiar terminal_g dentro de resolved_assumptions NO cambia el fingerprint hoy — confirmado, es exactamente el gap de 05 v1.3 §7", () => {
-    const changed: ResolvedCalculationAssumptions = {
-      ...EXAMPLE_RESOLVED_ASSUMPTIONS,
-      terminalG: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG, value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value, valuePct: 99 } },
-    };
-    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(withJudgment(changed) as any, "Software / Tecnología", 45);
+// Bloque 3C.6 — corrección: las dos aserciones "HOY" originales
+// documentaban el gap real de 05 v1.3 §7 (resolved_assumptions ignorado
+// por el fingerprint) — premisa inválida una vez implementado. Se
+// retiran; reemplazadas por una verificación LEGACY genuina (sin la
+// clave `resolved_assumptions` en absoluto), que confirma que el
+// fingerprint histórico no cambió de comportamiento.
+describe("Fingerprint — LEGACY (sin resolved_assumptions, verde — compatibilidad con fixtures/golden cases)", () => {
+  it("mismo input sin resolved_assumptions → mismo fingerprint que antes de 3C.6 (comportamiento histórico preservado)", () => {
+    const f1 = computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(JSON.parse(JSON.stringify(BASE_INPUT)), "Software / Tecnología", 45);
     expect(f1).toBe(f2);
-  });
-
-  it("resolved_assumptions completo vs. ausente producen el mismo fingerprint hoy", () => {
-    const withIt = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const without = computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45);
-    expect(withIt).toBe(without);
   });
 });
 
-describe("Fingerprint — V5 OBJETIVO (rojo esperado hasta implementar RC-3/reproducibilidad)", () => {
+describe("Fingerprint — V5 OBJETIVO", () => {
   it("Evidence idéntica + Judgment idéntico → fingerprint idéntico (ya se cumple hoy, debe seguir cumpliéndose después de implementar)", () => {
-    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(withJudgment(JSON.parse(JSON.stringify(EXAMPLE_RESOLVED_ASSUMPTIONS))) as any, "Software / Tecnología", 45);
+    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(withJudgment(JSON.parse(JSON.stringify(EXAMPLE_RESOLVED_ASSUMPTIONS))), "Software / Tecnología", 45);
     expect(f1).toBe(f2);
   });
 
@@ -73,22 +69,22 @@ describe("Fingerprint — V5 OBJETIVO (rojo esperado hasta implementar RC-3/repr
       ...withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS),
       income_statement: { ...BASE_INPUT.income_statement, revenue: 2_000_000_001 },
     };
-    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(changedRevenue as any, "Software / Tecnología", 45);
+    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(changedRevenue, "Software / Tecnología", 45);
     expect(f1).not.toBe(f2);
   });
 
-  it.fails("cambiar solo terminal_g (Judgment) debe cambiar el fingerprint — ROJO hoy", () => {
+  it("cambiar solo terminal_g (Judgment) debe cambiar el fingerprint", () => {
     const changed: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       terminalG: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG, value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value, valuePct: 99 } },
     };
-    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(withJudgment(changed) as any, "Software / Tecnología", 45);
+    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(withJudgment(changed), "Software / Tecnología", 45);
     expect(f1).not.toBe(f2);
   });
 
-  it.fails("cambiar solo capital_structure (Judgment) debe cambiar el fingerprint — ROJO hoy", () => {
+  it("cambiar solo capital_structure (Judgment) debe cambiar el fingerprint", () => {
     const changed: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       capitalStructure: {
@@ -96,12 +92,12 @@ describe("Fingerprint — V5 OBJETIVO (rojo esperado hasta implementar RC-3/repr
         value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.capitalStructure.value, equityWeight: 0.9, debtWeight: 0.1 },
       },
     };
-    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(withJudgment(changed) as any, "Software / Tecnología", 45);
+    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(withJudgment(changed), "Software / Tecnología", 45);
     expect(f1).not.toBe(f2);
   });
 
-  it.fails("cambiar solo un ΔNWC explícito debe cambiar el fingerprint — ROJO hoy", () => {
+  it("cambiar solo un ΔNWC explícito debe cambiar el fingerprint", () => {
     const changed: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       workingCapitalDriver: {
@@ -109,48 +105,72 @@ describe("Fingerprint — V5 OBJETIVO (rojo esperado hasta implementar RC-3/repr
         value: { explicitDeltaNwcByYear: [12_000_000, 13_500_000, 999_999_999, 11_200_000, 10_500_000] },
       },
     };
-    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(withJudgment(changed) as any, "Software / Tecnología", 45);
+    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(withJudgment(changed), "Software / Tecnología", 45);
     expect(f1).not.toBe(f2);
   });
 
-  it.fails("cambiar ÚNICAMENTE 'source' de un supuesto (mismo value) SÍ debe cambiar el fingerprint — ROJO hoy (decisión corregida en 3B.1: la identidad depende del Judgment completo)", () => {
+  it("cambiar ÚNICAMENTE 'source' de un supuesto (mismo value) SÍ debe cambiar el fingerprint — la identidad depende del Judgment completo", () => {
     const changed: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       costOfDebt: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt, source: "Fuente completamente distinta" },
     };
-    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(withJudgment(changed) as any, "Software / Tecnología", 45);
+    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(withJudgment(changed), "Software / Tecnología", 45);
     expect(f1).not.toBe(f2);
   });
 
-  it.fails("cambiar ÚNICAMENTE 'rationale' de un supuesto (mismo value) SÍ debe cambiar el fingerprint — ROJO hoy", () => {
+  it("cambiar ÚNICAMENTE 'rationale' de un supuesto (mismo value) SÍ debe cambiar el fingerprint", () => {
     const changed: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       costOfDebt: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt, rationale: "Justificación completamente distinta" },
     };
-    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(withJudgment(changed) as any, "Software / Tecnología", 45);
+    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(withJudgment(changed), "Software / Tecnología", 45);
     expect(f1).not.toBe(f2);
   });
 
-  it.fails("cambiar ÚNICAMENTE 'status' de un supuesto (mismo value) SÍ debe cambiar el fingerprint — ROJO hoy (aunque en la práctica 'status' casi siempre sea 'resolved', el contrato no lo impide a nivel de tipo de este test)", () => {
+  it("cambiar ÚNICAMENTE 'status' de un supuesto (mismo value) SÍ debe cambiar el fingerprint (aunque en la práctica 'status' casi siempre sea 'resolved', el contrato no lo impide a nivel de tipo de este test)", () => {
     const changed: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       costOfDebt: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt, status: "pending" as unknown as "resolved" },
     };
-    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(withJudgment(changed) as any, "Software / Tecnología", 45);
+    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(withJudgment(changed), "Software / Tecnología", 45);
     expect(f1).not.toBe(f2);
   });
 
-  it.fails("cambiar una 'date' material SÍ debe cambiar el fingerprint — ROJO hoy (una fecha distinta puede implicar un snapshot de mercado distinto, aunque el value numérico coincida por coincidencia)", () => {
+  it("cambiar una 'date' material SÍ debe cambiar el fingerprint (una fecha distinta puede implicar un snapshot de mercado distinto, aunque el value numérico coincida por coincidencia)", () => {
     const changed: ResolvedCalculationAssumptions = {
       ...EXAMPLE_RESOLVED_ASSUMPTIONS,
       taxTreatment: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment, date: "2099-01-01" },
     };
-    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS) as any, "Software / Tecnología", 45);
-    const f2 = computeInputFingerprint(withJudgment(changed) as any, "Software / Tecnología", 45);
+    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(withJudgment(changed), "Software / Tecnología", 45);
     expect(f1).not.toBe(f2);
+  });
+
+  it("reordenar las claves de resolved_assumptions (objeto equivalente, mismo Judgment) NO cambia el fingerprint — canonicalStringify ya ordena claves recursivamente", () => {
+    // Mismo objeto que EXAMPLE_RESOLVED_ASSUMPTIONS, reconstruido con las
+    // 13 claves de nivel superior en orden inverso y, dentro de una
+    // entrada anidada, sus propias claves también reordenadas — ningún
+    // valor cambia, solo el orden de inserción de las propiedades.
+    const keys = Object.keys(EXAMPLE_RESOLVED_ASSUMPTIONS) as (keyof ResolvedCalculationAssumptions)[];
+    const reorderedMutable: Record<string, unknown> = {};
+    for (const key of [...keys].reverse()) {
+      reorderedMutable[key] = EXAMPLE_RESOLVED_ASSUMPTIONS[key];
+    }
+    const reordered = reorderedMutable as unknown as ResolvedCalculationAssumptions;
+    reordered.costOfDebt = {
+      status: EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt.status,
+      rationale: EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt.rationale,
+      source: EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt.source,
+      value: EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt.value,
+      unit: EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt.unit,
+    };
+
+    const f1 = computeInputFingerprint(withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS), "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(withJudgment(reordered), "Software / Tecnología", 45);
+    expect(f1).toBe(f2);
   });
 });

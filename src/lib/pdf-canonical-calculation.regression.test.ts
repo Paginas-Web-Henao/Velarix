@@ -31,10 +31,83 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, test, expect } from "vitest";
 import { mapCanonicalCalculationToPdfData } from "./pdf-canonical-mapper";
-import type { PersistedCalculationResult, SourceInputSnapshot } from "@/types/calculation-result";
+import type { PersistedCalculationResult, SourceInputSnapshot, ResolvedCalculationAssumptions } from "@/types/calculation-result";
 
 const DASHBOARD_SOURCE = readFileSync(resolve(__dirname, "../pages/Dashboard.tsx"), "utf-8");
 const MAPPER_SOURCE = readFileSync(resolve(__dirname, "./pdf-canonical-mapper.ts"), "utf-8");
+
+// Bloque 3C.6 (cierre) — equivalente frontend de
+// `_shared/resolved-calculation-assumptions.fixtures.ts::EXAMPLE_RESOLVED_ASSUMPTIONS`
+// (no importado directamente: el frontend no depende de `_shared`, Deno).
+// Mismo principio: las 3 tasas de `taxTreatment` son deliberadamente
+// DISTINTAS entre sí para exponer cualquier colapso hacia una sola tasa.
+// Todos los valores son 100% sintéticos — no representan ningún caso real.
+const SYNTHETIC_SOURCE = "SYNTHETIC_TEST_FIXTURE";
+
+const EXAMPLE_RESOLVED_ASSUMPTIONS: ResolvedCalculationAssumptions = {
+  taxTreatment: {
+    value: {
+      marginalRatePct: 35,
+      explicitFcffTaxRatePctByYear: [20, 24, 28, 32, 35],
+      debtTaxShieldRatePct: 30,
+    },
+    unit: "percent",
+    source: SYNTHETIC_SOURCE,
+    rationale: "Tres tasas sintéticas y deliberadamente distintas para ejercitar la separación exigida por 04 §6.3/§6.4/§10.6.",
+    status: "resolved",
+  },
+  capitalStructure: {
+    value: { equityWeight: 0.6, debtWeight: 0.4, structureSource: "comparables" },
+    unit: "composite",
+    source: SYNTHETIC_SOURCE,
+    rationale: "Weights sintéticos para tests determinísticos.",
+    status: "resolved",
+  },
+  riskFreeRateConstruction: {
+    value: { referenceCurrencyRatePct: 4.0, inflationDifferentialPct: 4.0, localRatePct: 8.11 },
+    unit: "percent",
+    source: SYNTHETIC_SOURCE,
+    rationale: "Valores sintéticos para ejercitar la relación de Fisher.",
+    status: "resolved",
+  },
+  matureErp: { value: { valuePct: 4.23 }, unit: "percent", source: SYNTHETIC_SOURCE, rationale: "Valor sintético para el término β×ERP.", status: "resolved" },
+  countryRiskPremium: { value: { valuePct: 2.85 }, unit: "percent", source: SYNTHETIC_SOURCE, rationale: "Valor sintético para el término λ×CRP.", status: "resolved" },
+  countryRiskLambda: {
+    value: { value: 1.1, domesticRevenuePctCompany: 88, domesticRevenuePctMarketAvg: 80 },
+    source: SYNTHETIC_SOURCE,
+    rationale: "Valores sintéticos para el escalamiento de CRP.",
+    status: "resolved",
+  },
+  betaTreatment: {
+    value: { unleveredBeta: 0.78, releveringMethod: "hamada" },
+    source: SYNTHETIC_SOURCE,
+    rationale: "Beta desapalancado sintético para el reapalancamiento Hamada.",
+    status: "resolved",
+  },
+  costOfDebt: { value: { valuePct: 9.5, hierarchy: "spread_estimate" }, unit: "percent", source: SYNTHETIC_SOURCE, rationale: "Valor sintético de costo de deuda.", status: "resolved" },
+  capexReinvestmentDriver: {
+    value: { mode: "percent_of_revenue", capexPctOfRevenue: 4.5 },
+    unit: "percent",
+    source: SYNTHETIC_SOURCE,
+    rationale: "Valor sintético para el driver de CAPEX.",
+    status: "resolved",
+  },
+  depreciationDaDriver: {
+    value: { mode: "percent_of_revenue", daPctOfRevenue: 3.2 },
+    unit: "percent",
+    source: SYNTHETIC_SOURCE,
+    rationale: "Valor sintético para el driver de D&A.",
+    status: "resolved",
+  },
+  workingCapitalDriver: {
+    value: { explicitDeltaNwcByYear: [12_000_000, 13_500_000, 9_800_000, 11_200_000, 10_500_000] },
+    source: SYNTHETIC_SOURCE,
+    rationale: "Valores sintéticos, deliberadamente no proporcionales a revenue.",
+    status: "resolved",
+  },
+  terminalG: { value: { valuePct: 3.5, pessimisticScenarioPct: 2.0, optimisticScenarioPct: 4.5 }, unit: "percent", source: SYNTHETIC_SOURCE, rationale: "Valor sintético de crecimiento terminal.", status: "resolved" },
+  projectionHorizonYears: { value: { years: 5 }, unit: "years", source: SYNTHETIC_SOURCE, rationale: "Único horizonte soportado hoy por el motor.", status: "resolved" },
+};
 
 describe("PDF real de Dashboard — sin motor cliente ni structured_inputs en el camino", () => {
   test("A. Dashboard.tsx no llama a runAnalysis()", () => {
@@ -73,7 +146,7 @@ describe("pdf-canonical-mapper.ts — sin rawFinancials externo, sin motor clien
   });
 });
 
-function buildFixture(overrides: { snapshot?: Partial<SourceInputSnapshot> } = {}): PersistedCalculationResult {
+function buildFixture(overrides: { snapshot?: Partial<SourceInputSnapshot>; resolvedAssumptions?: ResolvedCalculationAssumptions } = {}): PersistedCalculationResult {
   const baseProjections = [1, 2, 3, 4, 5].map((year) => ({
     year,
     revenue: 1_000_000 + year * 10_000,
@@ -133,6 +206,8 @@ function buildFixture(overrides: { snapshot?: Partial<SourceInputSnapshot> } = {
     ...overrides.snapshot,
   };
 
+  const isV5 = overrides.resolvedAssumptions != null;
+
   return {
     projections: baseProjections,
     scenarios: {
@@ -179,16 +254,25 @@ function buildFixture(overrides: { snapshot?: Partial<SourceInputSnapshot> } = {
       calculation_schema_version: "1.0.0",
       canonical_engine_version: "1.0.0",
       methodology_version: "1.0.0-provisional",
-      assumptions_snapshot: {
-        taxRatePct: { value: 30, unit: "percent", approved: false },
-        capexPctOfRevenue: { value: 5, unit: "percent", approved: false },
-        workingCapitalPctOfRevenue: { value: 3, unit: "percent", approved: false },
-        terminalGrowthPct: { value: 3, unit: "percent", approved: false },
-        costOfDebtPct: { value: 8, unit: "percent", approved: false },
-        riskFreeRatePct: { value: 4.35, unit: "percent", approved: false },
-        equityRiskPremiumPct: { value: 5.80, unit: "percent", approved: false },
-        depreciationPctOfRevenue: { value: 3, unit: "percent", approved: false },
-      },
+      // v5: `assumptions_snapshot` mirrorea el `ResolvedCalculationAssumptions`
+      // completo (mismo comportamiento real de `_shared/calculation-versioning.ts`)
+      // — pero el mapper NUNCA lo lee para v5 (ver `deriveScalarAssumptions`
+      // en pdf-canonical-mapper.ts), así que su forma exacta aquí es
+      // irrelevante para estos tests; se transporta tal cual por fidelidad
+      // con el shape real.
+      assumptions_snapshot: isV5
+        ? (overrides.resolvedAssumptions as unknown as Record<string, { value: number; unit: string; approved: boolean }>)
+        : {
+            taxRatePct: { value: 30, unit: "percent", approved: false },
+            capexPctOfRevenue: { value: 5, unit: "percent", approved: false },
+            workingCapitalPctOfRevenue: { value: 3, unit: "percent", approved: false },
+            terminalGrowthPct: { value: 3, unit: "percent", approved: false },
+            costOfDebtPct: { value: 8, unit: "percent", approved: false },
+            riskFreeRatePct: { value: 4.35, unit: "percent", approved: false },
+            equityRiskPremiumPct: { value: 5.80, unit: "percent", approved: false },
+            depreciationPctOfRevenue: { value: 3, unit: "percent", approved: false },
+          },
+      assumptions_source: isV5 ? "resolved_case_input" : "legacy_canonical_default",
       calculated_at: "2026-08-20T12:00:00.000Z",
       input_fingerprint: "fixture-fingerprint-abc123",
       provenance_status: "complete",
@@ -208,6 +292,10 @@ function buildFixture(overrides: { snapshot?: Partial<SourceInputSnapshot> } = {
       period_selection: null,
     },
     source_input_snapshot: defaultSnapshot,
+    // Bloque 3C.6 — por defecto este fixture es LEGACY (assumptions_source
+    // arriba), nunca hubo Judgment resuelto para él. Cuando se pasa
+    // `overrides.resolvedAssumptions`, el fixture pasa a ser v5 real.
+    resolved_assumptions_used: overrides.resolvedAssumptions ?? null,
   };
 }
 
@@ -369,5 +457,154 @@ describe("mapCanonicalCalculationToPdfData — consumo puro del calculation_resu
       sector: "Software / Tecnología",
     });
     expect(inputs.reportingCurrency).toBe("COP");
+  });
+});
+
+describe("mapCanonicalCalculationToPdfData — v5 real (assumptions_source: resolved_case_input, Bloque 3C.6 cierre)", () => {
+  test("1. el mapper NO lanza esperando claves legacy — consume resolved_assumptions_used sin necesidad de assumptions_snapshot legacy", () => {
+    const fixture = buildFixture({ resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS });
+
+    expect(() =>
+      mapCanonicalCalculationToPdfData({
+        calculationResult: fixture,
+        companyName: "Empresa Fixture S.A.S.",
+        sector: "Software / Tecnología",
+      })
+    ).not.toThrow();
+  });
+
+  test("2. campos con equivalencia directa (terminalGrowth/costOfDebt/riskFreeRate/erp) vienen del Judgment v5 real, no de un default legacy", () => {
+    const fixture = buildFixture({ resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS });
+    const { inputs } = mapCanonicalCalculationToPdfData({
+      calculationResult: fixture,
+      companyName: "Empresa Fixture S.A.S.",
+      sector: "Software / Tecnología",
+    });
+
+    expect(inputs.terminalGrowth).toBe(EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.valuePct);
+    expect(inputs.costOfDebt).toBe(EXAMPLE_RESOLVED_ASSUMPTIONS.costOfDebt.value.valuePct);
+    expect(inputs.riskFreeRate).toBe(EXAMPLE_RESOLVED_ASSUMPTIONS.riskFreeRateConstruction.value.localRatePct);
+    expect(inputs.erp).toBe(EXAMPLE_RESOLVED_ASSUMPTIONS.matureErp.value.valuePct);
+    // Ninguno de estos 4 coincide por casualidad con un default legacy —
+    // confirma que realmente vienen del fixture v5, no de un valor fijo.
+    expect(inputs.terminalGrowth).not.toBe(3);
+    expect(inputs.costOfDebt).not.toBe(8);
+    expect(inputs.riskFreeRate).not.toBe(4.35);
+    expect(inputs.erp).not.toBe(5.80);
+  });
+
+  test("3. CAPEX explicit_path nunca se muestra como un porcentaje legacy inventado — queda N/D (null) en inputs.capexPct", () => {
+    const explicitPathAssumptions: ResolvedCalculationAssumptions = {
+      ...EXAMPLE_RESOLVED_ASSUMPTIONS,
+      capexReinvestmentDriver: {
+        ...EXAMPLE_RESOLVED_ASSUMPTIONS.capexReinvestmentDriver,
+        value: { mode: "explicit_path", explicitPath: [100_000, 110_000, 120_000, 130_000, 140_000] },
+      },
+    };
+    const fixture = buildFixture({ resolvedAssumptions: explicitPathAssumptions });
+    const { inputs } = mapCanonicalCalculationToPdfData({
+      calculationResult: fixture,
+      companyName: "Empresa Fixture S.A.S.",
+      sector: "Software / Tecnología",
+    });
+
+    expect(inputs.capexPct).toBeNull();
+    // Nunca un placeholder inerte disfrazado de supuesto real.
+    expect(inputs.capexPct).not.toBe(0);
+
+    // Contraste: cuando el Judgment SÍ resolvió percent_of_revenue, el
+    // mapper SÍ debe mostrar el valor real (no siempre null por defecto).
+    const { inputs: percentInputs } = mapCanonicalCalculationToPdfData({
+      calculationResult: buildFixture({ resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS }),
+      companyName: "Empresa Fixture S.A.S.",
+      sector: "Software / Tecnología",
+    });
+    expect(percentInputs.capexPct).toBe(EXAMPLE_RESOLVED_ASSUMPTIONS.capexReinvestmentDriver.value.mode === "percent_of_revenue" ? EXAMPLE_RESOLVED_ASSUMPTIONS.capexReinvestmentDriver.value.capexPctOfRevenue : null);
+  });
+
+  test("4. working capital explícito (explicitDeltaNwcByYear) nunca se muestra como % de ingresos — queda N/D (null) en inputs.wcPct", () => {
+    const fixture = buildFixture({ resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS });
+    const { inputs } = mapCanonicalCalculationToPdfData({
+      calculationResult: fixture,
+      companyName: "Empresa Fixture S.A.S.",
+      sector: "Software / Tecnología",
+    });
+
+    // El contrato v5 (WorkingCapitalDriverValue) SOLO tiene
+    // explicitDeltaNwcByYear — nunca existe un modo "% de ingresos" que
+    // convertir, a diferencia de CAPEX. Siempre N/D en v5.
+    expect(inputs.wcPct).toBeNull();
+    expect(inputs.wcPct).not.toBe(0);
+  });
+
+  test("5. el path fiscal explícito nunca se colapsa silenciosamente en otra tasa — inputs.taxRate queda N/D (null), no marginalRatePct/debtTaxShieldRatePct/promedio/0", () => {
+    const fixture = buildFixture({ resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS });
+    const { inputs } = mapCanonicalCalculationToPdfData({
+      calculationResult: fixture,
+      companyName: "Empresa Fixture S.A.S.",
+      sector: "Software / Tecnología",
+    });
+
+    expect(inputs.taxRate).toBeNull();
+    expect(inputs.taxRate).not.toBe(0);
+    // Documenta explícitamente que NO es ninguna de las 3 tasas reales
+    // del fixture (que son todas distintas entre sí a propósito).
+    expect(inputs.taxRate).not.toBe(EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment.value.marginalRatePct);
+    expect(inputs.taxRate).not.toBe(EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment.value.debtTaxShieldRatePct);
+    expect(inputs.taxRate).not.toBe(EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment.value.explicitFcffTaxRatePctByYear[0]);
+  });
+
+  test("6. legacy (assumptions_source ausente de override) sigue devolviendo los mismos 3 números históricos reales en inputs.taxRate/capexPct/wcPct — sin regresión", () => {
+    const fixture = buildFixture();
+    const { inputs } = mapCanonicalCalculationToPdfData({
+      calculationResult: fixture,
+      companyName: "Empresa Fixture S.A.S.",
+      sector: "Software / Tecnología",
+    });
+
+    expect(inputs.taxRate).toBe(30);
+    expect(inputs.capexPct).toBe(5);
+    expect(inputs.wcPct).toBe(3);
+    expect(inputs.terminalGrowth).toBe(3);
+    expect(inputs.costOfDebt).toBe(8);
+    expect(inputs.riskFreeRate).toBe(4.35);
+    expect(inputs.erp).toBe(5.80);
+  });
+
+  test("7. cambiar un campo con equivalencia directa en resolved_assumptions_used cambia el output mapeado correspondiente", () => {
+    const baseline = buildFixture({ resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS });
+    const { inputs: baselineInputs } = mapCanonicalCalculationToPdfData({
+      calculationResult: baseline,
+      companyName: "Empresa Fixture S.A.S.",
+      sector: "Software / Tecnología",
+    });
+
+    const modifiedAssumptions: ResolvedCalculationAssumptions = {
+      ...EXAMPLE_RESOLVED_ASSUMPTIONS,
+      terminalG: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG, value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value, valuePct: 1.25 } },
+    };
+    const modified = buildFixture({ resolvedAssumptions: modifiedAssumptions });
+    const { inputs: modifiedInputs } = mapCanonicalCalculationToPdfData({
+      calculationResult: modified,
+      companyName: "Empresa Fixture S.A.S.",
+      sector: "Software / Tecnología",
+    });
+
+    expect(baselineInputs.terminalGrowth).toBe(EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.valuePct);
+    expect(modifiedInputs.terminalGrowth).toBe(1.25);
+    expect(modifiedInputs.terminalGrowth).not.toBe(baselineInputs.terminalGrowth);
+  });
+
+  test("resolved_assumptions_used null pese a assumptions_source resolved_case_input: el mapper falla explícito, no inventa Judgment", () => {
+    const fixture = buildFixture({ resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS });
+    (fixture as { resolved_assumptions_used: unknown }).resolved_assumptions_used = null;
+
+    expect(() =>
+      mapCanonicalCalculationToPdfData({
+        calculationResult: fixture,
+        companyName: "Empresa Fixture S.A.S.",
+        sector: "Software / Tecnología",
+      })
+    ).toThrow(/resolved_assumptions_used/);
   });
 });

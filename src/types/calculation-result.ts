@@ -268,14 +268,127 @@ export interface CanonicalAssumptionSnapshotEntry {
 
 export type CanonicalProvenanceStatus = "missing" | "partial" | "complete";
 
+/**
+ * Bloque 3C.6 — distingue explícitamente si el resultado se produjo con
+ * los defaults metodológicos legacy o con `ResolvedCalculationAssumptions`
+ * de Judgment v5 resueltas para el caso (mismo contrato que
+ * `_shared/calculation-versioning.ts::AssumptionsSource`).
+ */
+export type CanonicalAssumptionsSource = "legacy_canonical_default" | "resolved_case_input";
+
 export interface CanonicalCalculationVersion {
   calculation_schema_version: string;
   canonical_engine_version: string;
   methodology_version: string;
+  /**
+   * Bloque 3C.6 (cierre): este tipo solo describe la forma LEGACY (8
+   * defaults globales, `{value: number, unit, approved}`). En una
+   * ejecución v5 real (`assumptions_source: "resolved_case_input"`), el
+   * valor real de esta propiedad es el `ResolvedCalculationAssumptions`
+   * completo de 13 campos (mismo shape que `resolved_assumptions_used`,
+   * mirrorado aquí también por `_shared/calculation-versioning.ts` para
+   * fingerprint/versioning) — NO esta forma legacy. `pdf-canonical-
+   * mapper.ts` ya no depende de esta propiedad para v5: lee
+   * `resolved_assumptions_used` (tipado como `ResolvedCalculationAssumptions`
+   * más abajo), la fuente explícita de Judgment congelado, en vez de
+   * reinterpretar este campo de versionado/fingerprint por su cuenta.
+   */
   assumptions_snapshot: Record<string, CanonicalAssumptionSnapshotEntry>;
+  assumptions_source: CanonicalAssumptionsSource;
   calculated_at: string;
   input_fingerprint: string;
   provenance_status: CanonicalProvenanceStatus;
+}
+
+// ── ResolvedCalculationAssumptions (Bloque 3C.6, cierre) ──
+// Mirror exacto de `_shared/resolved-calculation-assumptions.ts` — mismo
+// patrón que `SourceInputSnapshot`/`SnapshotIncomeStatement` más abajo:
+// el frontend no importa tipos de `_shared` (Deno), así que el contrato
+// se duplica aquí campo a campo. Antes de este bloque no se duplicaba
+// (ver comentario retirado arriba) porque ningún consumidor frontend
+// interpretaba el contenido — ahora `pdf-canonical-mapper.ts` sí lo hace,
+// así que la duplicación deja de ser estructura anticipada sin uso.
+
+export type ResolvedAssumptionUnit = "percent" | "decimal" | "ratio" | "years" | "currency" | "composite";
+
+export interface ResolvedAssumptionEntry<TValue> {
+  value: TValue;
+  unit?: ResolvedAssumptionUnit;
+  source: string;
+  rationale: string;
+  status: "resolved";
+  date?: string;
+}
+
+export type CapitalStructureSource = "comparables" | "target" | "optimal" | "iterative";
+
+export interface CapitalStructureValue {
+  equityWeight: number;
+  debtWeight: number;
+  structureSource: CapitalStructureSource;
+}
+
+export interface TaxTreatmentValue {
+  marginalRatePct: number;
+  explicitFcffTaxRatePctByYear: number[];
+  debtTaxShieldRatePct: number;
+  nolsNotes?: string;
+}
+
+export interface RiskFreeRateConstructionValue {
+  referenceCurrencyRatePct: number;
+  inflationDifferentialPct: number;
+  localRatePct: number;
+}
+
+export interface BetaTreatmentValue {
+  unleveredBeta: number;
+  releveringMethod: "hamada";
+}
+
+export interface CostOfDebtValue {
+  valuePct: number;
+  hierarchy: "observed_marginal" | "spread_estimate" | "fallback_documented";
+}
+
+export type CapexReinvestmentDriverValue =
+  | { mode: "percent_of_revenue"; capexPctOfRevenue: number; maintenanceVsGrowthNotes?: string }
+  | { mode: "explicit_path"; explicitPath: number[]; maintenanceVsGrowthNotes?: string };
+
+export type DepreciationDaDriverValue =
+  | { mode: "percent_of_revenue"; daPctOfRevenue: number }
+  | { mode: "explicit_path"; explicitPath: number[] };
+
+export interface WorkingCapitalDriverValue {
+  explicitDeltaNwcByYear: number[];
+}
+
+export interface TerminalGValue {
+  valuePct: number;
+  pessimisticScenarioPct?: number;
+  optimisticScenarioPct?: number;
+}
+
+export interface ProjectionHorizonValue {
+  years: number;
+  convergenceJudgmentNotes?: string;
+}
+
+/** Los 13 puntos congelados en `05-financial-engine-audit.md` v1.3 §6. */
+export interface ResolvedCalculationAssumptions {
+  taxTreatment: ResolvedAssumptionEntry<TaxTreatmentValue>;
+  capitalStructure: ResolvedAssumptionEntry<CapitalStructureValue>;
+  riskFreeRateConstruction: ResolvedAssumptionEntry<RiskFreeRateConstructionValue>;
+  matureErp: ResolvedAssumptionEntry<{ valuePct: number }>;
+  countryRiskPremium: ResolvedAssumptionEntry<{ valuePct: number }>;
+  countryRiskLambda: ResolvedAssumptionEntry<{ value: number; domesticRevenuePctCompany: number; domesticRevenuePctMarketAvg: number }>;
+  betaTreatment: ResolvedAssumptionEntry<BetaTreatmentValue>;
+  costOfDebt: ResolvedAssumptionEntry<CostOfDebtValue>;
+  capexReinvestmentDriver: ResolvedAssumptionEntry<CapexReinvestmentDriverValue>;
+  depreciationDaDriver: ResolvedAssumptionEntry<DepreciationDaDriverValue>;
+  workingCapitalDriver: ResolvedAssumptionEntry<WorkingCapitalDriverValue>;
+  terminalG: ResolvedAssumptionEntry<TerminalGValue>;
+  projectionHorizonYears: ResolvedAssumptionEntry<ProjectionHorizonValue>;
 }
 
 export interface CanonicalFieldProvenance {
@@ -363,6 +476,16 @@ export interface PersistedCalculationResult {
   version: CanonicalCalculationVersion;
   provenance: CanonicalCalculationProvenance;
   source_input_snapshot: SourceInputSnapshot;
+  /**
+   * Bloque 3C.6 (`04 §16`, `05 v1.3 §7`) — snapshot de Judgment, separado
+   * de `source_input_snapshot` (Evidence): `null` en legacy, el
+   * `ResolvedCalculationAssumptions` completo (13 campos) congelado tal
+   * cual se usó cuando `assumptions_source === "resolved_case_input"`.
+   * Fuente explícita y preferida que consume `pdf-canonical-mapper.ts`
+   * para mapear los supuestos v5 al PDF (en vez de reinterpretar
+   * `version.assumptions_snapshot`, pensado para fingerprint/versioning).
+   */
+  resolved_assumptions_used: ResolvedCalculationAssumptions | null;
 }
 
 // ── Históricos nullable para el PDF (Bloque 1E, Subbloque 1 — corrección) ──
@@ -388,3 +511,28 @@ export interface HistoricalFinancials {
   totalAssets: number | null;
   totalLiabilities: number | null;
 }
+
+import type { FinancialInputs } from "@/lib/financial-engine";
+
+// ── FinancialInputs nullable para el PDF (Bloque 3C.6, cierre) ──
+// `FinancialInputs.taxRate/capexPct/wcPct` (src/lib/financial-engine.ts)
+// exigen `number` porque el motor CLIENTE (demo) siempre tiene un valor
+// real para esos tres campos, y su aritmética demo depende de que así
+// sea. En el camino canónico v5, el Judgment resuelto
+// (`ResolvedCalculationAssumptions`) no siempre tiene un equivalente
+// escalar directo (p. ej. CAPEX en `explicit_path`, o working capital,
+// que solo existe como `explicitDeltaNwcByYear[]`) — forzar esos casos a
+// `FinancialInputs` fabricaría una tasa que el Judgment nunca declaró.
+//
+// `PdfFinancialInputs` (mismo patrón que `HistoricalFinancials` arriba)
+// es lo que `generatePDF()` y `pdf-canonical-mapper.ts` usan en su lugar:
+// idéntico a `FinancialInputs` salvo que taxRate/capexPct/wcPct son
+// `number | null` — "N/D" cuando no hay equivalencia escalar real, nunca
+// `0` disfrazado de supuesto. Como `number` es asignable a `number | null`,
+// cualquier `FinancialInputs` real (demo) sigue siendo un
+// `PdfFinancialInputs` válido sin cambios en los callers demo.
+export type PdfFinancialInputs = Omit<FinancialInputs, "taxRate" | "capexPct" | "wcPct"> & {
+  taxRate: number | null;
+  capexPct: number | null;
+  wcPct: number | null;
+};

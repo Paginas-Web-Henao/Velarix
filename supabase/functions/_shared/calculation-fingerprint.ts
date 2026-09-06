@@ -110,6 +110,27 @@ export function fnv1a64Hex(input: string): string {
  * esperado (el fingerprint identifica el cálculo EFECTIVO, no la forma
  * literal del JSON de origen).
  */
+/**
+ * Bloque 3C.6 (`04 §16`, `05 v1.3 §7`) — identidad de **Calculation**:
+ * qué combinación exacta de Evidence + Judgment produjo este resultado.
+ * Conceptualmente `hash({ source_inputs_used, resolved_assumptions_used })`
+ * — ambas capas entran al MISMO payload y se canonicalizan juntas con
+ * `canonicalStringify` (ya ordena claves recursivamente a cualquier
+ * profundidad, así que Judgment no necesita su propia canonicalización
+ * separada). Legacy vs. v5 se distingue por PRESENCIA de la propiedad
+ * `resolved_assumptions` en `input` (`Object.hasOwnProperty`), no por su
+ * valor — mismo patrón usado desde `calculation-preflight.ts` (3C.1). Una
+ * llamada legacy real (la clave ni siquiera está presente) produce
+ * EXACTAMENTE el mismo payload/fingerprint que antes de este bloque — no
+ * se rompe ningún fingerprint histórico. Cuando la clave SÍ está
+ * presente, el objeto `ResolvedCalculationAssumptions` COMPLETO (cada
+ * entrada con `value`/`unit`/`source`/`rationale`/`status`/`date`) entra
+ * al payload — cambiar únicamente `source`/`rationale`/`status`/`date`
+ * cambia el fingerprint aunque el `value` numérico sea idéntico: dos
+ * resoluciones con distinta fuente o justificación documentada no son la
+ * misma decisión metodológica auditable, aunque produzcan el mismo
+ * número (`04 §16`).
+ */
 export function computeInputFingerprint(
   input: CanonicalStructuredInput,
   sector: string,
@@ -124,7 +145,7 @@ export function computeInputFingerprint(
   const monedaAnalisis = resolveEffectiveMoneda(input.moneda_analisis);
   const factorConversion = resolveEffectiveFactorConversion(input.factor_conversion);
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     revenue,
     cost_of_sales: costOfSales,
     opex,
@@ -138,5 +159,10 @@ export function computeInputFingerprint(
     sector_benchmark: sectorBenchmark,
     expected_growth: growth,
   };
+
+  if (Object.prototype.hasOwnProperty.call(input, "resolved_assumptions")) {
+    payload.resolved_assumptions = input.resolved_assumptions ?? null;
+  }
+
   return fnv1a64Hex(canonicalStringify(payload));
 }

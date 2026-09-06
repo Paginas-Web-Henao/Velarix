@@ -207,8 +207,16 @@ export interface ScenarioAssumptions {
   label: string;
   growth: number;
   ebitdaMargin: number;
-  capexPct: number;
-  wcPct: number;
+  // Bloque 3C.6 (cierre): nullable porque `pdf-canonical-mapper.ts`
+  // (camino canónico v5) puede no tener un equivalente escalar directo
+  // para el Judgment de CAPEX/working capital resuelto (p. ej. CAPEX en
+  // `explicit_path`, o working capital, que solo existe como
+  // `explicitDeltaNwcByYear[]`) — nunca se fabrica un porcentaje falso.
+  // El motor DEMO (`runAnalysis`) siempre produce un valor real aquí;
+  // ver `calcScenarioEV`/`computeProjections` en este archivo, que usan
+  // un tipo local no-nullable para ese uso interno siempre-real.
+  capexPct: number | null;
+  wcPct: number | null;
   wacc: number;
   terminalGrowth: number;
 }
@@ -418,7 +426,12 @@ export function runAnalysis(inputs: FinancialInputs): AnalysisResult {
     },
   };
 
-  const calcScenarioEV = (sa: ScenarioAssumptions) => {
+  // Tipo inferido localmente (no `ScenarioAssumptions`, ahora nullable
+  // en capexPct/wcPct para el camino canónico v5): el objeto que
+  // realmente recibe esta función siempre viene de `scenarioAssumptions`
+  // arriba, construido con aritmética real sobre `inputs.*` — nunca null
+  // en el motor DEMO.
+  const calcScenarioEV = (sa: typeof scenarioAssumptions.pessimistic) => {
     const w = sa.wacc / 100;
     const gS = sa.terminalGrowth / 100;
     if (w <= gS) return 0;

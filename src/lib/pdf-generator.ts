@@ -7,10 +7,9 @@ import {
   NORMALIZATION_MAP,
   SECTOR_BENCHMARKS,
   type AnalysisResult,
-  type FinancialInputs,
   type ReportingCurrency,
 } from "./financial-engine";
-import type { HistoricalFinancials } from "@/types/calculation-result";
+import type { HistoricalFinancials, PdfFinancialInputs } from "@/types/calculation-result";
 
 // ═══════════════════════════════════════════════════════════════
 // VELARIX INSTITUTIONAL PDF GENERATOR v4.0
@@ -224,7 +223,15 @@ function shouldIncludePage(page: PageKey, result: AnalysisResult): boolean {
 // ═══════════════════════════════════════════════════════════════
 export async function generatePDF(
   result: AnalysisResult,
-  inputs: FinancialInputs,
+  // Bloque 3C.6 (cierre): `PdfFinancialInputs` — idéntico a
+  // `FinancialInputs` (src/lib/financial-engine.ts) salvo que
+  // taxRate/capexPct/wcPct son `number | null`. El camino canónico
+  // (legacy y v5, vía pdf-canonical-mapper.ts) puede no tener
+  // equivalencia escalar real para esos 3 campos (p. ej. taxTreatment o
+  // CAPEX en `explicit_path`) y los deja `null` — nunca `0`. Como
+  // `number` es asignable a `number | null`, los callers demo siguen
+  // pasando un `FinancialInputs` real sin cambios.
+  inputs: PdfFinancialInputs,
   version: PDFVersion = "ejecutivo",
   // Bloque 1E — Subbloque 1 (corrección): cifras históricas (año 0)
   // nullable, provenientes de `calculation_result.source_input_snapshot`
@@ -240,6 +247,15 @@ export async function generatePDF(
   const M = DS.margin.left;
   const W = DS.contentW;
   const isCanonical = historicals != null;
+  // Bloque 3C.6 (cierre): taxRate/capexPct/wcPct se leen SIEMPRE de
+  // `inputs.*` — ya no hay un canal paralelo (`assumptionsDisplay`)
+  // porque `inputs` ahora es nullable para estos 3 campos. "N/D" cuando
+  // no hay equivalencia escalar real (legacy y demo siempre traen un
+  // número; v5 puede traer `null`) — nunca se disfraza de `0`.
+  const fmtPctOrND = (v: number | null) => (v != null ? `${v}%` : "N/D");
+  const taxRateDisplay = fmtPctOrND(inputs.taxRate);
+  const capexPctDisplay = fmtPctOrND(inputs.capexPct);
+  const wcPctDisplay = fmtPctOrND(inputs.wcPct);
 
   // BL-04: moneda de reporte real del análisis, no un literal fijo. Se
   // mantiene el nombre `fUSD` (en vez de renombrar sus 44 usos) para que
@@ -273,6 +289,19 @@ export async function generatePDF(
   // (sin `historicals`), se preserva EXACTAMENTE la fórmula anterior
   // sobre `inputs.*` para no alterar ese camino, fuera de alcance aquí.
   const hist: HistoricalFinancials = historicals ?? (() => {
+    // Este bucle SOLO corre cuando `historicals` es null/undefined (demo/
+    // landing, fuera de alcance de Bloque 3C.6) — el camino canónico
+    // siempre pasa `historicals` y nunca llega aquí. La reconstrucción de
+    // `netIncome` necesita un `taxRate` numérico real; el motor demo
+    // (`FinancialInputs`) siempre lo provee, así que un `null` en este
+    // punto es un error de integración del caller, no un caso válido a
+    // silenciar convirtiéndolo en `0`.
+    if (inputs.taxRate == null) {
+      throw new Error(
+        "generatePDF: camino demo (sin historicals) requiere inputs.taxRate numérico para reconstruir netIncome — llegó null.",
+      );
+    }
+    const taxRate = inputs.taxRate;
     const ebitdaDemo = inputs.revenue - inputs.costOfSales - inputs.opex + inputs.depreciation;
     const ebitDemo = ebitdaDemo - inputs.depreciation;
     return {
@@ -284,7 +313,7 @@ export async function generatePDF(
       ebit: ebitDemo,
       interestExpense: inputs.interestExpense,
       taxes: null,
-      netIncome: (ebitDemo - inputs.interestExpense) * (1 - inputs.taxRate / 100),
+      netIncome: (ebitDemo - inputs.interestExpense) * (1 - taxRate / 100),
       cash: inputs.cash,
       financialDebtTotal: inputs.totalDebt,
       equity: inputs.equity,
@@ -833,7 +862,7 @@ export async function generatePDF(
       theme: "grid",
     });
     let yEnd = getTableEnd() + 6;
-    dibujarParrafo(doc, `El FCFF sigue el estándar CFA: NOPAT + D&A − CAPEX − ΔWC. CAPEX es ${inputs.capexPct}% de ingresos y capital de trabajo ${inputs.wcPct}%. El FCFF Y5 (${fUSD(result.projections[4].fcff)}) es la base del valor terminal (Gordon Growth).`, yEnd);
+    dibujarParrafo(doc, `El FCFF sigue el estándar CFA: NOPAT + D&A − CAPEX − ΔWC. CAPEX es ${capexPctDisplay} de ingresos y capital de trabajo ${wcPctDisplay}. El FCFF Y5 (${fUSD(result.projections[4].fcff)}) es la base del valor terminal (Gordon Growth).`, yEnd);
   };
 
   const renderValuacionDCF = () => {
@@ -1106,11 +1135,11 @@ export async function generatePDF(
         ["Beta desapalancado", `${bm.beta}`, bm.source],
         ["Beta re-apalancado", formatNumber(result.betaLevered, 2), "Ecuación de Hamada"],
         ["Costo de deuda (pre-tax)", `${inputs.costOfDebt}%`, "Input usuario"],
-        ["Tasa de impuestos", `${inputs.taxRate}%`, "Input usuario"],
+        ["Tasa de impuestos", taxRateDisplay, "Input usuario"],
         ["Crecimiento de ingresos", `${inputs.growth}%`, "Input usuario"],
         ["Margen EBITDA", `${inputs.ebitdaMargin}%`, "Input usuario"],
-        ["CAPEX (% ingresos)", `${inputs.capexPct}%`, "Input usuario"],
-        ["Δ Capital de trabajo", `${inputs.wcPct}%`, "Input usuario"],
+        ["CAPEX (% ingresos)", capexPctDisplay, "Input usuario"],
+        ["Δ Capital de trabajo", wcPctDisplay, "Input usuario"],
         ["Crecimiento terminal (g)", `${inputs.terminalGrowth}%`, "Input usuario"],
       ],
       headStyles: { fillColor: DS.color.azulOscuro, textColor: DS.color.blanco, fontStyle: "bold", fontSize: 9 },

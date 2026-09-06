@@ -93,8 +93,8 @@ const DemoCharts = ({ result, inputs }: Props) => {
           {[
             { l: "Crecimiento", v: `${sa.growth.toFixed(1)}%` },
             { l: "Margen EBITDA", v: `${sa.ebitdaMargin.toFixed(1)}%` },
-            { l: "CAPEX %", v: `${sa.capexPct.toFixed(1)}%` },
-            { l: "WC %", v: `${sa.wcPct.toFixed(1)}%` },
+            { l: "CAPEX %", v: sa.capexPct != null ? `${sa.capexPct.toFixed(1)}%` : "N/D" },
+            { l: "WC %", v: sa.wcPct != null ? `${sa.wcPct.toFixed(1)}%` : "N/D" },
             { l: "WACC", v: `${sa.wacc.toFixed(1)}%` },
             { l: "g terminal", v: `${sa.terminalGrowth.toFixed(1)}%` },
           ].map((item) => (

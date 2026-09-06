@@ -9,8 +9,10 @@ import { buildMissingProvenance, type CalculationProvenance } from "../_shared/c
 import { resolveEffectiveMoneda, resolveEffectiveFactorConversion } from "../_shared/canonical-input-normalization.ts";
 import { resolveStructuredInput } from "../_shared/structured-input-resolution.ts";
 import { buildSourceInputSnapshot } from "../_shared/source-input-snapshot.ts";
+import { buildResolvedAssumptionsSnapshot } from "../_shared/resolved-assumptions-snapshot.ts";
 import { evaluateMinimumExpedienteCheckpoint } from "../_shared/minimum-expediente-checkpoint.ts";
 import { evaluateCalculationPreflight } from "../_shared/calculation-preflight.ts";
+import type { ResolvedCalculationAssumptions } from "../_shared/resolved-calculation-assumptions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -117,6 +119,21 @@ serve(async (req) => {
       analysisInputPayload: analysis.input_payload,
     });
     const input = resolution.payload as any;
+
+    // Bloque 3C.6 (`04 §16`, `05 v1.3 §7`) — legacy vs. v5 por PRESENCIA
+    // de la propiedad `resolved_assumptions` en el `input_payload` de
+    // `structured_inputs` (`Object.hasOwnProperty`), no por su valor —
+    // mismo patrón usado desde `calculation-preflight.ts` (3C.1). Hoy
+    // ningún flujo real escribe `resolved_assumptions` en
+    // `input_payload` (Alpina/el flagship case aún no se resuelve), así
+    // que esto es dormante para toda ejecución actual — pero deja el
+    // envelope y el gate correctamente cableados para cuando exista un
+    // caso v5 real, sin exigir una segunda migración de este archivo.
+    const isV5Input = Object.prototype.hasOwnProperty.call(input || {}, "resolved_assumptions");
+    const inputResolvedAssumptions: ResolvedCalculationAssumptions | null | undefined = isV5Input
+      ? (input as { resolved_assumptions?: ResolvedCalculationAssumptions | null }).resolved_assumptions
+      : undefined;
+
     if (!input || !input.income_statement?.revenue) {
       throw new Error("No hay input_payload con revenue. Ejecuta build-structured-input primero.");
     }
@@ -199,9 +216,15 @@ serve(async (req) => {
     // (CANONICAL_METHODOLOGY, hoy con los 8 supuestos + el horizonte de
     // 5 años marcados/tratados como no aprobados). Ver
     // ../_shared/calculation-preflight.ts para el detalle completo.
+    // Bloque 3C.6: `resolvedAssumptions` se incluye SOLO cuando
+    // `input_payload` anunció la clave `resolved_assumptions` — nunca por
+    // inferencia de contenido financiero. Con la clave presente, el
+    // preflight exige los 13 campos resueltos (05 v1.3 §5-§6) en vez de
+    // la pregunta legacy de aprobación global.
     const preflight = evaluateCalculationPreflight({
       incomeStatement: input.income_statement,
       balanceSheet: input.balance_sheet,
+      ...(isV5Input ? { resolvedAssumptions: inputResolvedAssumptions } : {}),
     });
     if (!preflight.passed) {
       await supabase.from("audit_events").insert({
@@ -266,10 +289,14 @@ serve(async (req) => {
         factorConversion: resolveEffectiveFactorConversion(typedInput.factor_conversion),
         builtAt: new Date().toISOString(),
       });
+    // Bloque 3C.6: `resolvedAssumptions` se incluye SOLO cuando
+    // `input_payload` anunció la clave — `assumptions_source` refleja
+    // "resolved_case_input" únicamente en ese caso, nunca por inferencia.
     const version = buildCalculationVersionInfo({
       inputFingerprint,
       provenanceStatus: provenance.overall_status,
       calculatedAt: new Date().toISOString(),
+      ...(isV5Input ? { resolvedAssumptions: inputResolvedAssumptions } : {}),
     });
 
     // Snapshot del structured input EXACTO (Bloque 1E, Subbloque 1 —
@@ -287,7 +314,21 @@ serve(async (req) => {
       input,
     });
 
-    const enrichedResult = { ...result, version, provenance, source_input_snapshot: sourceInputSnapshot };
+    // Bloque 3C.6 (`04 §16`, `05 v1.3 §7`) — snapshot separado de
+    // Judgment: `null` en legacy (no se inventa Judgment retroactivo para
+    // una ejecución que nunca lo tuvo), el `ResolvedCalculationAssumptions`
+    // completo congelado tal cual se usó cuando `input_payload` lo trae.
+    // Nunca se mezcla con `source_input_snapshot` (Evidence) ni con
+    // `result` (Calculation) — capa propia dentro del envelope.
+    const resolvedAssumptionsUsed = buildResolvedAssumptionsSnapshot(inputResolvedAssumptions);
+
+    const enrichedResult = {
+      ...result,
+      version,
+      provenance,
+      source_input_snapshot: sourceInputSnapshot,
+      resolved_assumptions_used: resolvedAssumptionsUsed,
+    };
 
     // Store results
     await supabase.from("analyses").update({
