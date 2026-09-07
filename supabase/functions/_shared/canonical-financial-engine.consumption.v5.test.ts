@@ -630,3 +630,110 @@ describe("Escenarios (pesimista/optimista) — V5 OBJETIVO: consumen los mismos 
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────
+// Sensitivity valuation (sensitivityMatrix/evLow/evHigh) — consumo de
+// forecast drivers v5. 4F.6A (Velarix v5 Alpina) confirmó, con
+// diferencia exacta 0 contra un cross-check independiente, que
+// `sensitivityMatrix`/`evLow`/`evHigh` llaman a `computeProjections`
+// SIN el argumento `v5Drivers` — exactamente el mismo fallback
+// silencioso a tax/CAPEX/D&A/ΔWC legacy que Bloque 3C.5 ya corrigió
+// para `scenarios.pessimistic`/`optimistic` (ver sección "Escenarios"
+// arriba), pero que nunca se extendió a estos tres call sites. Universal
+// — no es Alpina-specific: cualquier ejecución v5 cuyos drivers
+// resueltos difieran de los defaults legacy (CAPEX 5%, D&A 3%, ΔWC 3%,
+// tax 30%) produce un centro de matriz (waccDelta=0, growthDelta=0) que
+// NO reproduce `valuation.enterpriseValue`, y `evLow`/`evHigh`
+// calculados sobre un forecast distinto del que el caso realmente usa.
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Recalcula EV a partir de los FCFF YA PRODUCIDOS por una ejecución v5
+ * correcta (`r.projections[t].fcff` — no depende de WACC, solo de
+ * revenue/margen/CAPEX/D&A/tax, ya consumidos correctamente en el caso
+ * base) descontados a un WACC/g distintos. Reutiliza únicamente la
+ * aritmética de descuento/Gordon Growth ya usada en los tests de
+ * "Terminal g" de este mismo archivo — nunca reimplementa CAPEX/D&A/tax,
+ * que es exactamente lo que este bloque audita en producción.
+ */
+function recomputeEvAt(projections: { fcff: number }[], wacc: number, g: number): number {
+  const sumPV = projections.reduce((s, p, i) => s + p.fcff / Math.pow(1 + wacc, i + 1), 0);
+  const tv = (projections[4].fcff * (1 + g)) / (wacc - g);
+  const pvTv = tv / Math.pow(1 + wacc, 5);
+  return sumPV + pvTv;
+}
+
+describe("Sensitivity valuation (matrix/evLow/evHigh) — V5 OBJETIVO: debe usar los MISMOS v5Drivers que el caso base, nunca legacy", () => {
+  // Deliberadamente MUY distintos de los defaults legacy (CAPEX 5%, D&A
+  // 3%, ΔWC 3%, tax 30%, financial-methodology.ts) — si cualquier celda
+  // cayera a legacy, estas aserciones lo expondrían de inmediato, sin
+  // depender de que el fixture por defecto ya sea distinto por casualidad.
+  const SENSITIVITY_CAPEX_PATH = [200_000_000, 210_000_000, 220_000_000, 230_000_000, 240_000_000];
+  const SENSITIVITY_DA_PATH = [150_000_000, 155_000_000, 160_000_000, 165_000_000, 170_000_000];
+  const SENSITIVITY_WC_PATH = [5_000_000, 5_500_000, 6_000_000, 6_500_000, 7_000_000];
+  const SENSITIVITY_TAX = [60, 60, 60, 60, 60];
+
+  function withDistinctDrivers() {
+    return withResolved({
+      capexReinvestmentDriver: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.capexReinvestmentDriver, value: { mode: "explicit_path", explicitPath: SENSITIVITY_CAPEX_PATH } },
+      depreciationDaDriver: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.depreciationDaDriver, value: { mode: "explicit_path", explicitPath: SENSITIVITY_DA_PATH } },
+      workingCapitalDriver: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.workingCapitalDriver, value: { explicitDeltaNwcByYear: SENSITIVITY_WC_PATH } },
+      taxTreatment: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment, value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment.value, explicitFcffTaxRatePctByYear: SENSITIVITY_TAX } },
+    });
+  }
+
+  it("RED 1 — center invariant: sensitivityMatrix[waccDelta=0,growthDelta=0].ev debe coincidir con valuation.enterpriseValue (mismo forecast/WACC/g base)", () => {
+    const r = runCanonicalFinancialEngine(withDistinctDrivers(), SECTOR, GROWTH);
+    const center = r.sensitivityMatrix.find((c) => c.waccDelta === 0 && c.growthDelta === 0);
+    expect(center).toBeDefined();
+    expect(center!.ev).toBeCloseTo(r.valuation.enterpriseValue, 2);
+  });
+
+  it("RED 2 — evLow debe coincidir con el FCFF v5 base recalculado a WACC+1pp (mismo g), y con sensitivityMatrix[waccDelta=+1,growthDelta=0] — no con un forecast legacy distinto", () => {
+    const r = runCanonicalFinancialEngine(withDistinctDrivers(), SECTOR, GROWTH);
+    const g = EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.valuePct / 100;
+    const waccHigh = r.valuation.wacc / 100 + 0.01;
+    const expected = recomputeEvAt(r.projections, waccHigh, g);
+    expect(r.valuation.evLow).toBeCloseTo(expected, 2);
+    const cell = r.sensitivityMatrix.find((c) => c.waccDelta === 1 && c.growthDelta === 0);
+    expect(r.valuation.evLow).toBeCloseTo(cell!.ev, 6);
+  });
+
+  it("RED 3 — evHigh debe coincidir con el FCFF v5 base recalculado a WACC-1pp (mismo g), y con sensitivityMatrix[waccDelta=-1,growthDelta=0]", () => {
+    const r = runCanonicalFinancialEngine(withDistinctDrivers(), SECTOR, GROWTH);
+    const g = EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.valuePct / 100;
+    const waccLow = r.valuation.wacc / 100 - 0.01;
+    const expected = recomputeEvAt(r.projections, waccLow, g);
+    expect(r.valuation.evHigh).toBeCloseTo(expected, 2);
+    const cell = r.sensitivityMatrix.find((c) => c.waccDelta === -1 && c.growthDelta === 0);
+    expect(r.valuation.evHigh).toBeCloseTo(cell!.ev, 6);
+  });
+
+  it("RED 4 — driver preservation: TODA la fila growthDelta=0 de sensitivityMatrix debe ser consistente con el FCFF v5 resuelto (CAPEX/D&A/ΔWC/tax deliberadamente distintos de legacy) — una sensibilidad de WACC/g nunca debe reconstruir un forecast legacy", () => {
+    const r = runCanonicalFinancialEngine(withDistinctDrivers(), SECTOR, GROWTH);
+    const g = EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.valuePct / 100;
+    for (const wd of [-2, -1, 0, 1, 2]) {
+      const wacc = r.valuation.wacc / 100 + wd / 100;
+      const cell = r.sensitivityMatrix.find((c) => c.waccDelta === wd && c.growthDelta === 0);
+      expect(cell).toBeDefined();
+      if (wacc <= g) {
+        expect(cell!.ev).toBe(0);
+        continue;
+      }
+      const expected = recomputeEvAt(r.projections, wacc, g);
+      expect(cell!.ev).toBeCloseTo(expected, 2);
+    }
+  });
+
+  it("RED 5 (monotonicidad, protege el significado financiero de la matriz sin congelar las 25 celdas): a mismo g, subir WACC baja EV; a misma WACC, subir g sube EV", () => {
+    const r = runCanonicalFinancialEngine(withDistinctDrivers(), SECTOR, GROWTH);
+    const cellsByWacc = [-2, -1, 0, 1, 2].map((wd) => r.sensitivityMatrix.find((c) => c.waccDelta === wd && c.growthDelta === 0)!.ev);
+    for (let i = 1; i < cellsByWacc.length; i++) {
+      expect(cellsByWacc[i]).toBeLessThan(cellsByWacc[i - 1]); // wd creciente → EV decreciente
+    }
+    const cellsByGrowth = [-2, -1, 0, 1, 2].map((gd) => r.sensitivityMatrix.find((c) => c.waccDelta === 0 && c.growthDelta === gd)!.ev);
+    for (let i = 1; i < cellsByGrowth.length; i++) {
+      expect(cellsByGrowth[i]).toBeGreaterThan(cellsByGrowth[i - 1]); // gd creciente → EV creciente
+    }
+  });
+});
