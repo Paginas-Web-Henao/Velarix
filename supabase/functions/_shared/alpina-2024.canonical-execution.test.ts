@@ -170,6 +170,24 @@ describe("Alpina 2024 — ejecución canónica REAL (4F.5, base case, standalone
       expect(altResult.sectorBenchmark).not.toEqual(result.sectorBenchmark);
     });
   });
+
+  describe("F. Sensitivity valuation (4F.6B — post-fix regression, UNIVERSAL_SENSITIVITY_MATRIX_MISMATCH corregido)", () => {
+    it("sensitivityMatrix[waccDelta=0,growthDelta=0].ev coincide con el EV base — ya no cae a drivers legacy", () => {
+      const center = result.sensitivityMatrix.find((c) => c.waccDelta === 0 && c.growthDelta === 0);
+      expect(center).toBeDefined();
+      expectApprox(center!.ev, result.valuation.enterpriseValue, 1e-6);
+    });
+
+    it("evLow < EV base < evHigh, y ambos reconcilian exactamente con la matriz (waccDelta=+1/-1, growthDelta=0)", () => {
+      expect(result.valuation.evLow).toBeLessThan(result.valuation.enterpriseValue);
+      expect(result.valuation.evHigh).toBeGreaterThan(result.valuation.enterpriseValue);
+
+      const cellPlus1 = result.sensitivityMatrix.find((c) => c.waccDelta === 1 && c.growthDelta === 0);
+      const cellMinus1 = result.sensitivityMatrix.find((c) => c.waccDelta === -1 && c.growthDelta === 0);
+      expectApprox(result.valuation.evLow, cellPlus1!.ev, 1e-9);
+      expectApprox(result.valuation.evHigh, cellMinus1!.ev, 1e-9);
+    });
+  });
 });
 
 describe("Alpina 2024 — fingerprint/snapshot (canal identificado, calculado localmente, sin Supabase)", () => {

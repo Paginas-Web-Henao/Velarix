@@ -368,16 +368,22 @@ export function runCanonicalFinancialEngine(
   const enterpriseValue = sumDCF + discountedTV;
   const equityValue = Math.max(enterpriseValue - netDebt, 0);
 
-  // Sensitivity ±1% WACC
+  // Sensitivity ±1% WACC — Bloque 3C.5 (cierre, extendido en 4F.6B):
+  // mismo `v5Drivers` ya resuelto arriba para el caso base, para que una
+  // ejecución v5 no recalcule esta sensibilidad con tax/CAPEX/D&A/ΔWC
+  // legacy (exactamente el fallback silencioso ya corregido para
+  // `scenarios.pessimistic`/`optimistic` en `mkScenario`, más abajo, pero
+  // que no se había extendido aquí — confirmado con diferencia exacta 0
+  // contra un cross-check independiente en la auditoría 4F.6A).
   let evLow = 0, evHigh = 0;
   const wL = waccDecimal - 0.01, wH = waccDecimal + 0.01;
   if (wH > g) {
-    const pH = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, wH);
+    const pH = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, wH, v5Drivers);
     const tvH = (pH[4].fcff * (1 + g)) / (wH - g);
     evLow = pH.reduce((s, p) => s + p.discountedFcf, 0) + tvH / Math.pow(1 + wH, 5);
   }
   if (wL > g) {
-    const pL = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, wL);
+    const pL = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, wL, v5Drivers);
     const tvL = (pL[4].fcff * (1 + g)) / (wL - g);
     evHigh = pL.reduce((s, p) => s + p.discountedFcf, 0) + tvL / Math.pow(1 + wL, 5);
   }
@@ -386,14 +392,14 @@ export function runCanonicalFinancialEngine(
   const evEbitda = projections[0].ebitda > 0 ? enterpriseValue / projections[0].ebitda : 0;
   const evRevenue = projections[0].revenue > 0 ? enterpriseValue / projections[0].revenue : 0;
 
-  // Sensitivity matrix 5x5
+  // Sensitivity matrix 5x5 — mismo `v5Drivers`, misma razón que evLow/evHigh arriba.
   const sensitivityMatrix: { waccDelta: number; growthDelta: number; ev: number }[] = [];
   for (const wd of [-2, -1, 0, 1, 2]) {
     for (const gd of [-2, -1, 0, 1, 2]) {
       const w = waccDecimal + wd / 100;
       const gRate = g + gd / 100;
       if (w <= gRate || w <= 0) { sensitivityMatrix.push({ waccDelta: wd, growthDelta: gd, ev: 0 }); continue; }
-      const ps = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, w);
+      const ps = computeProjections(revenue, costRatio, totalDebt, costOfDebt, taxRate, growth, ebitdaMargin, capexPct, wcPct, w, v5Drivers);
       const tv = (ps[4].fcff * (1 + gRate)) / (w - gRate);
       sensitivityMatrix.push({ waccDelta: wd, growthDelta: gd, ev: ps.reduce((s, p) => s + p.discountedFcf, 0) + tv / Math.pow(1 + w, 5) });
     }
