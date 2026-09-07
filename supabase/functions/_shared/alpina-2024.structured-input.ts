@@ -75,46 +75,59 @@
 // C. Reinvestment/CAPEX: `capexReinvestmentDriver.explicitPath` se
 //    consume literalmente como `capex` en `fcff = nopat + depreciation −
 //    capex − deltaWC` (`canonical-financial-engine.ts::computeProjections`)
-//    — un escalar genérico por año; el motor NO distingue si ese capex
-//    es "solo PP&E/intangibles" o si además incorpora el componente de
-//    reinvestment de leases (`ΔLeaseLiability`) que la convención
-//    congelada exige junto con ROU depreciation. La Evidence/Judgment de
-//    4D.2 que calibró el path (histórico ≈2.86% revenue → convergencia
-//    g/ROC en Y5) NO documenta explícitamente si `ΔLeaseLiability` se
-//    incorporó al calibrar esos 5 valores. Esto NO impide calcular un EV
-//    standalone (el motor acepta el escalar tal cual, sin objeción
-//    técnica) y NO bloquea el preflight (que no valida coherencia
-//    económica entre CAPEX y D&A) — pero es una pieza del bridge/lease
-//    detail que queda sin verificar independientemente, a resolver antes
-//    de confiar en el FCFF/EV final de 4F.5 (posible sensibilidad o
-//    reconciliación explícita, no un cambio de contrato ni de motor).
-// D. EV→Equity: `netDebt = totalDebt − cash`, `equityValue =
-//    max(enterpriseValue − netDebt, 0)` — un único campo de deuda
-//    genérico, sin ninguna referencia a SOTP/leases por separado. SOTP
-//    permanece completamente fuera de este bridge (no se importa ni se
-//    referencia en `canonical-financial-engine.ts`).
+//    — un escalar genérico por año; el motor no distingue internamente
+//    PP&E/intangibles/lease reinvestment, solo suma el agregado. Lineage
+//    recuperado del contexto histórico (4D.1 → 4E.1), que corrige la
+//    conclusión anterior de este archivo:
+//      4D.1 (Method B, histórico) — economic CAPEX = PP&E cash +
+//      intangibles cash + lease reinvestment (`ROU depreciation +
+//      ΔLeaseLiability`, NO ROU additions): FY2024 28,695,000 +
+//      955,946 + 27,308,257 = 56,959,203 (2.714% revenue); FY2023
+//      20,553,855 + 2,246,827 + 42,625,027 = 65,425,709 (3.001%
+//      revenue) → promedio ponderado ≈2.86% revenue, YA inclusivo de
+//      lease reinvestment por construcción — las ROU additions
+//      quedaron solo como accounting cross-check, nunca la definición
+//      usada.
+//      4E.1 (interpolación) — desde ese ancla histórica 2.86% hasta
+//      4.9204% revenue en Y5 (requerido para cumplir Net
+//      Reinvestment/NOPAT = g/ROC con g=3%, ROC=24%, tras corregir el
+//      margen EBITDA FY2024 ejecutable a ≈13.9895%) → el path final
+//      (70,718,655 / 82,003,940 / 93,921,384 / 106,470,072 /
+//      119,695,825).
+//    Por tanto el path explícito ES el aggregate economic reinvestment
+//    (PP&E + intangibles + lease reinvestment) por construcción de su
+//    propio ancla histórica — no un CAPEX PP&E-only al que le falte
+//    reconciliar `ΔLeaseLiability` por separado. Limitación únicamente
+//    de PRESENTACIÓN: el motor no descompone prospectivamente el
+//    agregado entre PP&E/intangibles/lease reinvestment año a año — eso
+//    no distorsiona ni impide el FCFF mientras el escalar agregado
+//    permanezca económicamente consistente, que es el caso aquí.
+// D. EV→Equity: `netDebt = totalDebt − cash` (797,129,347 − 49,548,598),
+//    `equityValue = max(enterpriseValue − netDebt, 0)` — un único campo
+//    de deuda genérico, sin ninguna referencia a SOTP/leases por
+//    separado. SOTP permanece completamente fuera de este bridge (no se
+//    importa ni se referencia en `canonical-financial-engine.ts`).
 //
-// CLASIFICACIÓN: `CASE_MAPPING_LIMITATION`. El contrato ejecuta el EV
-// standalone correctamente y de forma honesta con los campos existentes
-// (A, B, D — soportados, verificados, sin doble conteo); el único punto
-// que "queda fuera" es la reconciliación explícita de `ΔLeaseLiability`
-// dentro del CAPEX Judgment ya congelado (C) — un detalle de caso a
-// manejar antes de 4F.5/al interpretar el FCFF, no un `UNIVERSAL_
-// EXECUTION_CONTRACT_GAP` (el motor/contrato no necesita cambiar) ni una
-// nueva decisión metodológica (`CAPITALIZED_LEASES` ya está cerrado).
+// CLASIFICACIÓN: `MAPPING_SUPPORTED`. El contrato representa
+// `CAPITALIZED_LEASES` honestamente con los campos existentes en las
+// cuatro dimensiones (A, B, C, D) — verificado por consumo real, no por
+// nombre de campo — sin pérdida material ni doble conteo. No hay ninguna
+// pieza del bridge/lease detail pendiente de reconciliar antes de 4F.5.
 //
 // HALLAZGO APARTE (no es un lease-mapping issue, descubierto durante la
-// misma auditoría de consumo — documentado para 4F.5, sin tocar
-// producción ahora): en `computeProjections`, la línea de "interest"
+// misma auditoría de consumo — documentado para 4F.5/4F.6, sin tocar
+// producción todavía): en `computeProjections`, la línea de "interest"
 // proyectada por año (`totalDebt × costOfDebt`) usa SIEMPRE
 // `CANONICAL_METHODOLOGY.assumptions.costOfDebtPct` LEGACY, nunca el
 // `costOfDebt` v5 resuelto (11.79%) — incluso en ejecución v5 completa.
-// Afecta únicamente `ebt`/`taxes`/`netIncome` DENTRO de `YearProjection`
-// (detalle de P&L proyectado) — NO afecta FCFF, EV, WACC ni
-// `kpis.interestCoverage`/`roe` del año base (esos usan el
-// `interestExpense` HISTÓRICO real de Evidence, no esta línea). No se
-// corrige aquí — está fuera del alcance de 4F.4 (preflight), es un
-// hallazgo para tener presente al interpretar KPIs de escenario en 4F.5.
+// Clasificación provisional: `UNIVERSAL_NON_DCF_OUTPUT_MISMATCH` — no
+// afecta FCFF, WACC, TV ni EV, ni el `interestCoverage`/`roe` del año
+// base (esos usan el `interestExpense` HISTÓRICO real de Evidence, no
+// esta línea); SÍ afecta el P&L proyectado auxiliar
+// (`ebt`/`taxes`/`netIncome` dentro de `YearProjection`). No bloquea la
+// primera ejecución DCF de 4F.5 — debe revisarse en 4F.6 (Output Audit)
+// antes de declarar cerrado todo el output del motor. No se corrige
+// aquí ni en 4F.4/4F.5.
 //
 // Lo que este archivo NO transporta (deliberado):
 // - `sector` y `expected_growth`: NO son campos de
