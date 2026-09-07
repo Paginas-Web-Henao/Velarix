@@ -158,6 +158,7 @@ Para cada uno de los 13 puntos de §6, el preflight debe verificar, como mínimo
 - `projection_horizon_years` resuelto debe ser exactamente `5` mientras el motor no soporte otro valor. Si el juicio del caso concluye que 5 años bastan para la convergencia de Alpina, `projection_horizon_years=5` es un supuesto resuelto válido y documentado — no hace falta hacer el horizonte configurable para que esto pase el preflight. Si Alpina requiriera un horizonte distinto, eso se detecta aquí, **antes** de calcular, como un mismatch condicional ya conocido (`04 §9`) — no como un bloqueo silencioso ni como una ejecución con un horizonte incorrecto.
 - Los componentes de `capital_structure` deben ser suficientes para recomponer Ke/WACC (risk-free local, beta, ERP maduro, CRP, lambda, costo de deuda, weights) — todos presentes juntos, no parcialmente.
 - `capital_structure.equity_weight + capital_structure.debt_weight` debe sumar 1 (con tolerancia de redondeo razonable).
+- `country_risk_lambda` (RC-5, 4F.2) — coherencia del modo elegido, mutuamente excluyente: si `mode = observed_revenue_exposure`, `domesticRevenuePctCompany` y `domesticRevenuePctMarketAvg` deben estar presentes, ser numéricos finitos, `company` en `[0,100]` y `market` en `(0,100]`, y `value` debe ser numéricamente coherente con `domesticRevenuePctCompany / domesticRevenuePctMarketAvg` dentro de una tolerancia explícita razonable (nunca igualdad floating-point exacta) — el modo no puede convertirse en tres números independientes que solo aparenten trazabilidad. Si `mode = direct_documented_judgment`, ambos porcentajes deben estar **ausentes** (su presencia bloquea, aunque hayan sido construidos dinámicamente evadiendo el tipo de TypeScript) y `value` debe ser un número finito — la metodología no exige `value = 1`, solo que Alpina lo use así (`04 §10.4`). `mode` ausente o desconocido bloquea en ambos casos.
 - `explicit_delta_nwc_by_year` debe tener exactamente la misma longitud que `projection_horizon_years` resuelto.
 - `terminal_g < WACC`: esta verificación específica depende de un WACC ya calculado, que no existe todavía en el momento del preflight — se recomienda mantenerla donde ya vive correctamente hoy, como guardia del motor (`waccWarning`, ya implementado y verificado en `04 §11.1`/v1.1 §3), no duplicarla como una segunda verificación previa en el preflight que exigiría recalcular el WACC dos veces.
 
@@ -176,7 +177,7 @@ Reauditados contra los blockers reales de `calculation-preflight.ts::findUnappro
 | 3 | `risk_free_rate_construction` | Risk-free de referencia (moneda limpia), diferencial de inflación, risk-free local resultante (relación de Fisher, `04 §10.3`) | **Sí** |
 | 4 | `mature_erp` | Valor, fuente, fecha | **Sí** |
 | 5 | `country_risk_premium` | Valor, fuente, fecha | **Sí** |
-| 6 | `country_risk_lambda` | Valor, % ingresos domésticos de la empresa vs. promedio de mercado | **Sí** |
+| 6 | `country_risk_lambda` | `value` (escalar, único dato que consume Calculation) + modo de derivación explícito y mutuamente excluyente (RC-5, 4F.2): **(a)** `observed_revenue_exposure` — `domesticRevenuePctCompany` y `domesticRevenuePctMarketAvg`, ambos presentes; **(b)** `direct_documented_judgment` — sin porcentajes, Judgment documentado vía `source`/`rationale` del wrapper | **Sí** |
 | 7 | `beta_treatment` | Beta desapalancado y su fuente, método de reapalancamiento (Hamada), beta apalancado resultante | **Sí** |
 | 8 | `cost_of_debt` | Valor, jerarquía usada (marginal observable / spread estimado / fallback documentado, `04 §10.5`) | **Sí** |
 | 9 | `capex_reinvestment_driver` | CAPEX (% de ingresos o trayectoria explícita), distinción mantenimiento/crecimiento, notas de verificación `g/ROC` | **Sí** |
@@ -321,12 +322,14 @@ Valores que el análisis de Alpina calcula y entrega vía el contrato de §6 —
 - Tratamiento fiscal (35% + NOLs si existen) — C-01.
 - Estructura de capital entre las 4 alternativas de `04 §10.1` — C-02.
 - Costo de deuda — C-03.
-- Risk-free/Fisher, ERP maduro, CRP, lambda, beta — C-11.
+- Risk-free/Fisher, ERP maduro, CRP, beta — C-11.
 - `explicit_delta_nwc_by_year` — C-06/C-07, con su reconciliation vs. NWC real (§8).
 - Driver de CAPEX/reinversión + verificación g/ROC — C-07.
 - Driver de D&A — C-07/C-12.
 - `g` terminal y derivación de escenarios — C-04.
 - `projection_horizon_years` = 5, con juicio documentado de convergencia — C-12.
+
+**Excepción confirmada en 4F.1 — `country_risk_lambda` (C-11, RC-5):** a diferencia de los demás elementos de esta lista, lambda NO se resolvía únicamente con el contrato §6 previo a esta revisión — el contrato exigía siempre `domesticRevenuePctCompany`/`domesticRevenuePctMarketAvg`, sin ninguna vía para un Judgment directo cuando esa Evidence es insuficiente, forzando su fabricación. Identificado en 4F.1 como gap universal (no específico de Alpina) y corregido en esta revisión de §5/§6 (modos `observed_revenue_exposure`/`direct_documented_judgment`) — requiere el contract fix de 4F.2 (tipo + preflight) antes de poder ejecutarse el primer caso real con integridad.
 
 ### CROSS-CHECK ONLY
 

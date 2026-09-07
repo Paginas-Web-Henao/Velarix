@@ -203,6 +203,10 @@ Deben distinguirse: **ERP de mercado maduro** (prima de un mercado de referencia
 
 $$\lambda = \frac{\% \text{ ingresos domésticos (empresa)}}{\% \text{ ingresos domésticos (empresa promedio del mercado)}}$$
 
+Esta razón de exposición a ingresos (`observed_revenue_exposure`) es el **método preferido** para determinar λ, y debe usarse siempre que ambos componentes — ingresos domésticos de la empresa e ingresos domésticos del promedio de mercado — tengan Evidence suficientemente sólida para estimarse sin falsa precisión.
+
+**Cuando esa Evidence no es suficientemente sólida**, λ se resuelve como **Judgment experto directo y documentado** (`direct_documented_judgment`), no como una razón fabricada a partir de porcentajes que no pueden sostenerse con Evidence real. En esa vía: **λ=1 es el default metodológicamente defendible** ante Evidence cuantitativa insuficiente sobre exposición geográfica — no porque se afirme que la empresa tiene exposición exactamente promedio como hecho observado, sino porque no existe base suficientemente robusta para cuantificar una desviación de esa línea base. Un λ≠1 sin razón observada solo puede presentarse como **Judgment/sensitivity cualitativa explícitamente etiquetada como tal**, nunca como si fuera un ratio calculado. En ningún caso se fabrican porcentajes de ingresos domésticos, propios o de mercado, con el único propósito de satisfacer esta fórmula o el esquema de datos que la transporta. Esta vía de fallback es una regla de Judgment/gobernanza propia de Velarix (Secciones 1, 16 y 17), no una extensión del método de Damodaran citado abajo.
+
 No debe existir doble conteo entre el CRP del costo de equity y cualquier otro ajuste de riesgo del modelo (Sección 13).
 
 **Los market inputs no se fijan en este documento.** Risk-free, ERP maduro, country risk premium, spreads de default y tasas de política monetaria son valores de mercado que cambian con el tiempo — este documento no los cita como constantes metodológicas. **Todos los market inputs se congelan en el Expediente del caso con fuente, fecha de actualización, fecha de consulta y valuation date.** Las fuentes primarias recomendadas para obtenerlos al momento del cálculo son Damodaran/NYU Stern (risk-free, default spreads y country risk premiums, ERP implícito de mercado maduro, actualizados periódicamente) y Banco de la República (tasa de política monetaria, meta de inflación). Los valores concretos vigentes al momento de valorar Alpina se fijarán en su Expediente, usando la versión más reciente disponible y apropiada para su valuation date.
@@ -357,7 +361,7 @@ Principio general ya cerrado; valor concreto pendiente de evidencia del caso. Es
 | C-08 | Partidas del puente EV→Equity | §12 | Deuda financiera real; tratamiento NIIF 16 si aplica; caja restringida; asociadas/NCI si existen |
 | C-09 | Aplicabilidad de DLOM/size premium | §13 | Naturaleza del interés valorado; mecanismos de liquidez o su ausencia; tamaño relativo frente a comparables |
 | C-10 | Fecha de valoración y stub period | §14 | Fecha acordada; fecha de cierre de los estados base; si coinciden |
-| C-11 | Exposición al riesgo país (lambda) | §10.4 | Desagregación geográfica de ingresos frente al promedio de mercado |
+| C-11 | Exposición al riesgo país (lambda) | §10.4 | Desagregación geográfica de ingresos frente al promedio de mercado (método preferido, `observed_revenue_exposure`); en su ausencia, documentación explícita de la insuficiencia de Evidence y del Judgment directo aplicado en su lugar (`direct_documented_judgment`) |
 | C-12 | Drivers de forecast (crecimiento, márgenes) | §9 | Plan de negocio interno; histórico; evidencia de sostenibilidad del margen |
 
 **Adicionalmente pendiente:** la basis of value concreta bajo la cual se valora Alpina (Market Value, Investment Value/Worth, u otra) — Sección 2 — debe fijarse explícitamente antes de calcular; no se asume por defecto.
