@@ -595,7 +595,15 @@ describe("Escenarios (pesimista/optimista) — V5 OBJETIVO: consumen los mismos 
     }
   });
 
-  it("CAPEX percent_of_revenue: se aplica al revenue propio de cada escenario (distinto del revenue del caso base, por el modificador de growth de escenario)", () => {
+  // 4F.6C (UNIVERSAL_SCENARIO_SEMANTICS_MISMATCH) — corrección: esta
+  // prueba asumía que el escenario tenía su PROPIO growth/revenue
+  // (modificador legacy ×0.6/×1.4, nunca resuelto vía Judgment), y que
+  // por tanto el CAPEX percent_of_revenue del escenario debía diferir
+  // del caso base. Esa premisa era exactamente el bug — en v5,
+  // pessimistic/optimistic reutilizan el MISMO forecast/revenue del caso
+  // base (terminal-g-only overlay), así que el CAPEX percent_of_revenue
+  // del escenario debe COINCIDIR con el del caso base, no diferir.
+  it("CAPEX percent_of_revenue: pessimistic usa el MISMO revenue y por tanto el MISMO CAPEX que el caso base (v5, terminal-g-only overlay)", () => {
     const modified = withResolved({
       capexReinvestmentDriver: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.capexReinvestmentDriver, value: { mode: "percent_of_revenue", capexPctOfRevenue: 7 } },
     });
@@ -603,8 +611,8 @@ describe("Escenarios (pesimista/optimista) — V5 OBJETIVO: consumen los mismos 
     const p1Pess = r.scenarios.pessimistic.projections[0];
     const p1Base = r.projections[0];
     expect(p1Pess.capex).toBeCloseTo(p1Pess.revenue * 0.07, 2);
-    expect(p1Pess.revenue).not.toBe(p1Base.revenue); // growth de escenario distinto del caso base
-    expect(p1Pess.capex).not.toBeCloseTo(p1Base.capex, 2); // por tanto el CAPEX resultante también difiere
+    expect(p1Pess.revenue).toBe(p1Base.revenue);
+    expect(p1Pess.capex).toBe(p1Base.capex);
   });
 
   it("D&A explicit_path: el escenario optimista usa el mismo valor literal que el caso base, año por año", () => {

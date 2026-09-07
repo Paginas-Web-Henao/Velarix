@@ -188,6 +188,33 @@ describe("Alpina 2024 — ejecución canónica REAL (4F.5, base case, standalone
       expectApprox(result.valuation.evHigh, cellMinus1!.ev, 1e-9);
     });
   });
+
+  describe("G. Scenarios (4F.6C — post-fix regression, UNIVERSAL_SCENARIO_SEMANTICS_MISMATCH corregido): terminal-g-only overlay", () => {
+    it("pessimistic/optimistic: los 5 FCFF (y todo el forecast explícito) son idénticos al caso base — solo cambia el terminal", () => {
+      result.scenarios.pessimistic.projections.forEach((p, i) => expect(p.fcff).toBe(result.projections[i].fcff));
+      result.scenarios.optimistic.projections.forEach((p, i) => expect(p.fcff).toBe(result.projections[i].fcff));
+    });
+
+    it("pessimistic/optimistic: growth/ebitdaMargin/wacc de escenario igualan al caso base — solo terminalGrowth difiere (2.5%/3.5% resueltos, no 3.0% base)", () => {
+      expect(result.scenarios.pessimistic.assumptions.growth).toBe(result.scenarios.base.assumptions.growth);
+      expect(result.scenarios.pessimistic.assumptions.ebitdaMargin).toBe(result.scenarios.base.assumptions.ebitdaMargin);
+      expect(result.scenarios.pessimistic.assumptions.wacc).toBe(result.scenarios.base.assumptions.wacc);
+      expect(result.scenarios.pessimistic.assumptions.terminalGrowth).toBe(2.5);
+
+      expect(result.scenarios.optimistic.assumptions.growth).toBe(result.scenarios.base.assumptions.growth);
+      expect(result.scenarios.optimistic.assumptions.ebitdaMargin).toBe(result.scenarios.base.assumptions.ebitdaMargin);
+      expect(result.scenarios.optimistic.assumptions.wacc).toBe(result.scenarios.base.assumptions.wacc);
+      expect(result.scenarios.optimistic.assumptions.terminalGrowth).toBe(3.5);
+    });
+
+    it("pessimistic EV < base EV < optimistic EV, coincidiendo con el cross-check independiente (terminal-only overlay a g=2.5%/3.0%/3.5%)", () => {
+      expectApprox(result.scenarios.pessimistic.ev as number, 1_593_751_363.218337);
+      expectApprox(result.valuation.enterpriseValue, 1_668_259_651.2050533);
+      expectApprox(result.scenarios.optimistic.ev as number, 1_753_330_143.731753);
+      expect(result.scenarios.pessimistic.ev as number).toBeLessThan(result.valuation.enterpriseValue);
+      expect(result.scenarios.optimistic.ev as number).toBeGreaterThan(result.valuation.enterpriseValue);
+    });
+  });
 });
 
 describe("Alpina 2024 — fingerprint/snapshot (canal identificado, calculado localmente, sin Supabase)", () => {

@@ -452,6 +452,29 @@ export function runCanonicalFinancialEngine(
     return { projections: sP, ev: sEV, assumptions: { growth: sG, ebitdaMargin: sM, wacc: waccPct + wMod, terminalGrowth: tg } };
   };
 
+  // 4F.6C (UNIVERSAL_SCENARIO_SEMANTICS_MISMATCH, 4F.6A) — en v5, los
+  // deltas de growth/margen/WACC de `mkScenario` (0.6/1.4, ∓3pp/±3pp,
+  // ±1.5pp/∓1.5pp) nunca fueron resueltos vía Judgment para ningún caso
+  // — solo `terminalG.pessimisticScenarioPct/optimisticScenarioPct` es
+  // una decisión metodológica real (`04 §11`, SENSITIVITY_OVERLAY, no un
+  // business scenario recalibrado). `mkTerminalOnlyScenario` reutiliza
+  // literalmente el forecast y el WACC ya calculados para el caso base
+  // (mismas referencias — `projections`/`sumDCF` no se mutan en ningún
+  // punto posterior) y recalcula ÚNICAMENTE el terminal value/EV con el
+  // `g` de escenario resuelto. Misma guardia que el terminal base
+  // (`waccDecimal <= g` arriba): si no converge, `ev` es `null`, nunca
+  // `NaN` ni `0` — los 5 años explícitos (`projections`) siguen
+  // disponibles igual que hoy.
+  const mkTerminalOnlyScenario = (tg: number): ScenarioResult => {
+    const sTg = tg / 100;
+    let sEV: number | null = null;
+    if (waccDecimal > sTg) {
+      const sTV = (projections[4].fcff * (1 + sTg)) / (waccDecimal - sTg);
+      sEV = sumDCF + sTV / Math.pow(1 + waccDecimal, 5);
+    }
+    return { projections, ev: sEV, assumptions: { growth, ebitdaMargin, wacc: waccPct, terminalGrowth: tg } };
+  };
+
   // Bloque 3C.5 (cierre) — `04 §11`: "Cualquier g de escenario
   // (pesimista/optimista) debe derivarse explícitamente del g base con
   // lógica documentada — nunca ser un literal sin relación declarada".
@@ -485,8 +508,11 @@ export function runCanonicalFinancialEngine(
     optimisticTg = 4;
   }
 
-  const pessimistic = mkScenario(0.6, -3, 1.5, pessimisticTg);
-  const optimistic = mkScenario(1.4, 3, -1.5, optimisticTg);
+  // LEGACY (sin resolved_assumptions): comportamiento histórico exacto
+  // (`mkScenario`, deltas hardcoded). V5: terminal-g-only overlay
+  // (`mkTerminalOnlyScenario`) — ver nota arriba, 4F.6C.
+  const pessimistic = isV5Execution ? mkTerminalOnlyScenario(pessimisticTg) : mkScenario(0.6, -3, 1.5, pessimisticTg);
+  const optimistic = isV5Execution ? mkTerminalOnlyScenario(optimisticTg) : mkScenario(1.4, 3, -1.5, optimisticTg);
 
   return {
     projections,
