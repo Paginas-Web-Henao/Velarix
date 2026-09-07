@@ -24,12 +24,16 @@ export interface NormalizableIncomeStatement {
   da?: number | null;
   depreciation?: number | null;
   interest_expense?: number | null;
+  /** Evidence observada — nunca leída por el motor legacy ni por el forecast v5 (`04 §1`, Evidence vs. Calculation); consumida únicamente por los KPIs históricos base en v5 (`resolveEffectiveNetIncome`, 4F.6D2). */
+  net_income?: number | null;
 }
 
 export interface NormalizableBalanceSheet {
   cash?: number | null;
   equity?: number | null;
   total_equity?: number | null;
+  /** Evidence observada — mismo principio que `net_income` arriba (`resolveEffectiveTotalAssets`, 4F.6D2). */
+  total_assets?: number | null;
 }
 
 export interface EffectiveIncomeStatement {
@@ -90,6 +94,26 @@ export function resolveEffectiveEquity(bs: NormalizableBalanceSheet | undefined)
   if (b.equity !== null && b.equity !== undefined) return b.equity;
   if (b.total_equity !== null && b.total_equity !== undefined) return b.total_equity;
   return null;
+}
+
+/**
+ * 4F.6D2 (Decisión 7/6, `DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`)
+ * — mismo principio exacto que `resolveEffectiveEquity`: `net_income`
+ * observado (incluyendo `0`, un dato real) se devuelve tal cual, con su
+ * signo; ausente (`null`/`undefined`, o la propiedad ni siquiera
+ * presente) devuelve `null`, nunca `0` ni un valor fabricado a partir de
+ * EBIT/tax. Sin `Math.abs()` — una utilidad neta negativa observada es
+ * información real, no un error de signo a corregir.
+ */
+export function resolveEffectiveNetIncome(is: NormalizableIncomeStatement | undefined): number | null {
+  const s = is || {};
+  return s.net_income !== null && s.net_income !== undefined ? s.net_income : null;
+}
+
+/** 4F.6D2 — mismo principio que `resolveEffectiveNetIncome`, aplicado a `total_assets` (nunca `totalDebt + equity` ni ningún otro proxy derivado). */
+export function resolveEffectiveTotalAssets(bs: NormalizableBalanceSheet | undefined): number | null {
+  const b = bs || {};
+  return b.total_assets !== null && b.total_assets !== undefined ? b.total_assets : null;
 }
 
 export const SECTOR_BENCHMARKS: Record<string, { beta: number; ebitdaMargin: number; evEbitda: number; evRevenue: number; waccRef: number }> = {

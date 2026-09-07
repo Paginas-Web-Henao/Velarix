@@ -694,7 +694,7 @@ export async function generatePDF(
         ["Margen EBIT", fPctRaw(result.kpis.ebitMargin), "—", "—"],
         ["Margen neto", fPctRaw(result.kpis.netMargin), "—", "—"],
         ["ROE", fPctRaw(result.kpis.roe), "—", result.kpis.roe == null ? "N/D" : result.kpis.roe > 15 ? "✓ Sólido" : "⚠ Moderado"],
-        ["ROA", fPctRaw(result.kpis.roa), "—", result.kpis.roa > 10 ? "✓ Eficiente" : "⚠ Moderado"],
+        ["ROA", fPctRaw(result.kpis.roa), "—", result.kpis.roa == null ? "N/D" : result.kpis.roa > 10 ? "✓ Eficiente" : "⚠ Moderado"],
       ],
       headStyles: { fillColor: DS.color.azulOscuro, textColor: DS.color.blanco, fontStyle: "bold", fontSize: 9 },
       alternateRowStyles: { fillColor: DS.color.grisFondo },

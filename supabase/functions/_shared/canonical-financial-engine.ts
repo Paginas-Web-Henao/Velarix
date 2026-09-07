@@ -29,6 +29,8 @@ import {
   resolveEffectiveIncomeStatement,
   resolveEffectiveCash,
   resolveEffectiveEquity,
+  resolveEffectiveNetIncome,
+  resolveEffectiveTotalAssets,
   resolveEffectiveSectorBenchmark,
   resolveEffectiveGrowth,
   resolveEffectiveMoneda,
@@ -60,6 +62,8 @@ export interface CanonicalBalanceSheet {
   cash?: number | null;
   equity?: number | null;
   total_equity?: number | null;
+  /** Evidence observada — consumida únicamente por `kpis.roa` en v5 (nunca `totalDebt + equity`), `resolveEffectiveTotalAssets` (4F.6D2). */
+  total_assets?: number | null;
 }
 
 export interface CanonicalStructuredInput {
@@ -121,15 +125,26 @@ export interface CanonicalKPIs {
   grossMargin: number;
   ebitdaMargin: number;
   ebitMargin: number;
-  netMargin: number;
+  /**
+   * 4F.6D2 (Decisión 7, `DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`)
+   * — en v5, `null` cuando `net_income` no fue observado: no
+   * interpretable, distinguible de un margen neto real de `0%`
+   * (`net_income` observado en `0` sigue siendo Evidence real). Mismo
+   * principio que `roe` abajo. LEGACY (sin `resolved_assumptions`) sigue
+   * siendo siempre `number` — nunca `null` — comportamiento histórico
+   * sin cambios.
+   */
+  netMargin: number | null;
   /**
    * Bloque 3C.2 (`04 §3.2`, `05 v1.3 §4`) — `null` cuando `equity <= 0`:
    * no interpretable, y deliberadamente distinguible de un ROE real de
    * `0%`. No se infiere aquí ninguna causa del patrimonio no positivo
-   * (`04 §17`).
+   * (`04 §17`). 4F.6D2: en v5, también `null` cuando `net_income` no fue
+   * observado.
    */
   roe: number | null;
-  roa: number;
+  /** 4F.6D2 — en v5, `null` cuando `net_income` o `total_assets` no fueron observados, o `total_assets <= 0`; nunca `totalDebt + equity` como proxy. LEGACY sigue siendo siempre `number` (incluyendo el fallback histórico a `0`) — sin cambios. */
+  roa: number | null;
   netDebt: number;
   leverage: number;
   interestCoverage: number;
@@ -408,13 +423,44 @@ export function runCanonicalFinancialEngine(
   // KPIs
   const totalAssets = totalDebt + equity;
   const netIncome0 = (ebit0 - interestExpense) * (1 - taxRate / 100);
+
+  // 4F.6D2 (RC-KPI-NetIncome/RC-KPI-Assets, Decisión 7/6 ya aprobadas por
+  // el fundador — `DECISIONES-FINANCIERAS-APROBADAS-POR-FUNDADOR.md`:
+  // "utilidad neta para ROE, utilidad neta para ROA... debe usarse
+  // total_assets real cuando exista") — en v5, netMargin/ROE/ROA
+  // consumen Evidence observada (`net_income`/`total_assets`), nunca el
+  // `netIncome0` sintético (tax legacy) ni `totalAssets` (proxy
+  // `totalDebt+equity`). AUSENTE != 0: `net_income`/`total_assets`
+  // ausentes producen `null`, nunca fabrican un número; `0` observado es
+  // Evidence real y produce `0%`. LEGACY (sin `resolved_assumptions`)
+  // conserva exactamente el comportamiento histórico — sin cambios, sin
+  // excepción. No se amplía `findMissingRequiredInputs`/preflight: estos
+  // dos campos son Evidence para KPIs históricos, no para FCFF/WACC/EV.
+  let netMargin: number | null;
+  let roe: number | null;
+  let roa: number | null;
+  if (isV5Execution) {
+    const observedNetIncome = resolveEffectiveNetIncome(input.income_statement);
+    const observedTotalAssets = resolveEffectiveTotalAssets(input.balance_sheet);
+    netMargin = observedNetIncome !== null ? (observedNetIncome / revenue) * 100 : null;
+    roe = observedNetIncome !== null && equity > 0 ? (observedNetIncome / equity) * 100 : null;
+    roa = observedNetIncome !== null && observedTotalAssets !== null && observedTotalAssets > 0
+      ? (observedNetIncome / observedTotalAssets) * 100
+      : null;
+  } else {
+    // LEGACY — comportamiento histórico preservado exactamente.
+    netMargin = (netIncome0 / revenue) * 100;
+    roe = equity > 0 ? (netIncome0 / equity) * 100 : null;
+    roa = totalAssets > 0 ? (netIncome0 / totalAssets) * 100 : 0;
+  }
+
   const kpis: CanonicalKPIs = {
     grossMargin: ((revenue - costOfSales) / revenue) * 100,
     ebitdaMargin,
     ebitMargin: (ebit0 / revenue) * 100,
-    netMargin: (netIncome0 / revenue) * 100,
-    roe: equity > 0 ? (netIncome0 / equity) * 100 : null,
-    roa: totalAssets > 0 ? (netIncome0 / totalAssets) * 100 : 0,
+    netMargin,
+    roe,
+    roa,
     netDebt,
     leverage: ebitda0 > 0 ? netDebt / ebitda0 : 0,
     interestCoverage: interestExpense > 0 ? ebit0 / interestExpense : 0,

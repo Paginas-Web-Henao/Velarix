@@ -131,13 +131,20 @@ describe("Alpina 2024 — ejecución canónica REAL (4F.5, base case, standalone
       expect(Math.abs(result.projections[0].interest - v5KdImplied)).toBeGreaterThan(1_000_000);
     });
 
-    it("DOCUMENTADO (UNIVERSAL_NON_DCF_OUTPUT_MISMATCH): netMargin/roe/roa del año base usan tax rate legacy (30%), NO el 35% v5 resuelto", () => {
-      const ebit0 = 200_310_448, interestExpenseReal = 99_244_487, equity = 175_759_391;
-      const netIncome0Legacy30 = (ebit0 - interestExpenseReal) * (1 - 0.30);
-      expectApprox(result.kpis.roe as number, (netIncome0Legacy30 / equity) * 100);
-      // Con el 35% v5 el ROE sería materialmente distinto — confirma que HOY no lo usa.
-      const netIncome0V5_35 = (ebit0 - interestExpenseReal) * (1 - 0.35);
-      expect(Math.abs((result.kpis.roe as number) - (netIncome0V5_35 / equity) * 100)).toBeGreaterThan(1);
+    // 4F.6D2 (RC-KPI-NetIncome/RC-KPI-Assets, corregido) — este test
+    // documentaba el bug (netMargin/roe/roa sintéticos vía tax legacy
+    // 30%). Ya no aplica: en v5, estos tres KPIs consumen directamente
+    // el `net_income`/`total_assets` observados de Alpina (Decisión 7/6
+    // ya aprobadas por el fundador) — nunca el `netIncome0` sintético ni
+    // el proxy `totalDebt+equity`.
+    it("CORREGIDO (4F.6D2): netMargin/ROE/ROA usan Evidence real observada (net_income=100,521,166 / revenue,equity,total_assets), coincidiendo con el cross-check independiente", () => {
+      expectApprox(result.kpis.netMargin as number, 4.790425488209881);
+      expectApprox(result.kpis.roe as number, 57.192486516979336);
+      expectApprox(result.kpis.roa as number, 7.023635968561106);
+      // Nunca el netIncome0 sintético legacy (26.6%/38%/etc. a esta escala) ni el proxy totalDebt+equity.
+      const netIncome0LegacySynthetic = (200_310_448 - 99_244_487) * (1 - 0.30);
+      expect(result.kpis.roe as number).not.toBeCloseTo((netIncome0LegacySynthetic / 175_759_391) * 100, 2);
+      expect(result.kpis.roa as number).not.toBeCloseTo((netIncome0LegacySynthetic / (797_129_347 + 175_759_391)) * 100, 2);
     });
 
     it("CONFIRMADO: interestCoverage/netDebt/leverage SÍ usan Evidence real (histórica), no la línea legacy — no contaminados", () => {

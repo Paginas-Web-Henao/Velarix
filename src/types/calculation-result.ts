@@ -228,7 +228,12 @@ export interface CanonicalKPIs {
   grossMargin: number;
   ebitdaMargin: number;
   ebitMargin: number;
-  netMargin: number;
+  /**
+   * 4F.6D2 — `null` en v5 cuando `net_income` no fue observado (no
+   * interpretable), distinguible de un margen neto real de `0%`. Mismo
+   * contrato que `_shared/canonical-financial-engine.ts::CanonicalKPIs.netMargin`.
+   */
+  netMargin: number | null;
   /**
    * Bloque 3C.2 — `null` cuando `equity <= 0` o ausente (no interpretable),
    * distinguible de un ROE real de `0%`. Mismo contrato que
@@ -237,7 +242,8 @@ export interface CanonicalKPIs {
    * distinto.
    */
   roe: number | null;
-  roa: number;
+  /** 4F.6D2 — `null` en v5 cuando `net_income`/`total_assets` no fueron observados (nunca `totalDebt+equity`). Mismo contrato que `_shared/canonical-financial-engine.ts::CanonicalKPIs.roa`. */
+  roa: number | null;
   netDebt: number;
   leverage: number;
   interestCoverage: number;

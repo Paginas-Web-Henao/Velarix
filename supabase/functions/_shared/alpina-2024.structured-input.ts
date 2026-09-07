@@ -138,20 +138,28 @@
 //   cerrado (3.0% flat); `sector` NO se decide en este archivo — 4F.4 es
 //   preflight únicamente, y `evaluateCalculationPreflight` no recibe
 //   `sector` en absoluto.
-// - `total_assets`/`total_liabilities` y el desglose de D&A: el tipo del
-//   motor (`CanonicalBalanceSheet`) NO tiene campos para ellos (a
-//   diferencia del `CanonicalBalanceSheet` de `structured-input-builder.ts`,
-//   el contrato de persistencia de ingesta, que no se usa aquí). Se
+// - `total_liabilities` y el desglose de D&A: el tipo del motor
+//   (`CanonicalBalanceSheet`) NO tiene campos para ellos (a diferencia
+//   del `CanonicalBalanceSheet` de `structured-input-builder.ts`, el
+//   contrato de persistencia de ingesta, que no se usa aquí). Se
 //   preservan como `ALPINA_2024_EXTENDED_EVIDENCE` (más abajo),
-//   exclusivamente para validación case-specific (item 9) — nunca
-//   fabricados dentro de un campo que el schema real no tiene.
-// - `taxes`/`net_income` del año base: campos opcionales del tipo, nunca
-//   leídos por el motor ni exigidos por el preflight (verificado) — se
-//   dejan `null` explícitamente en vez de fabricar un valor sin Evidence
-//   para esta fase.
+//   exclusivamente para validación case-specific — nunca fabricados
+//   dentro de un campo que el schema real no tiene. `total_assets` YA
+//   NO está en esta lista — desde 4F.6D2, `CanonicalBalanceSheet` sí lo
+//   declara y `ALPINA_2024_STRUCTURED_INPUT.balance_sheet.total_assets`
+//   lo transporta (única fuente del dato en este archivo).
+// - `taxes` del año base: campo opcional del tipo, nunca leído por el
+//   motor ni exigido por el preflight (verificado) — se deja `null`
+//   explícitamente en vez de fabricar un valor sin Evidence para esta
+//   fase. `net_income` YA NO está en esta lista — desde 4F.6D2 (RC-KPI-
+//   NetIncome), `netMargin`/`ROE`/`ROA` en v5 lo consumen directamente
+//   (Decisión 7 ya aprobada por el fundador) y
+//   `ALPINA_2024_STRUCTURED_INPUT.income_statement.net_income` lo
+//   transporta con la Evidence real observada. `taxes` sigue sin
+//   consumidor v5 — se deja `null`, no se fabrica.
 //
-// Este archivo NO ha ejecutado todavía `runCanonicalFinancialEngine`
-// (4F.5, fuera de alcance). Solo se usa contra `evaluateCalculationPreflight`.
+// Este archivo YA ejecutó `runCanonicalFinancialEngine` (4F.5/4F.6) —
+// también se usa contra `evaluateCalculationPreflight`.
 
 import type { CanonicalStructuredInput } from "./canonical-financial-engine";
 import { ALPINA_2024_RESOLVED_ASSUMPTIONS } from "./alpina-2024.resolved-assumptions";
@@ -164,7 +172,12 @@ export const ALPINA_2024_STRUCTURED_INPUT: CanonicalStructuredInput = {
     da: 93_241_781,
     interest_expense: 99_244_487,
     taxes: null,
-    net_income: null,
+    // 4F.6D2 (RC-KPI-NetIncome) — "Utilidad neta del año" observada en
+    // los estados financieros separados FY2024 de Alpina. En v5,
+    // netMargin/ROE consumen este valor directamente (04 §1 Evidence,
+    // Decisión 7 ya aprobada) — nunca el netIncome0 sintético legacy
+    // (EBIT−interés×(1−tax)).
+    net_income: 100_521_166,
   },
   balance_sheet: {
     cash: 49_548_598,
@@ -173,6 +186,12 @@ export const ALPINA_2024_STRUCTURED_INPUT: CanonicalStructuredInput = {
     // total debt-like económicamente correcto bajo CAPITALIZED_LEASES
     // (ver EXECUTION MAPPING CHECK, punto A, arriba).
     financial_debt_total: 797_129_347,
+    // 4F.6D2 (RC-KPI-Assets) — Total Assets observado, Evidence FY2024
+    // standalone. En v5, ROA consume este valor directamente — nunca el
+    // proxy totalDebt+equity. Única fuente de este dato en el archivo —
+    // ver nota sobre `ALPINA_2024_EXTENDED_EVIDENCE` más abajo (ya no
+    // duplica este número).
+    total_assets: 1_431_184_168,
   },
   moneda_analisis: "COP",
   factor_conversion: 1,
@@ -195,7 +214,11 @@ export const ALPINA_2024_EXPECTED_GROWTH_PCT = 3;
  * `ALPINA_2024_STRUCTURED_INPUT`. COP miles.
  */
 export const ALPINA_2024_EXTENDED_EVIDENCE = {
-  totalAssets: 1_431_184_168,
+  // totalAssets vive en `ALPINA_2024_STRUCTURED_INPUT.balance_sheet.total_assets`
+  // (4F.6D2, RC-KPI-Assets) — no se duplica aquí para evitar dos
+  // literales independientes que puedan divergir. `totalLiabilities`
+  // permanece solo aquí (el motor no lo consume) para el chequeo
+  // assets≈liabilities+equity del test de Evidence.
   totalLiabilities: 1_255_424_777,
   bankFinancialDebt: 653_189_423,
   leaseLiabilities: 143_939_924,

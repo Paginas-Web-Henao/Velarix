@@ -37,8 +37,8 @@ describe("Alpina 2024 — Evidence FY2024 (4F.4, validaciones case-specific)", (
     expect(293_552_229 - is.da!).toBe(200_310_448);
   });
 
-  it("assets ≈ liabilities + equity (Evidence extendida, tolerancia de redondeo)", () => {
-    const diff = Math.abs(ext.totalAssets - (ext.totalLiabilities + bs.equity!));
+  it("assets ≈ liabilities + equity (bs.total_assets contra la Evidence extendida, tolerancia de redondeo)", () => {
+    const diff = Math.abs(bs.total_assets! - (ext.totalLiabilities + bs.equity!));
     expect(diff).toBeLessThan(1); // COP miles — sin margen de redondeo real en la Evidence
   });
 
@@ -54,7 +54,7 @@ describe("Alpina 2024 — Evidence FY2024 (4F.4, validaciones case-specific)", (
   it("ningún valor numérico del structured input o de la Evidence extendida es NaN/Infinity", () => {
     const allNumbers = [
       ...Object.values(is), ...Object.values(bs),
-      ext.totalAssets, ext.totalLiabilities, ext.bankFinancialDebt, ext.leaseLiabilities,
+      ext.totalLiabilities, ext.bankFinancialDebt, ext.leaseLiabilities,
       ...Object.values(ext.daBreakdown),
     ].filter((v): v is number => typeof v === "number");
     expect(allNumbers.length).toBeGreaterThan(0);
@@ -63,6 +63,11 @@ describe("Alpina 2024 — Evidence FY2024 (4F.4, validaciones case-specific)", (
 
   it("no candidatos superseded: financial_debt_total NO es el bank-only 653,189,423", () => {
     expect(bs.financial_debt_total).not.toBe(653_189_423);
+  });
+
+  it("4F.6D2 — net_income/total_assets observados están presentes (Evidence real, no fabricados)", () => {
+    expect(is.net_income).toBe(100_521_166);
+    expect(bs.total_assets).toBe(1_431_184_168);
   });
 
   it("expectedGrowth: resolveEffectiveGrowth(3) preserva 3, no activa el fallback de 25", () => {

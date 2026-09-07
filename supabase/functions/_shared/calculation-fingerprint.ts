@@ -25,6 +25,8 @@ import {
   resolveEffectiveIncomeStatement,
   resolveEffectiveCash,
   resolveEffectiveEquity,
+  resolveEffectiveNetIncome,
+  resolveEffectiveTotalAssets,
   resolveEffectiveSectorBenchmark,
   resolveEffectiveGrowth,
   resolveEffectiveMoneda,
@@ -160,7 +162,18 @@ export function computeInputFingerprint(
     expected_growth: growth,
   };
 
-  if (Object.prototype.hasOwnProperty.call(input, "resolved_assumptions")) {
+  // 4F.6D2 (RC-KPI-NetIncome/RC-KPI-Assets): `net_income`/`total_assets`
+  // solo se incluyen cuando la MISMA presencia de `resolved_assumptions`
+  // indica ejecución v5 — ahí, y solo ahí, esos campos son
+  // financieramente efectivos (netMargin/ROE/ROA los consumen). En
+  // legacy, el motor sigue sin leerlos en absoluto (comportamiento
+  // histórico intacto, ver `calculation-fingerprint.test.ts`) — se
+  // preserva la misma exclusión de siempre para no romper ningún
+  // fingerprint legacy ya emitido.
+  const isV5Execution = Object.prototype.hasOwnProperty.call(input, "resolved_assumptions");
+  if (isV5Execution) {
+    payload.net_income = resolveEffectiveNetIncome(input.income_statement);
+    payload.total_assets = resolveEffectiveTotalAssets(input.balance_sheet);
     payload.resolved_assumptions = input.resolved_assumptions ?? null;
   }
 
