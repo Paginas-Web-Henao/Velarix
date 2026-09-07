@@ -39,25 +39,32 @@
 //   directamente), nunca dentro de `ResolvedCalculationAssumptions`. Ese
 //   `structured_input` completo es un artefacto propio de 4F.4/4F.5, fuera
 //   del alcance de 4F.3.
-// - Convención de leases `CAPITALIZED_LEASES`: no existe HOY ningún campo
-//   dedicado en `ResolvedCalculationAssumptions` ni en `structured_input`
-//   para "ROU depreciation" o "ΔLeaseLiability" por separado (verificado:
-//   ningún archivo de `_shared`/`src` menciona "lease" — gap ya clasificado
-//   en `05 §10`, ítem 13 del mismo mismatch audit, "CONDITIONAL FOR
-//   ALPINA — solo si Alpina presenta partidas materiales de este tipo";
-//   Alpina sí las presenta, 143,939,924 de 797,129,347 de deuda total-like,
-//   ~18%). La convención se respeta de forma AGREGADA en este objeto: el
-//   793,129,347 de deuda total-like (bancaria+leases) es el número que
-//   deberá alimentar `structured_input.balance_sheet.financial_debt_total`
-//   (Evidence, fuera de este archivo) para que `capitalStructure`/WACC ya
-//   reflejen leases consistentemente; `depreciationDaDriver` (≈4.2%
-//   ingresos) se declara aquí como ya inclusivo de ROU depreciation, sin
-//   desagregarla; el reinvestment económico completo (ROU depreciation +
-//   ΔLeaseLiability) para el diagnóstico de ROC/g terminal es una
-//   verificación fuera del motor (05 §10, "CROSS-CHECK ONLY"), no un campo
-//   de este contrato. Esto NO es un root-cause nuevo — es el ítem 13 ya
+// - Convención de leases `CAPITALIZED_LEASES` (metodológicamente cerrada):
+//   leases afectan D&A operativo, reinvestment económico, deuda,
+//   capital structure/WACC y el puente EV→Equity; el reinvestment de
+//   leases canónico es ROU depreciation + ΔLeaseLiability (no ROU
+//   additions). D&A FY2024 observado = 93,241,781 (PP&E depreciation
+//   48,776,286 + ROU depreciation 31,731,724 + amortización de
+//   intangibles 12,733,771) — confirma que el perímetro del 4.2%
+//   Judgment de `depreciationDaDriver` sí incluye ROU depreciation, no
+//   solo PP&E.
+//   No existe HOY ningún campo dedicado en `ResolvedCalculationAssumptions`
+//   ni en `structured_input` para "ROU depreciation" o "ΔLeaseLiability"
+//   por separado (verificado: ningún archivo de `_shared`/`src` menciona
+//   "lease" — gap ya clasificado en `05 §10`, ítem 13 del mismo mismatch
+//   audit, "CONDITIONAL FOR ALPINA — solo si Alpina presenta partidas
+//   materiales de este tipo"; Alpina sí las presenta, 143,939,924 de
+//   797,129,347 de deuda total-like, ~18%). 797,129,347 (653,189,423
+//   deuda bancaria + 143,939,924 leases) es el total debt-like
+//   económicamente correcto bajo `CAPITALIZED_LEASES`; el mapping exacto
+//   de ese número hacia `structured_input`/EV→Equity — es decir, contra
+//   qué campo(s) real(es) del contrato y con qué semántica de consumo —
+//   debe verificarse en 4F.4 antes de ejecutar, no asumirse aquí por el
+//   nombre de un campo. Esto es un `EXECUTION_MAPPING_CHECK` técnico, NO
+//   una nueva decisión metodológica pendiente (la convención económica ya
+//   está cerrada) ni un root-cause nuevo — sigue siendo el ítem 13 ya
 //   clasificado en 05 §10, condición disparada por evidencia real de
-//   Alpina, a resolver explícitamente en 4F.4/4F.5, no en 4F.3.
+//   Alpina, a verificar explícitamente en 4F.4/4F.5, no en 4F.3.
 //
 // Cross-checks de referencia (NO inputs, NO se almacenan en el objeto —
 // `capitalStructure.ts::computeCapitalStructure` los recompone
@@ -81,7 +88,7 @@ export const ALPINA_2024_RESOLVED_ASSUMPTIONS: ResolvedCalculationAssumptions = 
     date: "2024-12-31",
     source: "DIAN — tarifa general de renta para personas jurídicas vigente a la fecha de valoración (35%); Evidence FY2024 standalone de Alpina Productos Alimenticios S.A.S. BIC.",
     rationale:
-      "Sin NOLs materiales, diferencias temporales significativas ni régimen tributario especial identificados en la Evidence FY2024 de Alpina — el reviewer no encontró base para separar marginal/efectiva/tax-shield de la tarifa estatutaria. Las tres tasas coinciden en 35% de forma honesta (no son iguales por colapso accidental del contrato, sino porque la Evidence del caso no sustenta una divergencia): marginalRatePct de largo plazo, explicitFcffTaxRatePctByYear flat en los 5 años del horizonte explícito, y debtTaxShieldRatePct para Kd×(1-T) y Hamada (04 §6.3/§6.4/§10.6).",
+      "Tarifa general de renta Art. 240 ET = 35%. En la Evidence revisada: no se identificaron NOLs/pérdidas fiscales compensables relevantes; no se identificó régimen especial aplicable a Alpina Productos Alimenticios S.A.S. BIC standalone (la entidad de zona franca, Alpina Cauca Zona Franca S.A.S., es una subsidiaria fuera de este perímetro standalone); el interés no apareció identificado como no deducible en la conciliación fiscal revisada. La volatilidad de la tasa efectiva histórica no justifica fabricar un explicit tax path distinto del 35% operativo ya cerrado. Las tres tasas coinciden en 35% de forma honesta (no por colapso accidental del contrato, sino porque la Evidence del caso no sustenta una divergencia): marginalRatePct de largo plazo, explicitFcffTaxRatePctByYear flat en los 5 años del horizonte explícito, y debtTaxShieldRatePct para Kd×(1-T) y Hamada (04 §6.3/§6.4/§10.6).",
     status: "resolved",
   },
 
@@ -118,7 +125,7 @@ export const ALPINA_2024_RESOLVED_ASSUMPTIONS: ResolvedCalculationAssumptions = 
   matureErp: {
     value: { valuePct: 4.33 },
     unit: "percent",
-    source: "Aswath Damodaran / NYU Stern — Equity Risk Premium implícito de mercado maduro, vintage usada en el reviewer pack de Alpina (mismo handoff que capitalStructure/betaTreatment, Damodaran EM Food Processing enero 2025).",
+    source: "Aswath Damodaran / NYU Stern — ctryprem24.xlsx (Country Risk Premium dataset), update 2025-01-01: Mature Market ERP / implied ERP = 4.33%. Dataset/concepto distinto del usado para capitalStructure/betaTreatment (Emerging Markets Food Processing) — misma vintage general de Damodaran, no el mismo archivo.",
     rationale: "Base del término β×ERP del CAPM (04 §10.2) — mercado de referencia sin riesgo soberano adicional significativo, distinto del country risk premium (04 §10.4).",
     status: "resolved",
   },
@@ -126,7 +133,7 @@ export const ALPINA_2024_RESOLVED_ASSUMPTIONS: ResolvedCalculationAssumptions = 
   countryRiskPremium: {
     value: { valuePct: 2.541 },
     unit: "percent",
-    source: "Aswath Damodaran / NYU Stern — Country Default Spreads and Risk Premiums, Colombia (CRP basado en calificación soberana), mismo reviewer pack/vintage que matureErp.",
+    source: "Aswath Damodaran / NYU Stern — ctryprem24.xlsx (mismo archivo que matureErp), update 2025-01-01, Colombia (Moody's rating: Baa2) — rating-based Country Risk Premium = 2.541%. Alternativa CDS-based (3.9886%) observada en el mismo dataset pero NO elegida para este caso.",
     rationale: "Componente adicional de riesgo específico de Colombia, separado del ERP de mercado maduro — se incorpora exclusivamente a través del término λ×CRP del CAPM (04 §10.4), sin duplicarse en ningún otro ajuste del modelo (04 §13).",
     status: "resolved",
   },
@@ -165,9 +172,10 @@ export const ALPINA_2024_RESOLVED_ASSUMPTIONS: ResolvedCalculationAssumptions = 
     },
     unit: "currency",
     date: "2024-12-31",
-    source: "Velarix v5 Alpina — 4D.2 Operating Forecast, reconciliado desde Evidence FY2024 standalone y plan de CAPEX de Alpina (Judgment derivado, no fuente primaria directa; artefacto histórico no versionado dentro de este repositorio de código).",
+    source:
+      "Velarix v5 Alpina — 4D.2 Operating Forecast, Judgment de Velarix (NO un plan de CAPEX declarado por Alpina — no existe tal plan en la Evidence revisada): parte de un histórico de reinversión ≈2.86% de revenue como punto de partida, converge hacia el requisito de reinversión terminal (Net Reinvestment/NOPAT = g/ROC, con g=3% y ROC base=24%), calibrado en Y5 usando el margen EBITDA FY2024 real ≈13.9895%. Artefacto histórico no versionado dentro de este repositorio de código.",
     rationale:
-      "Path explícito de CAPEX año a año (COP miles, 04 §8), reconciliado contra el histórico CAPEX vs. D&A de Alpina — supersede un candidato provisional ≈2.82% de ingresos usado en outputs 4C/4E anteriores, que queda descartado para esta ejecución. Verificación g/ROC terminal pendiente como cross-check fuera del motor (05 §10), no bloquea este valor.",
+      "Path explícito de CAPEX año a año (COP miles, 04 §8) — Judgment derivado de Velarix v5 (4D.2), no una reconciliación contra un plan de inversión declarado por la compañía (no existe uno en la Evidence revisada). Parte de ≈2.86% de revenue histórico y converge hacia la reinversión terminal requerida por g/ROC en Y5. Supersede un candidato provisional ≈2.82% de ingresos usado en outputs 4C/4E anteriores, que queda descartado para esta ejecución. Verificación g/ROC terminal pendiente como cross-check fuera del motor (05 §10), no bloquea este valor.",
     status: "resolved",
   },
 
@@ -177,7 +185,7 @@ export const ALPINA_2024_RESOLVED_ASSUMPTIONS: ResolvedCalculationAssumptions = 
     date: "2024-12-31",
     source: "Velarix v5 Alpina — 4D.2 Operating Forecast, Judgment reconciliado desde Evidence FY2024 standalone (D&A histórico), bajo la convención CAPITALIZED_LEASES.",
     rationale:
-      "≈4.2% de ingresos durante el horizonte explícito — supersede un candidato provisional de 3.2% usado en outputs 4C/4E anteriores, que queda descartado para esta ejecución. Ya inclusivo de ROU depreciation bajo la convención de leases congelada (CAPITALIZED_LEASES) — no se desagrega por separado porque el contrato no tiene un campo dedicado para ello (ver nota de cabecera del archivo sobre el canal de leases).",
+      "≈4.2% de ingresos durante el horizonte explícito — supersede un candidato provisional de 3.2% usado en outputs 4C/4E anteriores, que queda descartado para esta ejecución. D&A FY2024 observado = 93,241,781 (PP&E depreciation 48,776,286 + ROU depreciation 31,731,724 + amortización de intangibles 12,733,771) confirma que el perímetro de este Judgment sí incluye ROU depreciation bajo la convención de leases congelada (CAPITALIZED_LEASES) — no se desagrega por separado porque el contrato no tiene un campo dedicado para ello (ver nota de cabecera del archivo sobre el canal de leases, EXECUTION_MAPPING_CHECK).",
     status: "resolved",
   },
 
