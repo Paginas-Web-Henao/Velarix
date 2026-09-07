@@ -224,6 +224,63 @@ function findResolvedAssumptionBlockers(
     }
   }
 
+  // RC-5 (4F.2, `04 §10.4` enmendado / `05 §5` enmendado) — coherencia
+  // del modo elegido de `countryRiskLambda`, mutuamente excluyente.
+  // Calculation (`capital-structure.ts`) solo lee `.value.value` —
+  // este bloque no cambia esa fórmula, solo valida la representación.
+  const lambdaValue = (ra?.countryRiskLambda as { value?: Record<string, unknown> } | undefined)?.value;
+  if (lambdaValue) {
+    const isFiniteNumber = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
+    const mode = lambdaValue.mode;
+    const value = lambdaValue.value;
+
+    if (mode !== "observed_revenue_exposure" && mode !== "direct_documented_judgment") {
+      blockers.push(
+        `RESOLVED_ASSUMPTION_INVALID_COUNTRYRISKLAMBDA_MODE: "mode" debe ser "observed_revenue_exposure" o "direct_documented_judgment" (valor actual: ${JSON.stringify(mode)}).`,
+      );
+    } else if (mode === "observed_revenue_exposure") {
+      const companyPct = lambdaValue.domesticRevenuePctCompany;
+      const marketPct = lambdaValue.domesticRevenuePctMarketAvg;
+      const companyValid = isFiniteNumber(companyPct) && companyPct >= 0 && companyPct <= 100;
+      const marketValid = isFiniteNumber(marketPct) && marketPct > 0 && marketPct <= 100;
+      if (!isFiniteNumber(value) || !companyValid || !marketValid) {
+        blockers.push(
+          `RESOLVED_ASSUMPTION_INVALID_COUNTRYRISKLAMBDA_OBSERVED: en modo "observed_revenue_exposure", value/domesticRevenuePctCompany/domesticRevenuePctMarketAvg deben ser numéricos finitos, con company en [0,100] y market en (0,100] (value=${JSON.stringify(value)}, company=${JSON.stringify(companyPct)}, market=${JSON.stringify(marketPct)}).`,
+        );
+      } else {
+        // Sin redondear expectedLambda antes de comparar — `value` debe
+        // conservar suficiente precisión para representar el ratio
+        // registrado (05 §5, esta revisión). Tolerancia 1e-6: misma
+        // magnitud ya usada arriba para equityWeight+debtWeight≈1.
+        const expectedLambda = (companyPct as number) / (marketPct as number);
+        if (Math.abs((value as number) - expectedLambda) > 1e-6) {
+          blockers.push(
+            `RESOLVED_ASSUMPTION_INVALID_COUNTRYRISKLAMBDA_RATIO: value debe ser numéricamente coherente con domesticRevenuePctCompany/domesticRevenuePctMarketAvg dentro de una tolerancia de 1e-6 (value=${value}, ratio esperado=${expectedLambda}).`,
+          );
+        }
+      }
+    } else {
+      // mode === "direct_documented_judgment" — Judgment experto
+      // directo: sin porcentajes, nunca fabricados para aparentar el
+      // modo observado. "Ausente" significa la propiedad realmente no
+      // presente (`hasOwnProperty`), no solo `undefined` — un objeto
+      // que declara explícitamente `domesticRevenuePctCompany:
+      // undefined` no es una representación limpia del modo directo.
+      if (!isFiniteNumber(value)) {
+        blockers.push(
+          `RESOLVED_ASSUMPTION_INVALID_COUNTRYRISKLAMBDA_JUDGMENT: en modo "direct_documented_judgment", value debe ser un número finito (valor actual: ${JSON.stringify(value)}). La metodología no exige value=1 — solo que Alpina lo use así (04 §10.4).`,
+        );
+      }
+      const hasCompanyPct = Object.prototype.hasOwnProperty.call(lambdaValue, "domesticRevenuePctCompany");
+      const hasMarketPct = Object.prototype.hasOwnProperty.call(lambdaValue, "domesticRevenuePctMarketAvg");
+      if (hasCompanyPct || hasMarketPct) {
+        blockers.push(
+          `RESOLVED_ASSUMPTION_INVALID_COUNTRYRISKLAMBDA_JUDGMENT_UNEXPECTED_PCT: en modo "direct_documented_judgment", domesticRevenuePctCompany/domesticRevenuePctMarketAvg deben estar ausentes — no se fabrican porcentajes para aparentar el modo observado (04 §10.4).`,
+        );
+      }
+    }
+  }
+
   const horizonValue = (ra?.projectionHorizonYears as { value?: { years?: number } } | undefined)?.value;
   if (horizonValue && horizonValue.years !== MOTOR_SUPPORTED_PROJECTION_HORIZON_YEARS) {
     blockers.push(

@@ -351,6 +351,19 @@ export interface CostOfDebtValue {
   hierarchy: "observed_marginal" | "spread_estimate" | "fallback_documented";
 }
 
+/** RC-5 (4F.2) — mirror de `_shared/resolved-calculation-assumptions.ts`. */
+export type CountryRiskLambdaValue =
+  | {
+      mode: "observed_revenue_exposure";
+      value: number;
+      domesticRevenuePctCompany: number;
+      domesticRevenuePctMarketAvg: number;
+    }
+  | {
+      mode: "direct_documented_judgment";
+      value: number;
+    };
+
 export type CapexReinvestmentDriverValue =
   | { mode: "percent_of_revenue"; capexPctOfRevenue: number; maintenanceVsGrowthNotes?: string }
   | { mode: "explicit_path"; explicitPath: number[]; maintenanceVsGrowthNotes?: string };
@@ -381,7 +394,7 @@ export interface ResolvedCalculationAssumptions {
   riskFreeRateConstruction: ResolvedAssumptionEntry<RiskFreeRateConstructionValue>;
   matureErp: ResolvedAssumptionEntry<{ valuePct: number }>;
   countryRiskPremium: ResolvedAssumptionEntry<{ valuePct: number }>;
-  countryRiskLambda: ResolvedAssumptionEntry<{ value: number; domesticRevenuePctCompany: number; domesticRevenuePctMarketAvg: number }>;
+  countryRiskLambda: ResolvedAssumptionEntry<CountryRiskLambdaValue>;
   betaTreatment: ResolvedAssumptionEntry<BetaTreatmentValue>;
   costOfDebt: ResolvedAssumptionEntry<CostOfDebtValue>;
   capexReinvestmentDriver: ResolvedAssumptionEntry<CapexReinvestmentDriverValue>;

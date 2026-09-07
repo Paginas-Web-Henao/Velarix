@@ -163,6 +163,45 @@ export interface ProjectionHorizonValue {
 }
 
 /**
+ * RC-5 (4F.2) — corrección: `04 §10.4` define λ preferentemente como
+ * razón de exposición a ingresos domésticos, pero exigir siempre esos
+ * dos porcentajes forzaba fabricarlos cuando la Evidence geográfica no
+ * es suficientemente sólida (gap universal identificado en 4F.1,
+ * `CONFIRMED_UNIVERSAL_METHODOLOGY_AND_CONTRACT_GAP` — no específico
+ * de Alpina). Unión discriminada por `mode`, mismo principio que
+ * `CapexReinvestmentDriverValue`/`DepreciationDaDriverValue`: solo un
+ * modo puede estar presente a la vez — estructuralmente, no por
+ * convención.
+ *
+ * - `observed_revenue_exposure`: método preferido (`04 §10.4`) cuando
+ *   ambos porcentajes tienen Evidence suficientemente sólida. `value`
+ *   debe ser el ratio `domesticRevenuePctCompany /
+ *   domesticRevenuePctMarketAvg` (verificado por el preflight,
+ *   `05 §5`).
+ * - `direct_documented_judgment`: Judgment experto directo cuando esa
+ *   Evidence no es suficientemente sólida — sin porcentajes (nunca se
+ *   fabrican para satisfacer el modo observado). `source`/`rationale`
+ *   del `ResolvedAssumptionEntry` que envuelve este valor documentan
+ *   por qué se usó este modo; este tipo no añade un campo de notas
+ *   adicional (`05 §6`).
+ *
+ * En ambos modos, `value` es el único dato que consume Calculation
+ * (`capital-structure.ts::computeCapitalStructure`, exclusivamente
+ * `countryRiskLambda.value.value`) — el motor no interpreta el modo.
+ */
+export type CountryRiskLambdaValue =
+  | {
+      mode: "observed_revenue_exposure";
+      value: number;
+      domesticRevenuePctCompany: number;
+      domesticRevenuePctMarketAvg: number;
+    }
+  | {
+      mode: "direct_documented_judgment";
+      value: number;
+    };
+
+/**
  * Los 13 puntos congelados en `05-financial-engine-audit.md` v1.3 §6.
  * Representa la metodología v5 — no es un mapeo 1:1 de los 8 supuestos
  * antiguos de `CANONICAL_METHODOLOGY` (financial-methodology.ts).
@@ -173,7 +212,7 @@ export interface ResolvedCalculationAssumptions {
   riskFreeRateConstruction: ResolvedAssumptionEntry<RiskFreeRateConstructionValue>;
   matureErp: ResolvedAssumptionEntry<{ valuePct: number }>;
   countryRiskPremium: ResolvedAssumptionEntry<{ valuePct: number }>;
-  countryRiskLambda: ResolvedAssumptionEntry<{ value: number; domesticRevenuePctCompany: number; domesticRevenuePctMarketAvg: number }>;
+  countryRiskLambda: ResolvedAssumptionEntry<CountryRiskLambdaValue>;
   betaTreatment: ResolvedAssumptionEntry<BetaTreatmentValue>;
   costOfDebt: ResolvedAssumptionEntry<CostOfDebtValue>;
   capexReinvestmentDriver: ResolvedAssumptionEntry<CapexReinvestmentDriverValue>;

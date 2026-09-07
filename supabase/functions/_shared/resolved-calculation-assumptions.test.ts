@@ -93,6 +93,19 @@ describe("ResolvedCalculationAssumptions — forma del contrato", () => {
     expect(typeof beta.unleveredBeta).toBe("number");
   });
 
+  it("countryRiskLambda es una unión discriminada por 'mode' — nunca coexisten domesticRevenuePctCompany/domesticRevenuePctMarketAvg con la rama direct_documented_judgment (RC-5, 4F.2)", () => {
+    const observed = EXAMPLE_RESOLVED_ASSUMPTIONS.countryRiskLambda.value;
+    expect(observed.mode).toBe("observed_revenue_exposure");
+    expect(Object.keys(observed).sort()).toEqual(["domesticRevenuePctCompany", "domesticRevenuePctMarketAvg", "mode", "value"]);
+
+    const directJudgment: ResolvedAssumptionEntry<
+      import("./resolved-calculation-assumptions").CountryRiskLambdaValue
+    >["value"] = { mode: "direct_documented_judgment", value: 1 };
+    expect(Object.keys(directJudgment).sort()).toEqual(["mode", "value"]);
+    expect(directJudgment).not.toHaveProperty("domesticRevenuePctCompany");
+    expect(directJudgment).not.toHaveProperty("domesticRevenuePctMarketAvg");
+  });
+
   it("capexReinvestmentDriver es una unión discriminada por 'mode' — nunca coexisten percent_of_revenue y explicit_path (Bloque 3B.1)", () => {
     const capex = EXAMPLE_RESOLVED_ASSUMPTIONS.capexReinvestmentDriver.value;
     expect(["percent_of_revenue", "explicit_path"]).toContain(capex.mode);

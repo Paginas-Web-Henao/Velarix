@@ -73,7 +73,7 @@ const EXAMPLE_RESOLVED_ASSUMPTIONS: ResolvedCalculationAssumptions = {
   matureErp: { value: { valuePct: 4.23 }, unit: "percent", source: SYNTHETIC_SOURCE, rationale: "Valor sintético para el término β×ERP.", status: "resolved" },
   countryRiskPremium: { value: { valuePct: 2.85 }, unit: "percent", source: SYNTHETIC_SOURCE, rationale: "Valor sintético para el término λ×CRP.", status: "resolved" },
   countryRiskLambda: {
-    value: { value: 1.1, domesticRevenuePctCompany: 88, domesticRevenuePctMarketAvg: 80 },
+    value: { mode: "observed_revenue_exposure", value: 1.1, domesticRevenuePctCompany: 88, domesticRevenuePctMarketAvg: 80 },
     source: SYNTHETIC_SOURCE,
     rationale: "Valores sintéticos para el escalamiento de CRP.",
     status: "resolved",
