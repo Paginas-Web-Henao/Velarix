@@ -297,6 +297,44 @@ describe("RC-3 — consumo de componentes de Ke/WACC — V5 OBJETIVO", () => {
     expect(r.costOfEquityPct).toBeCloseTo(modifiedTarget.ke, 6);
   });
 
+  // RC-5 (4F.2, control — NO es RED): `computeCapitalStructure` solo lee
+  // `countryRiskLambda.value.value` (capital-structure.ts:123) — nunca
+  // domesticRevenuePctCompany/domesticRevenuePctMarketAvg. Este test
+  // demuestra que eso YA es cierto hoy y debe seguir siéndolo tras el
+  // GREEN de RC-5: Calculation es indiferente al modo de derivación de
+  // lambda (`observed_revenue_exposure` vs. `direct_documented_judgment`,
+  // docs/velarix-v5/04 §10.4 enmendado) — el motor no interpreta
+  // metodología (`04 §17`). El tipo actual no permite la forma
+  // `direct_documented_judgment` como literal (RC-5, ver
+  // calculation-preflight.v5.test.ts para el mismo gap) — cada
+  // asignación de `value` usa `@ts-expect-error`, explícito y limitado
+  // a este test, sin tocar `resolved-calculation-assumptions.ts`.
+  it("Lambda (RC-5, control) — countryRiskLambda en modo direct_documented_judgment: Ke cambia según CRP × Δλ igual que en modo observed_revenue_exposure — Calculation no interpreta el modo", () => {
+    const deltaLambda = 0.2;
+    const directJudgmentBase: ResolvedCalculationAssumptions = {
+      ...base,
+      countryRiskLambda: {
+        ...base.countryRiskLambda,
+        // @ts-expect-error RC-5 (4F.2): forma objetivo (mode: "direct_documented_judgment", sin porcentajes) — el tipo actual de countryRiskLambda.value no la permite todavía. Debe dejar de necesitar @ts-expect-error solo cuando el GREEN de RC-5 se implemente.
+        value: { mode: "direct_documented_judgment", value: base.countryRiskLambda.value.value },
+      },
+    };
+    const directJudgmentModified: ResolvedCalculationAssumptions = {
+      ...directJudgmentBase,
+      countryRiskLambda: {
+        ...directJudgmentBase.countryRiskLambda,
+        // @ts-expect-error RC-5 (4F.2): misma razón que arriba.
+        value: { mode: "direct_documented_judgment", value: base.countryRiskLambda.value.value + deltaLambda },
+      },
+    };
+    const baseTargetDirect = computeTargetCapm(directJudgmentBase);
+    const modifiedTargetDirect = computeTargetCapm(directJudgmentModified);
+    expect(modifiedTargetDirect.ke - baseTargetDirect.ke).toBeCloseTo(base.countryRiskPremium.value.valuePct * deltaLambda, 6); // sanity del helper, igual que el test "Lambda" de arriba
+    const rBase = withCapm(directJudgmentBase);
+    const rModified = withCapm(directJudgmentModified);
+    expect(rModified.costOfEquityPct - rBase.costOfEquityPct).toBeCloseTo(modifiedTargetDirect.ke - baseTargetDirect.ke, 6);
+  });
+
   it("Beta: cambiar únicamente unleveredBeta recompone betaLevered vía Hamada usando la estructura resuelta, y por tanto Ke — nunca un leveredBeta independiente (contrato ya no lo permite, ver resolved-calculation-assumptions.test.ts)", () => {
     const modified: ResolvedCalculationAssumptions = {
       ...base,

@@ -400,3 +400,129 @@ describe("Calculation Preflight — V5 (implementado en Bloque 3C.1)", () => {
     expect(r.unapproved_assumptions).toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────
+// RC-5 (4F.2, tests-first — RED) — `countryRiskLambda`: dos modos
+// mutuamente excluyentes, `observed_revenue_exposure` /
+// `direct_documented_judgment` (docs/velarix-v5/04 §10.4, 05 §5/§6,
+// enmendados en esta revisión). Gap universal identificado en 4F.1
+// (CONFIRMED_UNIVERSAL_METHODOLOGY_AND_CONTRACT_GAP): el contrato de
+// producción (`resolved-calculation-assumptions.ts`) TODAVÍA exige
+// siempre `{value, domesticRevenuePctCompany, domesticRevenuePctMarketAvg}`,
+// y `calculation-preflight.ts::findResolvedAssumptionBlockers` TODAVÍA
+// no tiene ningún bloque de validación estructural para
+// `countryRiskLambda` (a diferencia de `capitalStructure`/`terminalG`/
+// etc.) — solo los chequeos genéricos de status/source/rationale
+// compartidos por los 13 campos. Estos tests describen el
+// comportamiento OBJETIVO tras el GREEN de RC-5. NINGÚN archivo de
+// producción se modifica en esta subfase (4F.2 docs+RED only).
+//
+// Técnica de shape: el tipo actual no permite ninguna de las dos
+// formas objetivo. `withResolvedLambda` usa un cast `as unknown as`
+// explícito y limitado a este archivo (mismo idioma ya usado en este
+// archivo — ver `status: "pending" as unknown as "resolved"` arriba)
+// para construir el valor de prueba sin tocar
+// `resolved-calculation-assumptions.ts`.
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Tolerancia para `value ≈ domesticRevenuePctCompany / domesticRevenuePctMarketAvg`
+ * — reutiliza la misma magnitud (1e-6) ya usada en
+ * `calculation-preflight.ts` para `equityWeight + debtWeight ≈ 1`, y
+ * consistente con `toBeCloseTo(x, 6)` en `capital-structure.v5.test.ts`.
+ * Se elige esta magnitud y no la tolerancia de reconciliación contable
+ * del 3% de `BAL_001` (`validation-rules.ts`) porque ese 3% existe para
+ * conciliar partidas contables independientes con redondeo NIIF real
+ * entre sí; aquí `value` y los dos porcentajes son todos supuestos
+ * resueltos de la MISMA entrada sin una fuente de redondeo
+ * independiente entre ellos — una tolerancia de precisión de punto
+ * flotante es la comparación correcta, no una tolerancia de negocio.
+ */
+const LAMBDA_RATIO_TOLERANCE = 1e-6;
+
+function withResolvedLambda(lambdaValue: unknown): Partial<ResolvedCalculationAssumptions> {
+  return {
+    ...EXAMPLE_RESOLVED_ASSUMPTIONS,
+    countryRiskLambda: {
+      source: "RC-5 test fixture — no representa Alpina ni ningún caso real",
+      rationale: "Shape objetivo de RC-5 (4F.2), usada únicamente para ejercitar el preflight en tests determinísticos.",
+      status: "resolved" as const,
+      value: lambdaValue,
+    },
+  } as unknown as Partial<ResolvedCalculationAssumptions>;
+}
+
+describe("RC-5 (4F.2, RED) — countryRiskLambda: observed_revenue_exposure / direct_documented_judgment", () => {
+  it("Grupo 1 (compile-time) — direct_documented_judgment sin porcentajes: HOY no es un literal válido sin evadir el tipo actual de countryRiskLambda.value", () => {
+    // RC-5 (4F.2): el contrato actual (resolved-calculation-assumptions.ts)
+    // exige siempre domesticRevenuePctCompany/domesticRevenuePctMarketAvg —
+    // esta es la forma OBJETIVO (mode: "direct_documented_judgment", sin
+    // porcentajes) y HOY no tipa como literal. El `@ts-expect-error` de
+    // abajo debe dejar de ser necesario únicamente cuando el GREEN de
+    // RC-5 implemente la unión discriminada — si `tsc --noEmit` reporta
+    // "Unused '@ts-expect-error' directive" aquí, es la señal de que el
+    // tipo ya cambió y este test debe actualizarse, no de que algo esté mal.
+    const target: ResolvedCalculationAssumptions["countryRiskLambda"]["value"] = {
+      // @ts-expect-error RC-5 (4F.2) — ver nota arriba.
+      mode: "direct_documented_judgment",
+      value: 1,
+    };
+    expect(target.value).toBe(1);
+  });
+
+  it("Grupo 2 — observed_revenue_exposure sin domesticRevenuePctMarketAvg: HOY el preflight no lo bloquea (ausencia de validación estructural)", () => {
+    const r = evaluatePreflightV5(withResolvedLambda({ mode: "observed_revenue_exposure", value: 1.1, domesticRevenuePctCompany: 88 }));
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_COUNTRYRISKLAMBDA")).toBe(true);
+  });
+
+  it("Grupo 2 — observed_revenue_exposure sin domesticRevenuePctCompany: HOY el preflight no lo bloquea", () => {
+    const r = evaluatePreflightV5(withResolvedLambda({ mode: "observed_revenue_exposure", value: 1.1, domesticRevenuePctMarketAvg: 80 }));
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_COUNTRYRISKLAMBDA")).toBe(true);
+  });
+
+  it.each([
+    ["company < 0", { domesticRevenuePctCompany: -5, domesticRevenuePctMarketAvg: 80 }],
+    ["company > 100", { domesticRevenuePctCompany: 150, domesticRevenuePctMarketAvg: 80 }],
+    ["market <= 0", { domesticRevenuePctCompany: 88, domesticRevenuePctMarketAvg: 0 }],
+    ["market > 100", { domesticRevenuePctCompany: 88, domesticRevenuePctMarketAvg: 120 }],
+    ["company = NaN", { domesticRevenuePctCompany: Number.NaN, domesticRevenuePctMarketAvg: 80 }],
+    ["market = Infinity", { domesticRevenuePctCompany: 88, domesticRevenuePctMarketAvg: Number.POSITIVE_INFINITY }],
+  ] as const)("Grupo 3 — observed_revenue_exposure con dominio numérico inválido (%s): HOY el preflight no lo bloquea", (_label, pct) => {
+    const r = evaluatePreflightV5(withResolvedLambda({ mode: "observed_revenue_exposure", value: 1.1, ...pct }));
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_COUNTRYRISKLAMBDA")).toBe(true);
+  });
+
+  it("Grupo 4 — observed_revenue_exposure con value incoherente con el ratio (company=90, market=75 → 1.2 esperado; value=1.05): HOY el preflight no lo bloquea", () => {
+    const r = evaluatePreflightV5(withResolvedLambda({ mode: "observed_revenue_exposure", value: 1.05, domesticRevenuePctCompany: 90, domesticRevenuePctMarketAvg: 75 }));
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_COUNTRYRISKLAMBDA")).toBe(true);
+  });
+
+  it("Grupo 4 (control, NO es RED) — observed_revenue_exposure con value coherente con el ratio dentro de tolerancia (company=90, market=75 → 1.2): ya pasa hoy porque no existe ningún chequeo, y debe seguir pasando tras el GREEN por la razón correcta", () => {
+    const coherentValue = 90 / 75;
+    const r = evaluatePreflightV5(withResolvedLambda({ mode: "observed_revenue_exposure", value: coherentValue, domesticRevenuePctCompany: 90, domesticRevenuePctMarketAvg: 75 }));
+    expect(r.passed).toBe(true);
+    expect(Math.abs(coherentValue - 90 / 75)).toBeLessThan(LAMBDA_RATIO_TOLERANCE);
+  });
+
+  it("Grupo 5 — direct_documented_judgment con porcentajes fabricados adjuntos (objeto dinámico, evade el excess-property check de TS): HOY el preflight no lo bloquea", () => {
+    const r = evaluatePreflightV5(withResolvedLambda({ mode: "direct_documented_judgment", value: 1, domesticRevenuePctCompany: 88, domesticRevenuePctMarketAvg: 80 }));
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_COUNTRYRISKLAMBDA")).toBe(true);
+  });
+
+  it("Grupo 6 — mode ausente: HOY el preflight no lo bloquea", () => {
+    const r = evaluatePreflightV5(withResolvedLambda({ value: 1 }));
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_COUNTRYRISKLAMBDA")).toBe(true);
+  });
+
+  it("Grupo 6 — mode desconocido: HOY el preflight no lo bloquea", () => {
+    const r = evaluatePreflightV5(withResolvedLambda({ mode: "made_up_mode", value: 1 }));
+    expect(r.passed).toBe(false);
+    expect(hasResolvedAssumptionBlocker(r.blockers, "INVALID_COUNTRYRISKLAMBDA")).toBe(true);
+  });
+});
