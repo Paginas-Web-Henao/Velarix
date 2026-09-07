@@ -632,6 +632,79 @@ describe("Escenarios (pesimista/optimista) — V5 OBJETIVO: consumen los mismos 
 });
 
 // ─────────────────────────────────────────────────────────────────
+// Escenarios (pesimista/optimista) — SEMÁNTICA v5 (4F.6C,
+// UNIVERSAL_SCENARIO_SEMANTICS_MISMATCH). Confirmado en la auditoría
+// 4F.6A: `mkScenario` aplica growth×0.6/1.4, margen∓3pp/±3pp y
+// WACC±1.5pp/∓1.5pp como literales hardcoded que nunca fueron resueltos
+// vía Judgment para ningún caso v5 — solo `terminalG.
+// pessimisticScenarioPct/optimisticScenarioPct` es una decisión
+// metodológica real (04 §11, `SENSITIVITY_OVERLAY`, no un business
+// scenario recalibrado). Por tanto, en v5, `scenarios.pessimistic`/
+// `optimistic` deben ser el MISMO forecast explícito y el MISMO WACC del
+// caso base — el único grado de libertad es el `g` terminal resuelto.
+// LEGACY (sin `resolved_assumptions`) permanece exactamente como
+// siempre — esta corrección es exclusiva de la rama v5.
+// ─────────────────────────────────────────────────────────────────
+
+describe("Escenarios (pesimista/optimista) — V5: terminal-g-only overlay (4F.6C)", () => {
+  const PROJECTION_FIELDS = ["revenue", "ebitda", "depreciation", "ebit", "nopat", "capex", "deltaWC", "fcff", "discountedFcf"] as const;
+
+  it("RED 1 — pessimistic: el forecast explícito de los 5 años es IDÉNTICO al del caso base (revenue/ebitda/D&A/ebit/nopat/capex/ΔWC/fcff/discountedFcf) — solo cambia el terminal", () => {
+    const r = runCanonicalFinancialEngine(withResolved({}), SECTOR, GROWTH);
+    for (let t = 0; t < 5; t++) {
+      for (const field of PROJECTION_FIELDS) {
+        expect(r.scenarios.pessimistic.projections[t][field]).toBe(r.projections[t][field]);
+      }
+    }
+  });
+
+  it("RED 2 — optimistic: el forecast explícito de los 5 años es IDÉNTICO al del caso base", () => {
+    const r = runCanonicalFinancialEngine(withResolved({}), SECTOR, GROWTH);
+    for (let t = 0; t < 5; t++) {
+      for (const field of PROJECTION_FIELDS) {
+        expect(r.scenarios.optimistic.projections[t][field]).toBe(r.projections[t][field]);
+      }
+    }
+  });
+
+  it("RED 3 — scenario assumption metadata: growth/ebitdaMargin/wacc de pessimistic y optimistic igualan al caso base; solo terminalGrowth refleja el g resuelto de escenario", () => {
+    const r = runCanonicalFinancialEngine(withResolved({}), SECTOR, GROWTH);
+    const pess = EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.pessimisticScenarioPct;
+    const opt = EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.optimisticScenarioPct;
+
+    expect(r.scenarios.pessimistic.assumptions.growth).toBe(r.scenarios.base.assumptions.growth);
+    expect(r.scenarios.pessimistic.assumptions.ebitdaMargin).toBe(r.scenarios.base.assumptions.ebitdaMargin);
+    expect(r.scenarios.pessimistic.assumptions.wacc).toBe(r.scenarios.base.assumptions.wacc);
+    expect(r.scenarios.pessimistic.assumptions.terminalGrowth).toBe(pess);
+
+    expect(r.scenarios.optimistic.assumptions.growth).toBe(r.scenarios.base.assumptions.growth);
+    expect(r.scenarios.optimistic.assumptions.ebitdaMargin).toBe(r.scenarios.base.assumptions.ebitdaMargin);
+    expect(r.scenarios.optimistic.assumptions.wacc).toBe(r.scenarios.base.assumptions.wacc);
+    expect(r.scenarios.optimistic.assumptions.terminalGrowth).toBe(opt);
+  });
+
+  it("RED 4 — únicamente el terminal g cambia el EV de escenario: pessimistic/optimistic.ev reconcilian exactamente con ΣPV(FCFF base a WACC base) + PV(TV con el g de escenario) — sin reimplementar el forecast", () => {
+    const r = runCanonicalFinancialEngine(withResolved({}), SECTOR, GROWTH);
+    const waccBase = r.valuation.wacc / 100;
+    const pessG = (EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.pessimisticScenarioPct as number) / 100;
+    const optG = (EXAMPLE_RESOLVED_ASSUMPTIONS.terminalG.value.optimisticScenarioPct as number) / 100;
+
+    expect(r.scenarios.pessimistic.ev).toBeCloseTo(recomputeEvAt(r.projections, waccBase, pessG), 6);
+    expect(r.scenarios.optimistic.ev).toBeCloseTo(recomputeEvAt(r.projections, waccBase, optG), 6);
+  });
+
+  it("RED 5 (ya debe estar GREEN) — LEGACY sin resolved_assumptions: los escenarios siguen usando growth×0.6/1.4, margen∓3pp/±3pp, WACC±1.5pp/∓1.5pp — comportamiento histórico intacto", () => {
+    const r = runCanonicalFinancialEngine(BASE_INPUT, SECTOR, GROWTH);
+    expect(r.scenarios.pessimistic.assumptions.growth).toBeCloseTo(r.scenarios.base.assumptions.growth * 0.6, 9);
+    expect(r.scenarios.pessimistic.assumptions.ebitdaMargin).toBeCloseTo(r.scenarios.base.assumptions.ebitdaMargin - 3, 9);
+    expect(r.scenarios.pessimistic.assumptions.wacc).toBeCloseTo(r.scenarios.base.assumptions.wacc + 1.5, 9);
+    expect(r.scenarios.optimistic.assumptions.growth).toBeCloseTo(r.scenarios.base.assumptions.growth * 1.4, 9);
+    expect(r.scenarios.optimistic.assumptions.ebitdaMargin).toBeCloseTo(r.scenarios.base.assumptions.ebitdaMargin + 3, 9);
+    expect(r.scenarios.optimistic.assumptions.wacc).toBeCloseTo(r.scenarios.base.assumptions.wacc - 1.5, 9);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
 // Sensitivity valuation (sensitivityMatrix/evLow/evHigh) — consumo de
 // forecast drivers v5. 4F.6A (Velarix v5 Alpina) confirmó, con
 // diferencia exacta 0 contra un cross-check independiente, que
