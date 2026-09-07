@@ -818,3 +818,122 @@ describe("Sensitivity valuation (matrix/evLow/evHigh) — V5 OBJETIVO: debe usar
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────
+// Base historical KPIs — V5 observed Evidence (4F.6D1/4F.6D2,
+// RC-KPI-NetIncome / RC-KPI-Assets). Confirmado en la auditoría 4F.6D1:
+// `net_income` ya fluye completo hasta el borde del motor (cuenta
+// canónica real, `structured-input-derivations.ts` la extrae como
+// passthrough puro), pero `canonical-financial-engine.ts` nunca la lee
+// — `netIncome0` se sintetiza siempre vía `(ebit0-interestExpense)×
+// (1-30%legacy)`, y `roa` usa `totalDebt+equity` como proxy en vez de
+// `total_assets` real. Decisión 7 (`DECISIONES-FINANCIERAS-APROBADAS-
+// POR-FUNDADOR.md`, ya aprobada por el fundador): "utilidad neta para
+// ROE, utilidad neta para ROA, NOPAT para el flujo de caja del DCF" —
+// esto es implementación pendiente de una decisión ya cerrada, no una
+// metodología por decidir. `total_assets` (Decisión 6: "debe usarse
+// total_assets real cuando exista") es cuenta canónica real, pero el
+// tipo lightweight del motor (`CanonicalBalanceSheet`) todavía no la
+// declara — se referencia aquí vía cast, sin tocar producción todavía.
+// ─────────────────────────────────────────────────────────────────
+
+const KPI_BASE_INCOME = { revenue: 100, cost_of_sales: 50, opex: 10, da: 5, interest_expense: 2 };
+
+/** LEGACY explícito — nunca incluye la clave `resolved_assumptions`. */
+function kpiInputLegacy(income: Record<string, unknown>, balance: Record<string, unknown>): CanonicalStructuredInput {
+  return {
+    income_statement: { ...KPI_BASE_INCOME, ...income },
+    balance_sheet: { financial_debt_total: 30, cash: 10, ...balance },
+    moneda_analisis: "COP",
+    factor_conversion: 1,
+  } as CanonicalStructuredInput;
+}
+
+/** V5 — incluye siempre la clave `resolved_assumptions` (activa isV5Execution). */
+function kpiInputV5(
+  income: Record<string, unknown>,
+  balance: Record<string, unknown>,
+  resolvedOverrides: Partial<ResolvedCalculationAssumptions> = {},
+): CanonicalStructuredInput {
+  return {
+    ...kpiInputLegacy(income, balance),
+    resolved_assumptions: { ...EXAMPLE_RESOLVED_ASSUMPTIONS, ...resolvedOverrides },
+  } as CanonicalStructuredInput;
+}
+
+describe("Base historical KPIs (netMargin/ROE/ROA) — V5: Evidence observada, nunca sintética", () => {
+  it("RED 1 — con net_income/equity/total_assets observados, netMargin/ROE/ROA usan Evidence real (revenue=100,net_income=10,equity=40,total_assets=200 → 10%/25%/5%)", () => {
+    const r = runCanonicalFinancialEngine(kpiInputV5({ net_income: 10 }, { equity: 40, total_assets: 200 }), SECTOR, GROWTH);
+    expect(r.kpis.netMargin).toBeCloseTo(10, 6);
+    expect(r.kpis.roe).toBeCloseTo(25, 6);
+    expect(r.kpis.roa).toBeCloseTo(5, 6);
+  });
+
+  it("RED 2 — tax invariance: netMargin/ROE/ROA son idénticos entre dos ejecuciones v5 con tax completamente distinto, cuando net_income está observado (el tax v5 sí afecta WACC, confirmando que el aislamiento es específico de estos 3 KPIs)", () => {
+    const a = runCanonicalFinancialEngine(kpiInputV5({ net_income: 10 }, { equity: 40, total_assets: 200 }), SECTOR, GROWTH);
+    const b = runCanonicalFinancialEngine(
+      kpiInputV5({ net_income: 10 }, { equity: 40, total_assets: 200 }, {
+        taxTreatment: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment, value: { ...EXAMPLE_RESOLVED_ASSUMPTIONS.taxTreatment.value, marginalRatePct: 5, debtTaxShieldRatePct: 5, explicitFcffTaxRatePctByYear: [5, 5, 5, 5, 5] } },
+      }),
+      SECTOR, GROWTH,
+    );
+    expect(a.kpis.netMargin).toBe(b.kpis.netMargin);
+    expect(a.kpis.roe).toBe(b.kpis.roe);
+    expect(a.kpis.roa).toBe(b.kpis.roa);
+    expect(a.valuation.wacc).not.toBe(b.valuation.wacc);
+  });
+
+  it("RED 3 — net_income ausente (clave omitida) o explícitamente null: netMargin/ROE/ROA = null en ambos casos, nunca un número sintético", () => {
+    const omitted = runCanonicalFinancialEngine(kpiInputV5({}, { equity: 40, total_assets: 200 }), SECTOR, GROWTH);
+    const explicitNull = runCanonicalFinancialEngine(kpiInputV5({ net_income: null }, { equity: 40, total_assets: 200 }), SECTOR, GROWTH);
+    for (const r of [omitted, explicitNull]) {
+      expect(r.kpis.netMargin).toBeNull();
+      expect(r.kpis.roe).toBeNull();
+      expect(r.kpis.roa).toBeNull();
+    }
+  });
+
+  it("RED 4 — net_income=0 observado (AUSENTE != 0): netMargin/ROE/ROA = 0, nunca null", () => {
+    const r = runCanonicalFinancialEngine(kpiInputV5({ net_income: 0 }, { equity: 40, total_assets: 200 }), SECTOR, GROWTH);
+    expect(r.kpis.netMargin).toBe(0);
+    expect(r.kpis.roe).toBe(0);
+    expect(r.kpis.roa).toBe(0);
+  });
+
+  it("RED 5 — total_assets ausente: netMargin/ROE numéricos correctos, ROA=null — nunca cae al proxy totalDebt+equity (30+40=70 → 14.2857%, valor deliberadamente distinto para exponer el proxy si reaparece)", () => {
+    const r = runCanonicalFinancialEngine(kpiInputV5({ net_income: 10 }, { equity: 40 }), SECTOR, GROWTH);
+    expect(r.kpis.netMargin).toBeCloseTo(10, 6);
+    expect(r.kpis.roe).toBeCloseTo(25, 6);
+    expect(r.kpis.roa).toBeNull();
+  });
+
+  it("RED 6 — equity=0 y equity<0 con net_income observado: ROE=null (regresión RC-1 preservada, nunca Math.abs)", () => {
+    const zero = runCanonicalFinancialEngine(kpiInputV5({ net_income: 10 }, { equity: 0, total_assets: 200 }), SECTOR, GROWTH);
+    const negative = runCanonicalFinancialEngine(kpiInputV5({ net_income: 10 }, { equity: -40, total_assets: 200 }), SECTOR, GROWTH);
+    expect(zero.kpis.roe).toBeNull();
+    expect(negative.kpis.roe).toBeNull();
+  });
+
+  it("RED 7 — LEGACY (sin resolved_assumptions): netMargin/ROE/ROA conservan exactamente la fórmula sintética histórica, ignorando net_income/total_assets observados", () => {
+    const r = runCanonicalFinancialEngine(kpiInputLegacy({ net_income: 10 }, { equity: 40, total_assets: 200 }), SECTOR, GROWTH);
+    // ebitda0=100-50-10+5=45; ebit0=45-5=40; netIncome0=(40-2)×(1-0.30)=26.6.
+    // totalAssets legacy = totalDebt+equity = 30+40=70 (ignora total_assets=200 observado).
+    expect(r.kpis.netMargin).toBeCloseTo(26.6, 6);
+    expect(r.kpis.roe).toBeCloseTo(66.5, 6);
+    expect(r.kpis.roa).toBeCloseTo((26.6 / 70) * 100, 6);
+  });
+
+  it("RED 8 (control, DCF isolation) — cambiar net_income/total_assets no afecta ningún output DCF-critical", () => {
+    const a = runCanonicalFinancialEngine(kpiInputV5({ net_income: 10 }, { equity: 40, total_assets: 200 }), SECTOR, GROWTH);
+    const b = runCanonicalFinancialEngine(kpiInputV5({ net_income: 999 }, { equity: 40, total_assets: 999_999 }), SECTOR, GROWTH);
+    expect(b.valuation.betaLevered).toBe(a.valuation.betaLevered);
+    expect(b.valuation.costOfEquity).toBe(a.valuation.costOfEquity);
+    expect(b.valuation.wacc).toBe(a.valuation.wacc);
+    a.projections.forEach((p, i) => expect(b.projections[i].fcff).toBe(p.fcff));
+    expect(b.valuation.terminalValue).toBe(a.valuation.terminalValue);
+    expect(b.valuation.discountedTV).toBe(a.valuation.discountedTV);
+    expect(b.valuation.enterpriseValue).toBe(a.valuation.enterpriseValue);
+    expect(b.valuation.netDebt).toBe(a.valuation.netDebt);
+    expect(b.valuation.equityValue).toBe(a.valuation.equityValue);
+  });
+});

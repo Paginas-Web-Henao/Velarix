@@ -173,4 +173,41 @@ describe("Fingerprint — V5 OBJETIVO", () => {
     const f2 = computeInputFingerprint(withJudgment(reordered), "Software / Tecnología", 45);
     expect(f1).toBe(f2);
   });
+
+  // 4F.6D2 (RC-KPI-NetIncome/RC-KPI-Assets) — una vez que netMargin/ROE/
+  // ROA consuman `net_income`/`total_assets` observados en v5, esos
+  // campos se vuelven financieramente EFECTIVOS para esa ejecución — el
+  // fingerprint debe reflejarlo, siguiendo el mismo principio de diseño
+  // que ya rige este archivo ("hash del input EFECTIVAMENTE usado por el
+  // motor, no del JSON crudo"). El test LEGACY equivalente
+  // (`calculation-fingerprint.test.ts`, "cambiar taxes o net_income no
+  // cambia el fingerprint") permanece intacto — esta corrección es
+  // exclusiva de la rama v5 (`resolved_assumptions` presente).
+  it("cambiar solo net_income (Evidence, ahora financieramente efectiva para netMargin/ROE/ROA en v5) debe cambiar el fingerprint", () => {
+    const base: CanonicalStructuredInput = {
+      ...withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS),
+      income_statement: { ...BASE_INPUT.income_statement, net_income: 10_000_000 },
+    };
+    const changed: CanonicalStructuredInput = {
+      ...withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS),
+      income_statement: { ...BASE_INPUT.income_statement, net_income: 11_000_000 },
+    };
+    const f1 = computeInputFingerprint(base, "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(changed, "Software / Tecnología", 45);
+    expect(f1).not.toBe(f2);
+  });
+
+  it("cambiar solo total_assets (Evidence, ahora financieramente efectiva para ROA en v5) debe cambiar el fingerprint", () => {
+    const base: CanonicalStructuredInput = {
+      ...withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS),
+      balance_sheet: { ...BASE_INPUT.balance_sheet, total_assets: 200_000_000 } as CanonicalStructuredInput["balance_sheet"],
+    };
+    const changed: CanonicalStructuredInput = {
+      ...withJudgment(EXAMPLE_RESOLVED_ASSUMPTIONS),
+      balance_sheet: { ...BASE_INPUT.balance_sheet, total_assets: 201_000_000 } as CanonicalStructuredInput["balance_sheet"],
+    };
+    const f1 = computeInputFingerprint(base, "Software / Tecnología", 45);
+    const f2 = computeInputFingerprint(changed, "Software / Tecnología", 45);
+    expect(f1).not.toBe(f2);
+  });
 });
