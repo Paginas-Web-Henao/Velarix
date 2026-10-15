@@ -10,7 +10,8 @@ import { evaluateMinimumExpedienteCheckpoint } from "../../../supabase/functions
 import { parseBusinessProfile, type SourcedItem } from "@/types/case-metadata";
 import type { CaseData } from "./useCaseData";
 import { DataTable, Empty, KV, type Layer, LayerTag, LongText, Panel } from "./ui";
-import { caseProvenance, officialVerification, questionThreads, questionTitle, splitSource, type ProvenanceState, type SourceLayer } from "./case-provenance";
+import { caseProvenance, officialVerification, questionCode, questionThreads, questionTitle, reclassifiedQuestions, splitSource, type ProvenanceState, type SourceLayer } from "./case-provenance";
+import { terminalReinvestmentCheck } from "@/lib/terminal-reinvestment-check";
 import { date, fmt, fmt2, pct } from "./format";
 
 interface SectionProps {
@@ -96,8 +97,8 @@ export function EvidenceSection({ data, reload }: SectionProps) {
           <div className="space-y-2">
             <KV rows={[
               { k: "Estado global (lineage documental)", v: prov.overall_status },
-              { k: "Período base", v: prov.period_selection?.base_period ?? snap?.base_period ?? "—" },
-              { k: "Modo de selección", v: prov.period_selection?.selection_mode ?? "—" },
+              { k: "Período seleccionado por pipeline documental", v: prov.period_selection?.base_period ?? "not available" },
+              { k: "Modo de selección (pipeline documental)", v: prov.period_selection?.selection_mode ?? "not available" },
               { k: "Moneda análisis / documento", v: `${prov.currency?.moneda_analisis ?? "—"} / ${prov.currency?.moneda_documento ?? "—"}` },
               { k: "Factor de conversión", v: fmt2(prov.currency?.factor_conversion) },
               { k: "Documentos / homologaciones", v: `${prov.document_ids?.length ?? 0} / ${prov.homologation_ids?.length ?? 0}` },
@@ -233,7 +234,8 @@ export function AccountsSection({ data }: SectionProps) {
 // ── E. QUESTIONS ──────────────────────────────────────────────────────────
 export function QuestionsSection({ data }: SectionProps) {
   const answered = data.questions.filter((q) => q.expedient_answers.length > 0).length;
-  const threads = questionThreads(data.questions);
+  const threads = questionThreads(data.questions, data.auditEvents);
+  const reclassified = reclassifiedQuestions(data.questions, data.auditEvents);
   const checkpoint = evaluateMinimumExpedienteCheckpoint({
     companyName: data.analysis?.company_name,
     sector: data.analysis?.sector,
@@ -291,12 +293,17 @@ export function QuestionsSection({ data }: SectionProps) {
                         </div>
                       );
                     })}
-                    {history.map((h) => (
-                      <div key={h.id} className="border-l-2 border-border pl-2 opacity-80">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Versión anterior (superseded) · {date(h.created_at)}</p>
-                        <p className="text-muted-foreground line-through decoration-muted-foreground/40">{h.razon ?? h.texto}</p>
-                      </div>
-                    ))}
+                    {history.map((h) => {
+                      const prevAnswer = h.expedient_answers[0]?.respuesta_texto;
+                      const answerChanged = !!prevAnswer && prevAnswer !== q.expedient_answers[0]?.respuesta_texto;
+                      return (
+                        <div key={h.id} className="border-l-2 border-border pl-2 opacity-80">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Versión anterior (superseded) · {date(h.created_at)}</p>
+                          {h.razon !== q.razon && <p className="text-muted-foreground line-through decoration-muted-foreground/40">{h.razon ?? h.texto}</p>}
+                          {answerChanged && <p className="text-muted-foreground line-through decoration-muted-foreground/40">{prevAnswer}</p>}
+                        </div>
+                      );
+                    })}
                   </div>
                 </details>
               );
@@ -304,6 +311,26 @@ export function QuestionsSection({ data }: SectionProps) {
           </div>
         )}
       </Panel>
+      {reclassified.length > 0 && (
+        <Panel title={`Reclasificadas fuera del Judgment (${reclassified.length}, historial)`}>
+          <div className="space-y-1.5">
+            {reclassified.map((r) => (
+              <details key={r.question.id} className="border border-border/60 rounded">
+                <summary className="cursor-pointer list-none px-2 py-1.5 flex items-center gap-2 text-xs">
+                  <span className="font-mono text-[10px] text-muted-foreground w-14 shrink-0">{questionCode(r.question.texto) ?? "—"}</span>
+                  <span className="flex-1 min-w-0 text-muted-foreground">{questionTitle(r.question.texto)}</span>
+                  <span className="font-mono text-[10px] text-sky-300">{r.reclassifiedAs}</span>
+                </summary>
+                <div className="px-2 pb-2 space-y-1 text-xs whitespace-normal break-words">
+                  <p className="text-muted-foreground">{r.reason}</p>
+                  {r.question.razon && <p className="text-[11px] text-muted-foreground/80">Texto original: {r.question.razon}</p>}
+                  <p className="text-[10px] text-muted-foreground">Reclasificada {date(r.at)} · la fila original se conserva.</p>
+                </div>
+              </details>
+            ))}
+          </div>
+        </Panel>
+      )}
       {data.reviews.length > 0 && (
         <Panel title="Revisiones manuales del caso">
           <DataTable head={["Estado", "Motivo", "Prioridad", "Creada"]} numericFrom={9} rows={data.reviews.map((r) => [r.estado, r.reason, r.prioridad ?? "—", date(r.created_at)])} />
@@ -466,6 +493,7 @@ export function ChallengeSection({ data }: SectionProps) {
         )}
         <p className="mt-2 text-[10px] text-muted-foreground">n/c = no converge (WACC ≤ g).</p>
       </Panel>
+      <TerminalReinvestmentPanel data={data} />
       <Panel title="P-12 · suite adicional de challenge de un factor" right={<span className="font-mono text-[10px] text-amber-300">NOT IMPLEMENTED · PENDING</span>}>
         <Empty>
           La suite mínima de sensibilidades P-12 (pruebas adicionales de un factor) todavía no está implementada. No se muestran
@@ -473,6 +501,36 @@ export function ChallengeSection({ data }: SectionProps) {
         </Empty>
       </Panel>
     </div>
+  );
+}
+
+function TerminalReinvestmentPanel({ data }: { data: CaseData }) {
+  const c = terminalReinvestmentCheck(data.calculation);
+  const v = data.calculation?.version;
+  const recorded = data.auditEvents.find((e) => {
+    const m = e.metadata as Record<string, unknown> | null;
+    return e.event_type === "terminal_reinvestment_check" && m?.input_fingerprint === v?.input_fingerprint && (m?.calculated_at ?? null) === (v?.calculated_at ?? null);
+  });
+  const tone = c.status === "PASS" ? "text-emerald-300" : c.status === "FAIL" ? "text-destructive" : "text-muted-foreground";
+  const r6 = (x?: number) => (typeof x === "number" ? x.toFixed(6) : "—");
+  return (
+    <Panel title="Terminal reinvestment check" layer="CALCULATION" right={<span className={`font-mono text-[10px] ${tone}`}>status = {c.status}</span>}>
+      {c.status === "NOT_AVAILABLE" ? <Empty>No disponible: {c.reason}</Empty> : (
+        <>
+          <KV rows={[
+            { k: `Net Reinvestment (año ${c.year})`, v: `CAPEX ${fmt(c.capex)} − D&A ${fmt(c.depreciation)} + ΔNWC ${fmt(c.deltaNwc)} = ${fmt(c.netReinvestment)}` },
+            { k: "Net Reinvestment / NOPAT", v: `${fmt(c.netReinvestment)} / ${fmt(c.nopat)} = ${r6(c.reinvestmentRate)}` },
+            { k: "g / ROC", v: `${pct(c.gPct)} / ${pct(c.rocPct)} = ${r6(c.gOverRoc)}` },
+            { k: "Banda aceptada", v: `${r6(c.acceptedRange?.[0])} – ${r6(c.acceptedRange?.[1])} (ROC ${c.rocRangePct ? `${c.rocRangePct[0]}%–${c.rocRangePct[1]}%` : `${c.rocPct}%`})` },
+            { k: "ROC implícito", v: pct(c.impliedRocPct) },
+          ]} />
+          <p className="mt-2 text-[10px] text-muted-foreground whitespace-normal">
+            Validación determinística (CALCULATION) sobre el cálculo persistido, no Judgment. ROC diagnóstico leído de <code>{c.rocSource}</code>.
+            {recorded ? " Registrado en el audit trail (terminal_reinvestment_check)." : " Aún no registrado en el audit trail para este cálculo."}
+          </p>
+        </>
+      )}
+    </Panel>
   );
 }
 

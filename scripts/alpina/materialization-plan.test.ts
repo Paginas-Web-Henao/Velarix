@@ -8,6 +8,9 @@ import {
   ALPINA_BUSINESS_PROFILE,
   ALPINA_CASE_COLUMNS,
   SUPERSEDED_QUESTION_WORDING,
+  SUPERSEDED_ANSWER_WORDING,
+  RECLASSIFIED_QUESTIONS,
+  C07_STALE_SENTENCE,
   ALPINA_ACCOUNT_NOTES,
   ALPINA_ANALYSIS,
   ALPINA_QUESTIONS,
@@ -51,8 +54,9 @@ describe("plan de materialización de Alpina", () => {
   });
 
   it("las preguntas sin respuesta documentada quedan abiertas; las respondidas citan su fuente", () => {
-    // C-05/C-06/C-09/C-12 siguen abiertas; C-07.1 (cross-check g/ROC) es un seguimiento abierto, no una respuesta.
-    expect(ALPINA_QUESTIONS.filter((q) => !q.answer).map((q) => q.code)).toEqual(["C-05", "C-06", "C-09", "C-12", "C-07.1"]);
+    // 12 canónicas: 8 respondidas, 4 abiertas (C-05/C-06/C-09/C-12).
+    expect(ALPINA_QUESTIONS).toHaveLength(12);
+    expect(ALPINA_QUESTIONS.filter((q) => !q.answer).map((q) => q.code)).toEqual(["C-05", "C-06", "C-09", "C-12"]);
     for (const q of ALPINA_QUESTIONS) {
       expect(questionKey(q.texto)).toBe(q.code);
       if (q.answer) {
@@ -102,12 +106,29 @@ describe("metadata estructurado y wording corregido", () => {
     expect(c11.answer).toContain("[REPO_CANONICAL_JUDGMENT]"); // el Judgment no cambia
   });
 
-  it("C-07.1 deja el cross-check g/ROC pendiente y aclara que no bloquea el cálculo verificado", () => {
-    const q = ALPINA_QUESTIONS.find((x) => x.code === "C-07.1")!;
-    expect(q.answer).toBeNull();
-    expect(q.razon).toMatch(/no bloquea ni invalida el calculation_result/);
-    expect(read("supabase/functions/_shared/alpina-2024.resolved-assumptions.ts")).toContain("Verificación g/ROC terminal pendiente como cross-check fuera del motor");
-    expect(questionKey(q.texto)).toBe("C-07.1");
+  it("C-07.1 ya no es pregunta canónica: queda como reclasificada a CALCULATION_VALIDATION (fila conservada)", () => {
+    expect(ALPINA_QUESTIONS.some((x) => x.code === "C-07.1")).toBe(false);
+    const r = RECLASSIFIED_QUESTIONS.find((x) => x.code === "C-07.1")!;
+    expect(r.reclassifiedAs).toBe("CALCULATION_VALIDATION");
+    expect(r.answer).toBeNull(); // nunca se convierte en Judgment
+    expect(questionKey(r.texto)).toBe("C-07.1");
+  });
+
+  it("C-07 vigente sin el wording stale 'pendiente'; la transcripción anterior queda como superseded", () => {
+    const c07 = ALPINA_QUESTIONS.find((x) => x.code === "C-07")!.answer!;
+    expect(read("supabase/functions/_shared/alpina-2024.resolved-assumptions.ts")).toContain(C07_STALE_SENTENCE); // fixture intacto
+    expect(c07).not.toContain(C07_STALE_SENTENCE);
+    expect(c07).toContain("TERMINAL REINVESTMENT CHECK");
+    expect(c07).toMatch(/^\[REPO_CANONICAL_JUDGMENT\]/);
+    expect(SUPERSEDED_ANSWER_WORDING["C-07"].answer).toContain(C07_STALE_SENTENCE);
+    expect(SUPERSEDED_ANSWER_WORDING["C-07"].requiresTerminalCheck).toBe(true);
+  });
+
+  it("C-04 y C-07 quedan consistentes: C-04 afirma la verificación g/ROC y C-07 ya no la declara pendiente", () => {
+    const c04 = ALPINA_QUESTIONS.find((x) => x.code === "C-04")!.answer!;
+    const c07 = ALPINA_QUESTIONS.find((x) => x.code === "C-07")!.answer!;
+    expect(c04).toMatch(/Net Reinvestment\/NOPAT ≈ g\/ROC/);
+    expect(c07).not.toMatch(/pendiente como cross-check/);
   });
 });
 

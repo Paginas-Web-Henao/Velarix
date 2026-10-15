@@ -117,11 +117,29 @@ export interface QuestionThread {
   history: CaseQuestion[];
 }
 
-/** Agrupa versiones: la vigente es la que ninguna otra fila supersede. Orden por código (C-07 < C-07.1 < C-08). */
-export function questionThreads(questions: CaseQuestion[]): QuestionThread[] {
+export interface ReclassifiedQuestion {
+  question: CaseQuestion;
+  reclassifiedAs: string;
+  reason: string;
+  at: string;
+}
+
+/** Preguntas reclasificadas (p. ej. como validación de CALCULATION) por un evento `expedient_question_reclassified`. La fila se conserva. */
+export function reclassifiedQuestions(questions: CaseQuestion[], auditEvents: { event_type: string; created_at: string; metadata?: unknown }[]): ReclassifiedQuestion[] {
+  const byId = new Map(questions.map((q) => [q.id, q]));
+  return auditEvents.flatMap((e) => {
+    const m = meta(e);
+    const q = e.event_type === "expedient_question_reclassified" && typeof m?.question_id === "string" ? byId.get(m.question_id) : undefined;
+    return q ? [{ question: q, reclassifiedAs: String(m?.reclassified_as ?? "—"), reason: String(m?.reason ?? ""), at: e.created_at }] : [];
+  });
+}
+
+/** Agrupa versiones: la vigente es la que ninguna otra fila supersede. Excluye las reclasificadas. Orden por código (C-07 < C-07.1 < C-08). */
+export function questionThreads(questions: CaseQuestion[], auditEvents: { event_type: string; created_at: string; metadata?: unknown }[] = []): QuestionThread[] {
   const byId = new Map(questions.map((q) => [q.id, q]));
   const superseded = new Set(questions.map((q) => q.supersedes_question_id).filter((x): x is string => !!x));
-  const threads = questions.filter((q) => !superseded.has(q.id)).map((current) => {
+  const reclassified = new Set(reclassifiedQuestions(questions, auditEvents).map((r) => r.question.id));
+  const threads = questions.filter((q) => !superseded.has(q.id) && !reclassified.has(q.id)).map((current) => {
     const history: CaseQuestion[] = [];
     for (let prev = current.supersedes_question_id ? byId.get(current.supersedes_question_id) : undefined; prev; prev = prev.supersedes_question_id ? byId.get(prev.supersedes_question_id) : undefined) {
       history.push(prev);

@@ -5,6 +5,9 @@
 //
 //   (sin flags)   DRY-RUN: lee Supabase y muestra qué escribiría. No escribe nada.
 //   --apply       Escribe lo que falte (idempotente: nunca duplica; aborta ante inconsistencias).
+//   --validate    Calcula el TERMINAL REINVESTMENT CHECK (determinístico) sobre el
+//                 calculation_result persistido y lo registra en audit_events (una vez
+//                 por cálculo). No recalcula ni escribe en el cálculo.
 //   --calculate   Ejecuta el flujo oficial `ejecutar-calculo` (checkpoint + preflight + motor)
 //                 sobre el caso ya materializado y compara el resultado, sin tolerancia,
 //                 con el motor local sobre el mismo fixture congelado. Si ya existe un
@@ -22,7 +25,8 @@ import { createClient } from "@supabase/supabase-js";
 const args = new Set(process.argv.slice(2));
 const APPLY = args.has("--apply");
 const CALCULATE = args.has("--calculate");
-if (APPLY && CALCULATE) fail("Usa --apply y --calculate en ejecuciones separadas (revisa el Expediente entre ambas).");
+const VALIDATE = args.has("--validate");
+if ([APPLY, CALCULATE, VALIDATE].filter(Boolean).length > 1) fail("Usa --apply, --calculate y --validate en ejecuciones separadas.");
 
 function fail(msg) {
   console.error(`\n✗ ABORTADO: ${msg}`);
@@ -38,12 +42,13 @@ const vite = await createServer({
   server: { middlewareMode: true, hmr: false }, appType: "custom", logLevel: "error", configFile: false,
   optimizeDeps: { noDiscovery: true, entries: [] },
 });
-let plan, engine, fp, snap;
+let plan, engine, fp, snap, trc;
 try {
   plan = await vite.ssrLoadModule("/scripts/alpina/materialization-plan.ts");
   engine = await vite.ssrLoadModule("/supabase/functions/_shared/canonical-financial-engine.ts");
   fp = await vite.ssrLoadModule("/supabase/functions/_shared/calculation-fingerprint.ts");
   snap = await vite.ssrLoadModule("/supabase/functions/_shared/resolved-assumptions-snapshot.ts");
+  trc = await vite.ssrLoadModule("/src/lib/terminal-reinvestment-check.ts");
 } finally {
   await vite.close();
 }
@@ -54,7 +59,7 @@ const git = (...a) => execFileSync("git", a, { encoding: "utf8" }).trim();
 const dirty = git("status", "--porcelain", "--", ...plan.SOURCE_FILES, "scripts/alpina");
 if (dirty) {
   const msg = `hay cambios sin commitear en las fuentes canónicas:\n${dirty}\nLa provenance debe apuntar a un commit.`;
-  if (APPLY || CALCULATE) fail(msg);
+  if (APPLY || CALCULATE || VALIDATE) fail(msg);
   console.warn(`⚠ ${msg} (aviso de dry-run)`);
 }
 const gitCommit = git("rev-parse", "HEAD");
@@ -82,7 +87,7 @@ try {
   const countAnalyses = async () => (await sb.from("analyses").select("id", { count: "exact", head: true })).count;
   const before = await countAnalyses();
 
-  log(`Velarix · materialize:alpina — ${CALCULATE ? "CALCULATE" : APPLY ? "APPLY" : "DRY-RUN (no escribe)"}`);
+  log(`Velarix · materialize:alpina — ${VALIDATE ? "VALIDATE" : CALCULATE ? "CALCULATE" : APPLY ? "APPLY" : "DRY-RUN (no escribe)"}`);
   log(`  owner        ${owner} (rol ${profile.role}, resuelto desde la sesión)`);
   log(`  commit       ${gitCommit}`);
   log(`  fingerprint  ${localFingerprint} (local, fixture congelado)`);
@@ -136,6 +141,12 @@ try {
   } else Object.assign(metadataPatch, caseColumns);
   if (Object.keys(metadataPatch).length) actions.push(["analyses (metadata)", Object.keys(metadataPatch).join(", ")]);
 
+  // TERMINAL REINVESTMENT CHECK persistido para EXACTAMENTE el cálculo vigente.
+  const cv = analysis?.calculation_result?.version;
+  const checkEvents = analysis ? must(await sb.from("audit_events").select("id, metadata").eq("analysis_id", analysis.id).eq("event_type", plan.TERMINAL_CHECK_EVENT), "leyendo checks") : [];
+  const terminalCheckEvent = checkEvents.find((e) => e.metadata?.status === "PASS" && cv && e.metadata?.input_fingerprint === cv.input_fingerprint && e.metadata?.calculated_at === (cv.calculated_at ?? null)) ?? null;
+  const reclassEvents = analysis ? must(await sb.from("audit_events").select("id, metadata").eq("analysis_id", analysis.id).eq("event_type", "expedient_question_reclassified"), "leyendo reclasificaciones") : [];
+
   // Preguntas: la versión VIGENTE de cada código es la que ninguna otra fila
   // supersede. Una corrección de wording se registra insertando una nueva
   // versión (supersedes_question_id) — nunca UPDATE/DELETE de la anterior.
@@ -145,23 +156,73 @@ try {
     if (current.length > 1) fail(`expedient_questions: varias versiones vigentes para ${q.code}.`);
     const row = current[0] ?? null;
     const old = plan.SUPERSEDED_QUESTION_WORDING[q.code];
+    const oldAnswer = plan.SUPERSEDED_ANSWER_WORDING[q.code];
     let kind = "ok";
+    let reason = null;
     if (!row) kind = "create";
     else if (row.texto === q.texto && row.razon === q.razon) kind = "ok";
-    else if (old && row.texto === q.texto && row.razon === old.razon) kind = "supersede";
+    else if (old && row.texto === q.texto && row.razon === old.razon) { kind = "supersede"; reason = old.reason; }
     else fail(`expedient_questions ${q.code} existe con un texto que no coincide ni con la versión vigente ni con una versión superseded conocida.`);
-    const answers = kind === "ok" ? row.expedient_answers ?? [] : [];
+    let answers = kind === "ok" ? row.expedient_answers ?? [] : [];
     if (answers.length > 1) fail(`varias respuestas para ${q.code}.`);
-    if (answers[0] && answers[0].respuesta_texto !== q.answer) fail(`la respuesta de ${q.code} difiere de la fuente del repo.`);
+    if (answers[0] && answers[0].respuesta_texto !== q.answer) {
+      if (oldAnswer && answers[0].respuesta_texto === oldAnswer.answer) {
+        if (oldAnswer.requiresTerminalCheck && !terminalCheckEvent) {
+          log(`  · ${q.code}: respuesta anterior vigente; la nueva versión requiere un TERMINAL REINVESTMENT CHECK PASS (npm run materialize:alpina -- --validate).`);
+          return { q, row, kind: "ok", answered: true };
+        }
+        kind = "supersede"; reason = oldAnswer.reason; answers = [];
+      } else fail(`la respuesta de ${q.code} difiere de la fuente del repo.`);
+    }
     if (kind === "create") actions.push(["expedient_questions", `${q.code} (${q.answer ? "respondida" : "ABIERTA"})`]);
     if (kind === "supersede") actions.push(["expedient_questions", `${q.code} nueva versión (supersede ${row.id}; la anterior se conserva) + audit event`]);
     if (q.answer && !answers[0]) actions.push(["expedient_answers", `${q.code}${kind === "supersede" ? " (nueva versión, mismo Judgment)" : ""}`]);
-    return { q, row, kind, answered: !!answers[0] };
+    return { q, row, kind, answered: !!answers[0], reason };
+  });
+
+  // Reclasificación (no borrado): la fila se conserva; se registra un evento.
+  const reclassPlan = plan.RECLASSIFIED_QUESTIONS.flatMap((q) => {
+    const rows = questions.filter((r) => questionKey(r.texto) === q.code);
+    if (rows.length === 0) return []; // nunca se creó: no hay nada que reclasificar
+    if (rows.length > 1 || rows[0].texto !== q.texto || rows[0].razon !== q.razon) fail(`${q.code}: la fila existente no coincide con la versión conocida.`);
+    if (reclassEvents.some((e) => e.metadata?.question_id === rows[0].id)) return [];
+    if (!terminalCheckEvent) {
+      log(`  · ${q.code}: sigue sin reclasificar; requiere un TERMINAL REINVESTMENT CHECK PASS (--validate).`);
+      return [];
+    }
+    actions.push(["audit_events", `expedient_question_reclassified ${q.code} → ${q.reclassifiedAs} (la fila se conserva)`]);
+    return [{ q, row: rows[0] }];
   });
   if (materializedEvent.length === 0) actions.push(["audit_events", `${plan.MATERIALIZATION_EVENT} (provenance + capas)`]);
 
+  // ─── VALIDATE (terminal reinvestment check) ──────────────────────
+  if (VALIDATE) {
+    if (!analysis?.calculation_result) fail("no hay calculation_result persistido para validar.");
+    const cr = analysis.calculation_result;
+    const c = trc.terminalReinvestmentCheck(cr);
+    log(`\nTERMINAL REINVESTMENT CHECK (año ${c.year ?? "—"}) — desde calculation_result persistido, sin recalcular`);
+    log(`  CAPEX ${c.capex} − D&A ${c.depreciation} + ΔNWC ${c.deltaNwc} = Net Reinvestment ${c.netReinvestment}`);
+    log(`  Net Reinvestment / NOPAT ${c.nopat} = ${c.reinvestmentRate}`);
+    log(`  g / ROC = ${c.gPct}% / ${c.rocPct}% = ${c.gOverRoc} · banda [${c.acceptedRange?.join(", ")}] (ROC ${c.rocRangePct?.join("–") ?? c.rocPct}% de ${c.rocSource})`);
+    log(`  ROC implícito ${c.impliedRocPct} · status = ${c.status}${c.reason ? ` (${c.reason})` : ""}`);
+    if (c.status === "NOT_AVAILABLE") fail("check no disponible para este cálculo.");
+    const already = checkEvents.find((e) => e.metadata?.input_fingerprint === cr.version?.input_fingerprint && e.metadata?.calculated_at === (cr.version?.calculated_at ?? null));
+    if (already) log("\n  Ya registrado para este cálculo; no se duplica el evento.");
+    else {
+      must(await sb.from("audit_events").insert({
+        analysis_id: analysis.id, user_id: owner, component: "materialize-alpina", event_type: plan.TERMINAL_CHECK_EVENT,
+        event_detail: `TERMINAL REINVESTMENT CHECK ${c.status}: Net Reinvestment/NOPAT = ${c.reinvestmentRate?.toFixed(6)} vs g/ROC = ${c.gOverRoc?.toFixed(6)} (banda ${c.acceptedRange?.map((x) => x.toFixed(6)).join("–")}). Validación determinística (CALCULATION), no Judgment.`,
+        metadata: { ...c, input_fingerprint: cr.version?.input_fingerprint, calculated_at: cr.version?.calculated_at ?? null, git_commit: gitCommit, layer: "CALCULATION_VALIDATION" },
+      }).select("id").single(), "registrando terminal_reinvestment_check");
+      log(`\n  ✓ audit_events ${plan.TERMINAL_CHECK_EVENT} (${c.status})`);
+    }
+    if (c.status !== "PASS") fail("TERMINAL REINVESTMENT CHECK no pasa.");
+  }
+
   // ─── CALCULATE ────────────────────────────────────────────────────
-  if (CALCULATE) {
+  if (VALIDATE) {
+    // terminado arriba
+  } else if (CALCULATE) {
     if (!analysis || actions.length) fail(`el caso no está completamente materializado (${actions.length} pasos pendientes). Ejecuta primero --apply.`);
     await calculateAndCompare(analysis);
     process.exitCode = 0;
@@ -205,7 +266,7 @@ try {
       must(await sb.from("analyses").update(metadataPatch).eq("id", analysis.id).select("id").single(), "rellenando metadata del caso");
       log(`  ✓ analyses metadata (${Object.keys(metadataPatch).join(", ")})`);
     }
-    for (const { q, row: existingRow, kind, answered } of questionPlan) {
+    for (const { q, row: existingRow, kind, answered, reason } of questionPlan) {
       let row = kind === "ok" ? existingRow : null;
       if (!row) {
         row = must(await sb.from("expedient_questions").insert({
@@ -217,10 +278,12 @@ try {
         if (kind === "supersede") {
           must(await sb.from("audit_events").insert({
             analysis_id: analysis.id, user_id: owner, component: "materialize-alpina", event_type: "expedient_question_superseded",
-            event_detail: `${q.code}: wording corregido; la versión anterior se conserva (${existingRow.id}). ${plan.SUPERSEDED_QUESTION_WORDING[q.code].reason}`,
+            event_detail: `${q.code}: nueva versión; la anterior se conserva (${existingRow.id}). ${reason}`,
             metadata: {
               code: q.code, superseded_question_id: existingRow.id, new_question_id: row.id, git_commit: gitCommit,
-              previous_razon: existingRow.razon, new_razon: q.razon, reason: plan.SUPERSEDED_QUESTION_WORDING[q.code].reason,
+              previous_razon: existingRow.razon, new_razon: q.razon,
+              previous_answer: existingRow.expedient_answers?.[0]?.respuesta_texto ?? null, new_answer: q.answer,
+              reason, ...(terminalCheckEvent && plan.SUPERSEDED_ANSWER_WORDING[q.code] ? { terminal_check_event_id: terminalCheckEvent.id } : {}),
             },
           }).select("id").single(), `registrando supersede ${q.code}`);
           log(`  ✓ audit_events expedient_question_superseded ${q.code}`);
@@ -230,6 +293,14 @@ try {
         must(await sb.from("expedient_answers").insert({ question_id: row.id, respuesta_texto: q.answer, respondido_por: owner }).select("id").single(), `creando respuesta ${q.code}`);
         log(`  ✓ expedient_answers ${q.code}`);
       }
+    }
+    for (const { q, row } of reclassPlan) {
+      must(await sb.from("audit_events").insert({
+        analysis_id: analysis.id, user_id: owner, component: "materialize-alpina", event_type: "expedient_question_reclassified",
+        event_detail: `${q.code} reclasificada como ${q.reclassifiedAs}: ${q.reason}`,
+        metadata: { code: q.code, question_id: row.id, reclassified_as: q.reclassifiedAs, reason: q.reason, terminal_check_event_id: terminalCheckEvent.id, git_commit: gitCommit },
+      }).select("id").single(), `reclasificando ${q.code}`);
+      log(`  ✓ audit_events expedient_question_reclassified ${q.code}`);
     }
     if (materializedEvent.length === 0) {
       must(await sb.from("audit_events").insert({

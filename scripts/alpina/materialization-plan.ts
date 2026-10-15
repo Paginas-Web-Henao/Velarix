@@ -167,6 +167,11 @@ export const METHODOLOGY_QUESTION_TEXT = C;
 const judgment = (key: keyof typeof RA, extra = "") =>
   `[REPO_CANONICAL_JUDGMENT] ${RA[key].rationale}${extra} Fuente: ${FILES.resolvedAssumptions} → ${key} (${RA[key].source})`;
 
+/** Frase del rationale congelado de capexReinvestmentDriver que queda stale una vez existe el check determinístico. */
+export const C07_STALE_SENTENCE = "Verificación g/ROC terminal pendiente como cross-check fuera del motor (05 §10), no bloquea este valor.";
+const C07_CHECK_NOTE =
+  "La verificación aritmética g/ROC terminal (Net Reinvestment/NOPAT vs. g/ROC) es una validación de CALCULATION, no parte de este Judgment: ver TERMINAL REINVESTMENT CHECK (Challenge y audit event terminal_reinvestment_check) sobre el cálculo oficial persistido.";
+
 const ANSWERS: Record<keyof typeof C, string | null> = {
   "C-01": judgment("taxTreatment"),
   "C-02": judgment("capitalStructure"),
@@ -174,7 +179,9 @@ const ANSWERS: Record<keyof typeof C, string | null> = {
   "C-04": judgment("terminalG"),
   "C-05": null, // 00-case-home: "Normalizations — Pendiente de documentar".
   "C-06": null, // ΔNWC resuelto, pero el repo no documenta la verificación de supplier finance.
-  "C-07": judgment("capexReinvestmentDriver"),
+  // El rationale congelado no se modifica (fixture); la transcripción vigente
+  // sustituye solo la frase stale por la referencia al check determinístico.
+  "C-07": `[REPO_CANONICAL_JUDGMENT] ${RA.capexReinvestmentDriver.rationale.replace(C07_STALE_SENTENCE, C07_CHECK_NOTE)} Fuente: ${FILES.resolvedAssumptions} → capexReinvestmentDriver (${RA.capexReinvestmentDriver.source})`,
   "C-08":
     `[REPO_CANONICAL_JUDGMENT · CAPITALIZED_LEASES] Debt-like = bancaria ${n(EE.bankFinancialDebt)} + leases ${n(EE.leaseLiabilities)} = ${n(BS.financial_debt_total as number)}; caja ${n(BS.cash as number)}; netDebt = ${n((BS.financial_debt_total as number) - (BS.cash as number))} COP miles, consumido una sola vez en el puente. ` +
     `D&A (incluye ROU) y CAPEX (reinversión económica agregada, incluye lease reinvestment) sin doble conteo. SOTP fuera de este puente. Clasificación MAPPING_SUPPORTED. ` +
@@ -189,17 +196,27 @@ const ANSWERS: Record<keyof typeof C, string | null> = {
 
 const razonFor = (code: string, evidence: string) => `${evidence} Fuente: ${FILES.methodologyDecisions} (Capa B, ${code}).`;
 
-export const ALPINA_QUESTIONS: QuestionPlan[] = [
-  ...(Object.keys(C) as (keyof typeof C)[]).map((code) => ({
-    code,
-    texto: `[${code}] ${C[code][0]}`,
-    razon: razonFor(code, C[code][1]),
-    answer: ANSWERS[code],
-  })),
+/** Las 12 preguntas canónicas C-01…C-12 (Capa B). */
+export const ALPINA_QUESTIONS: QuestionPlan[] = (Object.keys(C) as (keyof typeof C)[]).map((code) => ({
+  code,
+  texto: `[${code}] ${C[code][0]}`,
+  razon: razonFor(code, C[code][1]),
+  answer: ANSWERS[code],
+}));
+
+/** Pasos que solo se aplican si existe un `terminal_reinvestment_check` PASS para el cálculo persistido. */
+export const TERMINAL_CHECK_EVENT = "terminal_reinvestment_check";
+
+/**
+ * Preguntas creadas antes y luego RECLASIFICADAS como validación de
+ * CALCULATION (no Judgment humano). La fila se conserva tal cual; la
+ * reclasificación se registra con un audit event `expedient_question_reclassified`.
+ */
+export const RECLASSIFIED_QUESTIONS: (QuestionPlan & { reclassifiedAs: string; reason: string })[] = [
   {
-    // Seguimiento ABIERTO de C-07: el propio rationale de capexReinvestmentDriver
-    // declara pendiente el cross-check g/ROC (05 §10: "Verificación manual").
-    // Ninguna fuente canónica lo da por resuelto: no se cierra sin evidencia.
+    // Creada el 2026-10-15 como seguimiento abierto de C-07. Es una operación
+    // aritmética determinística sobre el cálculo persistido: se resuelve con
+    // TERMINAL REINVESTMENT CHECK, no con una respuesta humana.
     code: "C-07.1",
     texto: "[C-07.1] Cross-check g/ROC terminal de la reinversión de Alpina",
     razon:
@@ -207,8 +224,22 @@ export const ALPINA_QUESTIONS: QuestionPlan[] = [
       "Es un cross-check metodológico/documental adicional: el cálculo oficial ya está completo y verificado contra el resultado congelado, y este pendiente no bloquea ni invalida el calculation_result persistido. " +
       `Fuente: ${FILES.resolvedAssumptions} (capexReinvestmentDriver.rationale: "Verificación g/ROC terminal pendiente como cross-check fuera del motor (05 §10), no bloquea este valor") · ${FILES.engineAudit} (§8/§11, "Verificación manual").`,
     answer: null,
+    reclassifiedAs: "CALCULATION_VALIDATION",
+    reason: "Net Reinvestment/NOPAT vs. g/ROC es una operación aritmética determinística sobre el cálculo oficial persistido: se verifica con TERMINAL REINVESTMENT CHECK (PASS), no con Judgment humano. La fila se conserva como historial.",
   },
 ];
+
+/**
+ * Respuestas superseded (misma pregunta, nueva versión de la transcripción).
+ * Solo se aplican tras un TERMINAL REINVESTMENT CHECK PASS persistido.
+ */
+export const SUPERSEDED_ANSWER_WORDING: Record<string, { answer: string; reason: string; requiresTerminalCheck: boolean }> = {
+  "C-07": {
+    answer: judgment("capexReinvestmentDriver"),
+    reason: "La transcripción decía que la verificación g/ROC terminal seguía pendiente; quedó resuelta por el TERMINAL REINVESTMENT CHECK determinístico (PASS) sobre el cálculo oficial persistido. El rationale congelado del fixture no cambia.",
+    requiresTerminalCheck: true,
+  },
+};
 
 /**
  * Versiones superseded del wording (historial, nunca se borran). La fila

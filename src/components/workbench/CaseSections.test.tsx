@@ -9,7 +9,7 @@ import { buildMissingProvenance } from "../../../supabase/functions/_shared/calc
 import { buildSourceInputSnapshot } from "../../../supabase/functions/_shared/source-input-snapshot";
 import { buildResolvedAssumptionsSnapshot } from "../../../supabase/functions/_shared/resolved-assumptions-snapshot";
 import { ALPINA_2024_STRUCTURED_INPUT } from "../../../supabase/functions/_shared/alpina-2024.structured-input";
-import { ALPINA_BUSINESS_PROFILE, ALPINA_CASE_COLUMNS, ALPINA_QUESTIONS, SUPERSEDED_QUESTION_WORDING } from "../../../scripts/alpina/materialization-plan";
+import { ALPINA_BUSINESS_PROFILE, ALPINA_CASE_COLUMNS, ALPINA_QUESTIONS, RECLASSIFIED_QUESTIONS, SUPERSEDED_ANSWER_WORDING, SUPERSEDED_QUESTION_WORDING } from "../../../scripts/alpina/materialization-plan";
 import type { CaseData, CaseQuestion } from "./useCaseData";
 import { AuditSection, ChallengeSection, EvidenceSection, JudgmentSection, OutputSection, QuestionsSection, UnderstandingSection, AccountsSection } from "./CaseSections";
 
@@ -52,10 +52,17 @@ function questions(): CaseQuestion[] {
     if (q.code === "C-11") {
       const old = mk(q.texto, SUPERSEDED_QUESTION_WORDING["C-11"].razon, q.answer);
       mk(q.texto, q.razon, q.answer, old.id);
+    } else if (q.code === "C-07") {
+      const old = mk(q.texto, q.razon, SUPERSEDED_ANSWER_WORDING["C-07"].answer);
+      mk(q.texto, q.razon, q.answer, old.id);
     } else mk(q.texto, q.razon, q.answer);
   }
+  const c071 = RECLASSIFIED_QUESTIONS[0];
+  const row = mk(c071.texto, c071.razon, null);
+  RECLASSIFIED_ID = row.id;
   return rows;
 }
+let RECLASSIFIED_ID = "";
 
 function caseData(over: Partial<CaseData> = {}, analysisOver: Record<string, unknown> = {}): CaseData {
   return {
@@ -68,7 +75,7 @@ function caseData(over: Partial<CaseData> = {}, analysisOver: Record<string, unk
     documents: [], homologations: [], validations: [], valuationFile: { id: "vf" } as CaseData["valuationFile"],
     accountNotes: [{ id: "n1", valuation_file_id: "vf", canonical_account: "financial_debt_total", interpretation_text: "x".repeat(50) + " TEXTO-COMPLETO-FINAL", created_by: "o", created_at: CALC_AT }],
     questions: questions(), reviews: [], narrative: null,
-    auditEvents: [VERIFIED, MATERIALIZED] as CaseData["auditEvents"],
+    auditEvents: [VERIFIED, MATERIALIZED, ev("expedient_question_reclassified", { question_id: RECLASSIFIED_ID, reclassified_as: "CALCULATION_VALIDATION", reason: RECLASSIFIED_QUESTIONS[0].reason }), ev("terminal_reinvestment_check", { input_fingerprint: FP, calculated_at: CALC_AT, status: "PASS" })] as CaseData["auditEvents"],
     latestStructuredInput: null,
     ...over,
   };
@@ -94,6 +101,9 @@ describe("Business: metadata estructurado y resumen con fuentes", () => {
 describe("Provenance: repo canónico ≠ lineage documental", () => {
   it("Evidence distingue case source (verificado) de document/homologation lineage (missing)", () => {
     render(<EvidenceSection data={caseData()} reload={reload} />);
+    expect(screen.getByText("Período seleccionado por pipeline documental")).toBeTruthy();
+    expect(screen.getAllByText("not available").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("Período base")).toBeNull();
     expect(screen.getByText("VERIFIED · REPO_CANONICAL")).toBeTruthy();
     expect(screen.getAllByText("MISSING")).toHaveLength(2);
     expect(screen.getByText("REPO_CANONICAL_EVIDENCE")).toBeTruthy();
@@ -148,12 +158,31 @@ describe("Questions: versiones, estados y texto completo", () => {
     expect(c11.textContent).toContain("el CRP de 2.85%"); // historial visible
   });
 
-  it("C-05, C-06, C-09, C-12 y C-07.1 siguen abiertas; el resto respondidas", () => {
+  it("12 canónicas: C-05, C-06, C-09, C-12 abiertas; el resto respondidas", () => {
     const { container } = render(<QuestionsSection data={caseData()} reload={reload} />);
     const status = (code: string) => [...container.querySelectorAll("details")].find((d) => d.querySelector("summary")?.textContent?.startsWith(code))!.querySelector("summary")!.textContent!;
-    for (const c of ["C-05", "C-06", "C-09", "C-12", "C-07.1"]) expect(status(c)).toMatch(/abierta$/);
+    for (const c of ["C-05", "C-06", "C-09", "C-12"]) expect(status(c)).toMatch(/abierta$/);
     for (const c of ["C-01", "C-02", "C-03", "C-04", "C-07", "C-08", "C-10", "C-11"]) expect(status(c)).toMatch(/respondida$/);
-    expect(screen.getByText(/13 vigentes · 8 respondidas · 5 abiertas/)).toBeTruthy();
+    expect(screen.getByText(/12 vigentes · 8 respondidas · 4 abiertas/)).toBeTruthy();
+  });
+
+  it("C-07.1 aparece solo como reclasificada (CALCULATION_VALIDATION), con su fila original preservada", () => {
+    const { container } = render(<QuestionsSection data={caseData()} reload={reload} />);
+    expect(screen.getByText(/Reclasificadas fuera del Judgment \(1, historial\)/)).toBeTruthy();
+    expect(screen.getByText("CALCULATION_VALIDATION")).toBeTruthy();
+    expect(container.textContent).toContain("Texto original: " + RECLASSIFIED_QUESTIONS[0].razon);
+    const summaries = [...container.querySelectorAll("summary")].map((x) => x.textContent ?? "");
+    expect(summaries.filter((t) => t.startsWith("C-07.1"))).toHaveLength(1);
+    expect(summaries.find((t) => t.startsWith("C-07.1"))).not.toMatch(/abierta|respondida/);
+  });
+
+  it("C-07 vigente sin 'pendiente'; la respuesta anterior se ve como superseded", () => {
+    const { container } = render(<QuestionsSection data={caseData()} reload={reload} />);
+    const c07 = [...container.querySelectorAll("details")].find((d) => d.querySelector("summary")?.textContent?.startsWith("C-07Plan"))!;
+    const [current, history] = c07.textContent!.split("Versión anterior (superseded)");
+    expect(current).toContain("TERMINAL REINVESTMENT CHECK");
+    expect(current).not.toContain("Verificación g/ROC terminal pendiente");
+    expect(history).toContain("Verificación g/ROC terminal pendiente");
   });
 
   it("la respuesta Judgment completa y su fuente quedan accesibles (no se resumen)", () => {
@@ -182,6 +211,14 @@ describe("Legibilidad de texto largo", () => {
 });
 
 describe("Challenge", () => {
+  it("TERMINAL REINVESTMENT CHECK: PASS calculado del cálculo persistido y marcado como registrado", () => {
+    render(<ChallengeSection data={caseData()} reload={reload} />);
+    expect(screen.getByText("status = PASS")).toBeTruthy();
+    expect(screen.getByText("19.348.773 / 154.790.064 = 0.125000")).toBeTruthy(); // Net Reinvestment / NOPAT
+    expect(screen.getByText("3% / 24% = 0.125000")).toBeTruthy(); // g / ROC
+    expect(screen.getByText(/Registrado en el audit trail/)).toBeTruthy();
+  });
+
   it("P-12 aparece como NOT IMPLEMENTED / PENDING, sin resultados simulados", () => {
     render(<ChallengeSection data={caseData()} reload={reload} />);
     expect(screen.getByText("NOT IMPLEMENTED · PENDING")).toBeTruthy();
