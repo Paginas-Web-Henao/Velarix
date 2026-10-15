@@ -36,7 +36,7 @@ Clasificación v5.0 tomada de [[01-scope-surgery]] §3 (KEEP / MODIFY / FREEZE) 
 
 | Módulo | Ubicación | Rol v5.0 |
 |---|---|---|
-| [[workbench]] | `src/pages/Workbench.tsx`, `src/components/workbench/` | Interfaz privada de trabajo (requiere auth) |
+| [[workbench]] | `src/pages/Workbench.tsx`, `src/components/workbench/` | Interfaz privada de trabajo (single-owner, sin login; [[ADR-008-single-owner-private-mode]]) |
 | [[quick-model]] | `src/components/demo/QuickModel.tsx`, `src/lib/financial-engine.ts` | Modelo rápido local, **no canónico** (dentro del workbench) |
 
 ## Retirados

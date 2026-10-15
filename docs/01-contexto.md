@@ -44,7 +44,7 @@ Según [[04-VALUATION-METHODOLOGY-V5]] §1: la mayoría de errores serios de val
 
 ## Roles (en código)
 
-`profiles.role` ∈ `user` | `analyst` | `admin` (ver [[07-autenticacion]]). Los roles `analyst`/`admin` vienen del modelo v4.2 (revisión humana). [[01-scope-surgery]] §1 deja abierta la pregunta de si deben colapsar a un solo actor. > Pendiente de confirmar.
+Velarix es un workbench privado de un solo owner, sin login en el flujo normal ([[ADR-008-single-owner-private-mode]]). Internamente `profiles.role` ∈ `user` | `analyst` | `admin` (ver [[07-autenticacion]]); el owner tiene `admin`. Los roles `analyst`/`admin` vienen del modelo v4.2 (revisión humana). [[01-scope-surgery]] §1 deja abierta la pregunta de si deben colapsar a un solo actor. > Pendiente de confirmar.
 
 ## Stack
 

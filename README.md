@@ -4,6 +4,8 @@
 
 It is not a product or a service. It also serves as evidence of technical financial judgment.
 
+> **VELARIX IS A PRIVATE SINGLE-OWNER VALUATION WORKBENCH.** No SaaS. No public authentication flow. No customer accounts.
+
 ## What
 
 - Organizes **evidence**: financial statements, notes and sources with provenance.
@@ -36,15 +38,16 @@ The written methodology has authority over the code:
 | Supabase (`supabase/`) | Private data layer: Postgres + RLS, Auth, Storage, Edge Functions |
 | Financial engine (`supabase/functions/_shared/canonical-financial-engine.ts`) | Deterministic calculation; decides nothing |
 
-The app is private: `/` redirects to `/workbench` (with session) or `/auth`. The Quick Model inside the workbench uses a simpler client-side engine and is **not canonical**.
+The app is private and single-owner: `/` opens `/workbench` directly, with no login screen. Data stays protected by Supabase Auth + RLS under the owner's identity. Locally (`LOCAL_PRIVATE`) the dev server, bound to 127.0.0.1, signs the owner in server-side with credentials that never reach the browser. A deployed build (`DEPLOYED_PRIVATE`) fails closed behind an owner unlock. Details: [`docs/07-autenticacion.md`](docs/07-autenticacion.md). The Quick Model inside the workbench uses a simpler client-side engine and is **not canonical**.
 
 ## How to run
 
 ```bash
 npm install
-npm run dev      # http://localhost:8080 (needs VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY)
+npm run dev      # http://localhost:8080 (needs VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY,
+                 # plus VELARIX_OWNER_EMAIL / VELARIX_OWNER_PASSWORD in .env.local for no-login access)
 npm test         # Vitest suite
-npm run build
+npm run build    # also scans dist/ for server-side secrets
 npm run lint
 ```
 

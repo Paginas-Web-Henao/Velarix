@@ -1,29 +1,31 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 import { obtenerRevisiones } from "@/lib/manual-review-api";
 import { ArrowLeft, AlertTriangle, Clock, CheckCircle, XCircle, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
+// Single-owner (ADR-008): no hay analistas ni admins, solo el owner que
+// revisa su propio Judgment. Etiquetas de UI sobre los estados reales de
+// `manual_reviews.estado` (sin migración): abierto → en revisión →
+// aceptado | rechazado (challenge que bloquea el caso).
 const ESTADO_CONFIG: Record<string, { label: string; icon: any; className: string }> = {
-  pendiente: { label: "Pendiente", icon: Clock, className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  pendiente: { label: "Abierta", icon: Clock, className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
   en_revision: { label: "En revisión", icon: AlertTriangle, className: "bg-primary/15 text-primary border-primary/30" },
-  aprobado: { label: "Aprobado", icon: CheckCircle, className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  bloqueado: { label: "Bloqueado", icon: XCircle, className: "bg-destructive/15 text-destructive border-destructive/30" },
+  aprobado: { label: "Aceptada", icon: CheckCircle, className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  bloqueado: { label: "Rechazada", icon: XCircle, className: "bg-destructive/15 text-destructive border-destructive/30" },
 };
 
 const MOTIVOS: Record<string, string> = {
   cuenta_baja_confianza: "Cuenta con confianza baja",
   validacion_bloqueada: "Validación bloqueada",
   narrativa_fallida: "Auditoría narrativa fallida",
-  solicitud_admin: "Solicitud de administrador",
+  solicitud_admin: "Challenge manual del owner",
 };
 
 // Review Center del workbench (ADR-007): se renderiza embebido en /workbench.
 const AdminReviews = ({ embedded = false }: { embedded?: boolean }) => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [revisiones, setRevisiones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +48,7 @@ const AdminReviews = ({ embedded = false }: { embedded?: boolean }) => {
   };
 
   const filtros = [
-    { key: "pendiente", label: "Pendientes" },
+    { key: "pendiente", label: "Abiertas" },
     { key: "en_revision", label: "En revisión" },
     { key: "todas", label: "Todas" },
   ];
@@ -67,7 +69,8 @@ const AdminReviews = ({ embedded = false }: { embedded?: boolean }) => {
         <div className="mb-6">
           <h1 className="font-display text-lg font-semibold mb-1">Review Center</h1>
           <p className="text-muted-foreground text-xs font-body">
-            Revisión humana (Judgment) de homologaciones, validaciones bloqueadas y narrativas que no pasaron su auditoría.
+            Revisión de Judgment por el owner: homologaciones dudosas, validaciones bloqueadas y narrativas que no pasaron su auditoría.
+            Nada continúa sin una aceptación explícita y documentada (queda en el audit trail).
           </p>
         </div>
 

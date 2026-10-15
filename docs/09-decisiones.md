@@ -26,6 +26,7 @@ Volver a [[00-home]] · Anterior: [[13-testing]] · Siguiente: [[10-roadmap]] ·
 | [[ADR-005-lambda-juicio-directo]] | `country_risk_lambda` admite juicio directo documentado | 2026-09-07 |
 | [[ADR-006-retirar-landing-comercial]] | Se elimina la landing B2B (la parte "Estimador público" quedó superada por ADR-007) | 2026-10-15 |
 | [[ADR-007-personal-valuation-workbench]] | Velarix = Personal Valuation & Projection Workbench; app privada, sin demo pública | 2026-10-15 |
+| [[ADR-008-single-owner-private-mode]] | Single-owner private mode: sin login en el flujo normal; Auth + RLS se conservan (LOCAL_PRIVATE / DEPLOYED_PRIVATE) | 2026-10-15 |
 
 ## Principios metodológicos cerrados (P-01 … P-14)
 

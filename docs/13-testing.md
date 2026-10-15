@@ -16,14 +16,15 @@ Qué protege la suite: [[motor-canonico]], [[supuestos-y-preflight]], [[reproduc
 cd velarix-code
 npm test          # vitest run
 npm run test:watch
+npm run build     # vite build + scripts/check-bundle-secrets.mjs
 npm run lint      # eslint .
 ```
 
 ## Estado verificado (2026-10-15, rama `personal-workbench`)
 
 ```
-Test Files  62 passed (62)
-     Tests  1033 passed | 1 expected fail (1034)
+Test Files  65 passed (65)
+     Tests  1062 passed | 1 expected fail (1063)
 ```
 
 El único fallo esperado es `test.fails` de BUG-01 (revenue = 0 en el motor cliente). Ver [[12-bugs]].
@@ -33,6 +34,7 @@ El único fallo esperado es `test.fails` de BUG-01 (revenue = 0 en el motor clie
 - **Vitest** (`vitest.config.ts`): entorno `jsdom`, `globals: true`, setup `src/test/setup.ts`. Incluye:
   - `src/**/*.{test,spec}.{ts,tsx}`
   - `supabase/functions/_shared/**/*.{test,spec}.ts`
+  - `vite/**/*.{test,spec}.ts` (guards del servidor local, [[ADR-008-single-owner-private-mode]])
   - `scripts/benchmark-ai/**` y `scripts/benchmark-narrative/**`
 - **Testing Library** (`@testing-library/react`, `jest-dom`).
 - **Playwright** configurado (`playwright.config.ts`, `testDir: ./tests`) pero la carpeta no existe: no hay tests E2E.
@@ -50,6 +52,7 @@ El único fallo esperado es `test.fails` de BUG-01 (revenue = 0 en el motor clie
 | `*.characterization.test.ts` | Fija comportamiento actual sin juzgarlo | `financial-engine.characterization.test.ts` |
 | `alpina-2024.*.test.ts` | Caso real Alpina | `canonical-execution`, `resolved-assumptions`, `structured-input` |
 | `scripts/benchmark-*/**.test.ts` | Harness de benchmarks de IA | [[benchmarks-ia]] |
+| Acceso single-owner | Rutas sin login, fail closed, secretos fuera del bundle ([[ADR-008-single-owner-private-mode]]) | `src/test/private-routing.test.tsx`, `src/test/secret-exposure.test.ts`, `src/lib/access-mode.test.ts`, `vite/owner-session-guards.test.ts` |
 
 ## Regla de trabajo (de [[06-tests-first-plan]])
 

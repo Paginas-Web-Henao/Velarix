@@ -35,4 +35,4 @@ flowchart LR
 Paso a paso con la IA: [[VELARIX-VALUATION-SKILL]] (Workflow).
 
 ## Rutas
-`/` → `/workbench` (con sesión) o `/auth` · `/workbench` · `/workbench/reviews/:id` · `/reset-password`. Detalle en [[07-autenticacion]].
+`/` → `/workbench` (sin login, single-owner) · `/workbench` · `/workbench/reviews/:id`. `/auth` y `/reset-password` están retiradas y redirigen al workbench. Sidebar: casos, Quick Model, Review Center, QA, **Settings**. Detalle en [[07-autenticacion]] y [[ADR-008-single-owner-private-mode]].

@@ -28,15 +28,15 @@ flowchart LR
 
 ## Frontend (`src/`)
 
-- Entrada: `src/main.tsx` → `src/App.tsx` (React Router, `QueryClientProvider`, `AuthProvider`).
-- Rutas: `/` (redirige a `/workbench` con sesión o a `/auth`), `/auth` (solo login y recuperación), `/workbench`, `/workbench/reviews/:revisionId`, `/reset-password`, `*`. `/dashboard/*` y `/admin/*` solo redirigen (compatibilidad con emails viejos). Todo lo de `/workbench` usa `ProtectedRoute`. No hay landing ni demo pública ([[ADR-006-retirar-landing-comercial]], [[ADR-007-personal-valuation-workbench]]).
+- Entrada: `src/main.tsx` → `src/App.tsx` (React Router, `QueryClientProvider`, `OwnerSessionProvider`).
+- Rutas: `/` (→ `/workbench`), `/workbench`, `/workbench/reviews/:revisionId`, `*`. `/auth`, `/login`, `/register`, `/signup`, `/reset-password`, `/dashboard/*` y `/admin/*` solo redirigen. Todo lo de `/workbench` va dentro de `OwnerGate` (single-owner private mode, [[ADR-008-single-owner-private-mode]]): la sesión del owner llega sola en LOCAL_PRIVATE (plugin `vite/owner-session.ts`, solo `vite dev` en 127.0.0.1) y en DEPLOYED_PRIVATE hay que desbloquear (fail closed). No hay landing ni demo pública ([[ADR-006-retirar-landing-comercial]], [[ADR-007-personal-valuation-workbench]]).
 - Alias `@` → `src/` (vite y vitest).
 - Acceso a backend: `src/integrations/supabase/client.ts`, `src/lib/api-client.ts`, `src/lib/manual-review-api.ts`.
 - Motor **cliente** (`src/lib/financial-engine.ts`): solo lo usa el [[quick-model]], que no es canónico.
 - Workbench: `src/pages/Workbench.tsx` + `src/components/workbench/`. Ver [[workbench]].
 - PDF: `src/lib/pdf-generator.ts` + `src/lib/pdf-canonical-mapper.ts` (se genera en el navegador a partir del snapshot canónico). Ver [[informes-pdf]].
 
-Detalle de auth y rutas protegidas: [[07-autenticacion]].
+Detalle de acceso, secretos y rutas: [[07-autenticacion]].
 
 ## Backend (`supabase/`)
 

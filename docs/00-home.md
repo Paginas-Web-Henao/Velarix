@@ -9,6 +9,8 @@ tags: [velarix, home]
 
 **Personal Valuation & Projection Workbench**: mi sistema para estudiar empresas, preservar Evidence, documentar Judgment, ejecutar Calculation determinístico y producir valoraciones defendibles, trazables y reproducibles. No es un producto ni un negocio ([[ADR-007-personal-valuation-workbench]]).
 
+> **VELARIX IS A PRIVATE SINGLE-OWNER VALUATION WORKBENCH.** Sin SaaS, sin flujo de autenticación público, sin cuentas de clientes. Se abre directo en `/workbench`; los datos siguen protegidos por Supabase Auth + RLS con la identidad del owner ([[ADR-008-single-owner-private-mode]], [[07-autenticacion]]).
+
 > **Evidence ≠ Judgment ≠ Calculation.** El motor calcula. La metodología gobierna. El humano decide.
 
 ## Active Case
@@ -35,6 +37,7 @@ Mapas: [[01-METHODOLOGY]] · [[02-SYSTEM]] · [[03-WORKBENCH]] · [[04-CASES]] �
 | Now | Next | Blocked |
 |---|---|---|
 | Revisar el workbench privado (rama `personal-workbench`, sin merge) | Alpina por `ejecutar-calculo` y suite de sensibilidades P-12 | Evidence de Alpina 4B–4F no versionada en el repo |
+| Configurar `.env.local` con las credenciales del owner (LOCAL_PRIVATE) | | |
 | Documentar Company Understanding y Normalizations de Alpina en su case MOC | Writeup final del caso | Decisiones de roles y signups (abajo) |
 
 Detalle: [[10-roadmap]] · [[11-pendientes]]
@@ -53,7 +56,7 @@ Alpina: [[cases/alpina/00-case-home\|case home]] · evidence y supuestos en `alp
 
 ## Open Decisions
 
-1. Roles: dejar `user/analyst/admin` como está o pasar a dueño único ([[ADR-007-personal-valuation-workbench]]).
+1. Roles: hoy el owner conserva `admin` internamente sin migración ([[ADR-008-single-owner-private-mode]]). Pendiente: pasar a dueño único puro (opción B de [[ADR-007-personal-valuation-workbench]], migración remota).
 2. Desactivar los signups en Supabase Auth (ajuste remoto; la UI ya no ofrece registro).
 3. Prompt de `generate-narrative` ("plataforma de inteligencia financiera institucional"): reescribirlo o dejarlo, dado el benchmark congelado.
 4. Dónde versionar la evidencia de Alpina (4B–4F).

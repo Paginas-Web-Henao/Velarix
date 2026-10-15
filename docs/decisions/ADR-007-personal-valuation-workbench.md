@@ -40,10 +40,10 @@ Regla central: **Evidence ≠ Judgment ≠ Calculation**. El motor calcula, la m
 
 ## Consecuencias
 
-- La raíz de la aplicación deja de ser una demo pública: `/` redirige a `/workbench` con sesión o a `/auth` sin ella.
+- La raíz de la aplicación deja de ser una demo pública: `/` redirige a `/workbench` con sesión o a `/auth` sin ella. *(Actualizado por [[ADR-008-single-owner-private-mode]]: ya no hay `/auth`; `/` entra directo.)*
 - `/workbench` es la única vista de trabajo. `/dashboard` y `/admin/revisiones` se absorben y solo quedan redirecciones de compatibilidad.
 - El Estimador pasa a ser **Quick Model**: local, exploratorio y **no canónico**. No se unifica con el motor canónico (sigue `NOT BUILDING`).
-- Sin registro público: el login solo inicia sesión o recupera la contraseña.
+- Sin registro público: el login solo inicia sesión o recupera la contraseña. *(Superado por [[ADR-008-single-owner-private-mode]]: no hay login en el flujo normal.)*
 - El entregable 4 del roadmap v5.0 ("Estimador como demo pública sin login") queda **superado**: no hay demo pública.
 - Supabase vuelve a ser central como **Private Valuation Data Layer**. Se conservan Auth, RLS, Storage y las Edge Functions.
 

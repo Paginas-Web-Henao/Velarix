@@ -107,7 +107,7 @@ const AdminReviewDetail = () => {
     setProcessing(true);
     try {
       await aprobarRevision({ revisionId: revisionId!, notas: notasResolucion });
-      toast.success("Revisión aprobada. El flujo continuará automáticamente.");
+      toast.success("Revisión aceptada. El flujo continuará automáticamente.");
       setTimeout(() => navigate("/workbench?view=reviews"), 1500);
     } catch (err: any) {
       toast.error(err.message);
@@ -292,7 +292,7 @@ const AdminReviewDetail = () => {
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 <CheckCircle size={16} className="mr-2" />
-                {processing ? "Procesando..." : "Aprobar y continuar análisis"}
+                {processing ? "Procesando..." : "Aceptar y continuar análisis"}
               </Button>
 
               <Button
@@ -302,12 +302,12 @@ const AdminReviewDetail = () => {
                 className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10"
               >
                 <XCircle size={16} className="mr-2" />
-                Bloquear definitivamente
+                Rechazar y bloquear
               </Button>
             </div>
 
             <p className="text-muted-foreground/50 text-[11px] font-body">
-              Al aprobar, el análisis continuará desde donde fue detenido. Al bloquear, queda cerrado y el usuario es notificado.
+              Al aceptar, el análisis continuará desde donde fue detenido. Al rechazar, el caso queda bloqueado. Ambas decisiones quedan registradas en el audit trail.
             </p>
           </CardContent>
         </Card>

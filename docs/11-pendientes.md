@@ -25,6 +25,9 @@ Solo trabajo derivado del alcance congelado v5.0 o de hechos verificables en el 
 - [ ] Decidir si el [[quick-model]] se conserva, refleja el motor canónico o se retira. Unificar sigue siendo `NOT BUILDING`.
 - [ ] Desplegar el frontend y la Edge Function `enviar-notificacion` (cambiaron copy y enlaces) tras el merge.
 - [ ] Desactivar los signups en Supabase Auth (ajuste remoto).
+- [x] Single-owner private mode: sin login en el flujo normal; Auth + RLS conservados. → [[ADR-008-single-owner-private-mode]]
+- [ ] Añadir `VELARIX_OWNER_EMAIL` / `VELARIX_OWNER_PASSWORD` a `.env.local` y confirmar que la cuenta owner tiene `role = 'admin'` (Settings lo muestra).
+- [ ] Deuda: roles `user/analyst/admin` y regla de no auto-aprobación siguen en BD y `authorization.ts`; dueño único puro = opción B de [[ADR-007-personal-valuation-workbench]] (migración remota, requiere confirmación).
 
 ## Cierre (prioridad 3)
 

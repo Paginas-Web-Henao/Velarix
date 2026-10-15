@@ -12,7 +12,7 @@ tags: [velarix, moc, system]
 |---|---|---|
 | Obsidian | Metodología, research, casos, decisiones | [[00-home]] |
 | Claude / ChatGPT | Copiloto: research, preguntas, explicación; nunca aprueba | [[07-SKILL]] |
-| Workbench | Interfaz privada | [[03-WORKBENCH]] |
+| Workbench | Interfaz privada single-owner (sin login; LOCAL_PRIVATE / DEPLOYED_PRIVATE) | [[03-WORKBENCH]] · [[ADR-008-single-owner-private-mode]] |
 | Supabase | Private Valuation Data Layer | [[05-base-de-datos]] · [[06-api]] · [[07-autenticacion]] |
 | Financial engine | Cálculo determinístico | [[motor-canonico]] |
 
@@ -28,7 +28,7 @@ tags: [velarix, moc, system]
 - Integraciones externas: [[08-integraciones]] · Benchmarks de IA: [[benchmarks-ia]]
 
 ## Seguridad
-- [[07-autenticacion]] · [[autorizacion]] · RLS y storage en [[05-base-de-datos]]
+- [[07-autenticacion]] (single-owner private mode, cómo se protege Supabase sin pantalla de login) · [[autorizacion]] · RLS y storage en [[05-base-de-datos]]
 
 ## Operación
 - [[13-testing]] · [[14-deploy]] · [[12-bugs]]

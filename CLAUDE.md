@@ -1,6 +1,6 @@
 # CLAUDE.md — Velarix
 
-**Velarix is a personal valuation & projection workbench, not a commercial product.** One user: Nicolás.
+**VELARIX IS A PRIVATE SINGLE-OWNER VALUATION WORKBENCH, not a commercial product.** One owner: Nicolás. No SaaS, no public authentication flow, no customer accounts (ADR-008).
 
 ## Rules
 
@@ -13,6 +13,7 @@
 - `docs/velarix/` and `Negocio*.md` are **historical / superseded** (see `docs/99-archive.md`). Never treat them as current scope.
 - Do not read or print `.env*`, `.vercel/`, `supabase/.temp/`. Ignore `velarix-code-latest/`.
 - No destructive Supabase changes (drops, RLS removal, remote migrations) without explicit confirmation.
+- **No login UI ≠ no security** (ADR-008): keep Supabase Auth + RLS. Never put secret/service_role keys or owner credentials in `VITE_*` or client code; the owner session comes from `vite/owner-session.ts` (dev server, loopback only). See `docs/07-autenticacion.md`.
 
 ## Read first
 
@@ -36,7 +37,7 @@
 
 - **Single root:** `velarix-code/` is the git repo, VS Code folder, Claude Code project and Obsidian vault (`.obsidian/`). Nothing active lives outside it.
 - `evidence/` = raw evidence (benchmark JSONL is git-ignored per D-11; never commit provider outputs or private evidence without asking). `assets/brand/` = logos. `docs/archive/source-material/` = original v1 PDFs/DOCX (historical).
-- App (private): `/` → `/workbench` (session) or `/auth`; workbench in `src/pages/Workbench.tsx` + `src/components/workbench/`.
+- App (private, single-owner): `/` → `/workbench` (no login; `OwnerGate` + `OwnerSessionContext`, modes LOCAL_PRIVATE / DEPLOYED_PRIVATE in `src/lib/access-mode.ts`); workbench in `src/pages/Workbench.tsx` + `src/components/workbench/`.
 - Canonical engine: `supabase/functions/_shared/canonical-financial-engine.ts`. Assumptions/preflight: `_shared/resolved-calculation-assumptions.ts`, `_shared/calculation-preflight.ts`. Alpina: `_shared/alpina-2024.*`.
-- Commands: `npm run dev` (8080) · `npm test` (green except 1 known `test.fails`) · `npm run build` · `npm run lint` (266 pre-existing errors; add none).
+- Commands: `npm run dev` (8080) · `npm test` (green except 1 known `test.fails`) · `npm run build` (+ bundle secret scan) · `npm run lint` (266 pre-existing errors; add none).
 - Claude Code: skill `velarix-valuation`, commands `/velarix-new-case`, `/velarix-review-evidence`, `/velarix-assumptions`, `/velarix-run-valuation`, `/velarix-challenge`, `/velarix-case-summary`.

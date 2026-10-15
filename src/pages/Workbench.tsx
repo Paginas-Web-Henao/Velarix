@@ -2,37 +2,36 @@
 // valoración = una fila de `analyses`. Estado de navegación en la URL
 // (?case=…&tab=… / ?view=…) para no multiplicar rutas.
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Calculator, ClipboardCheck, FolderOpen, LogOut, Plus, ShieldCheck, User } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { Calculator, ClipboardCheck, FolderOpen, Plus, Settings, ShieldCheck } from "lucide-react";
+import { useOwnerSession } from "@/contexts/OwnerSessionContext";
 import { supabase } from "@/integrations/supabase/client";
 import NewAnalysisStepper from "@/components/dashboard/NewAnalysisStepper";
 import QAChecklist from "@/components/dashboard/QAChecklist";
-import UserProfile from "@/components/dashboard/UserProfile";
 import QuickModel from "@/components/demo/QuickModel";
 import AdminReviews from "@/pages/AdminReviews";
+import SettingsPanel from "@/components/workbench/SettingsPanel";
 import CaseWorkbench, { CASE_TABS, type CaseTab } from "@/components/workbench/CaseWorkbench";
 import { CASE_STATUS } from "@/components/workbench/case-status";
 import { DataTable, Empty, Panel } from "@/components/workbench/ui";
 import { date, fmt } from "@/components/workbench/format";
 import type { CaseRow } from "@/components/workbench/useCaseData";
 
-type ToolView = "new" | "reviews" | "qa" | "account";
+type ToolView = "new" | "reviews" | "qa" | "settings";
 type CaseSummary = Pick<CaseRow, "id" | "company_name" | "sector" | "status" | "updated_at" | "moneda_analisis" | "calculation_result">;
 
 const TOOLS: { key: ToolView; label: string; icon: typeof Plus }[] = [
   { key: "new", label: "Nuevo caso", icon: Plus },
   { key: "reviews", label: "Review Center", icon: ShieldCheck },
   { key: "qa", label: "QA Checklist", icon: ClipboardCheck },
-  { key: "account", label: "Cuenta", icon: User },
+  { key: "settings", label: "Settings", icon: Settings },
 ];
 
 const isCaseTab = (v: string | null): v is CaseTab => CASE_TABS.some((t) => t.key === v);
 
 export default function Workbench() {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
+  const { user, mode } = useOwnerSession();
   const [params, setParams] = useSearchParams();
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +40,8 @@ export default function Workbench() {
   const caseId = params.get("case");
   const tabParam = params.get("tab");
   const tab: CaseTab = isCaseTab(tabParam) ? tabParam : "evidence";
-  const viewParam = params.get("view");
+  // `?view=account` (antigua vista "Cuenta") se abre como Settings.
+  const viewParam = params.get("view") === "account" ? "settings" : params.get("view");
   const view = TOOLS.some((t) => t.key === viewParam) ? (viewParam as ToolView) : null;
 
   const loadCases = useCallback(async () => {
@@ -68,11 +68,6 @@ export default function Workbench() {
     loadCases();
   };
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate("/auth", { replace: true });
-  };
-
   const valuationOf = (c: CaseSummary) =>
     (c.calculation_result as { valuation?: { enterpriseValue?: number; equityValue?: number } } | null)?.valuation;
 
@@ -84,12 +79,9 @@ export default function Workbench() {
           <button onClick={() => setParams({})} className="font-display text-sm font-bold">Velarix</button>
           <span className="font-mono text-[10px] text-muted-foreground">VALUATION WORKBENCH</span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="font-mono text-[10px] text-muted-foreground">{user?.email}</span>
-          <button onClick={handleLogout} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive">
-            <LogOut size={12} /> Salir
-          </button>
-        </div>
+        <span className="font-mono text-[10px] text-muted-foreground" title="Single-owner private mode (ADR-008)">
+          {mode === "local_private" ? "LOCAL_PRIVATE" : "DEPLOYED_PRIVATE"}
+        </span>
       </header>
 
       <div className="flex flex-1 min-h-0">
@@ -144,8 +136,8 @@ export default function Workbench() {
             <div className="p-4"><AdminReviews embedded /></div>
           ) : view === "qa" ? (
             <div className="p-4"><QAChecklist /></div>
-          ) : view === "account" ? (
-            <div className="p-4"><UserProfile /></div>
+          ) : view === "settings" ? (
+            <div className="p-4"><SettingsPanel /></div>
           ) : (
             <div className="p-4 space-y-3">
               <Panel title="Casos de valoración" right={<button onClick={() => openTool("new")} className="flex items-center gap-1 text-xs text-primary hover:underline"><FolderOpen size={12} /> Nuevo caso</button>}>

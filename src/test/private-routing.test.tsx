@@ -1,21 +1,13 @@
-// ADR-007 — Velarix es una app privada: no hay landing ni demo pública.
-// Fija el contrato de rutas: "/" redirige según sesión, /workbench exige
-// sesión, el logout vuelve a /auth y las rutas legacy redirigen.
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+// ADR-008 — single-owner private mode. Fija el contrato de rutas: "/"
+// entra directo al workbench, no existe flujo de login/registro/
+// recuperación, y sin sesión del owner la app queda bloqueada (fail
+// closed) en vez de abrirse.
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 
-const auth = vi.hoisted(() => ({
-  user: null as null | { id: string; email: string },
-  loading: false,
-  signOut: vi.fn(async () => { auth.user = null; }),
-}));
-
-vi.mock("@/contexts/AuthContext", () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useAuth: () => ({
-    user: auth.user, session: null, loading: auth.loading, signOut: auth.signOut,
-    signIn: vi.fn(), signUp: vi.fn(), resetPassword: vi.fn(), updatePassword: vi.fn(),
-  }),
+const sb = vi.hoisted(() => ({
+  session: null as null | { user: { id: string; email: string } },
+  setSession: vi.fn(),
 }));
 
 // Cliente Supabase inerte: cualquier cadena de query resuelve a lista vacía.
@@ -26,64 +18,86 @@ vi.mock("@/integrations/supabase/client", () => {
   chain.maybeSingle = async () => ({ data: null, error: null });
   chain.single = async () => ({ data: null, error: null });
   chain.then = (resolve: (v: typeof result) => unknown) => Promise.resolve(result).then(resolve);
-  return { supabase: { from: () => chain, auth: { getSession: async () => ({ data: { session: null } }) } } };
+  return {
+    supabase: {
+      from: () => chain,
+      auth: {
+        getSession: async () => ({ data: { session: sb.session } }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+        setSession: sb.setSession,
+        signInWithPassword: vi.fn(async () => ({ error: null })),
+        signOut: vi.fn(async () => ({ error: null })),
+      },
+    },
+  };
 });
 
 import App from "@/App";
+
+const OWNER = { user: { id: "owner-1", email: "owner@example.com" } };
+const fetchMock = vi.fn();
 
 function renderAt(path: string) {
   window.history.pushState({}, "", path);
   return render(<App />);
 }
 
-describe("rutas privadas (ADR-007)", () => {
-  beforeEach(() => { auth.user = null; auth.loading = false; auth.signOut.mockClear(); });
-
-  it("'/' sin sesión redirige a /auth (no hay home pública)", async () => {
-    renderAt("/");
-    await waitFor(() => expect(window.location.pathname).toBe("/auth"));
-    expect(screen.getByText("Personal Valuation Workbench")).toBeTruthy();
-    expect(screen.queryByText(/Crear cuenta/i)).toBeNull();
+describe("single-owner private mode (ADR-008)", () => {
+  beforeEach(() => {
+    sb.session = OWNER;
+    sb.setSession.mockReset();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
   });
+  afterEach(() => vi.unstubAllGlobals());
 
-  it("'/' con sesión redirige a /workbench", async () => {
-    auth.user = { id: "u1", email: "n@example.com" };
+  it("'/' termina en /workbench y el workbench carga", async () => {
     renderAt("/");
     await waitFor(() => expect(window.location.pathname).toBe("/workbench"));
-    expect(screen.getByText("VALUATION WORKBENCH")).toBeTruthy();
+    expect(await screen.findByText("VALUATION WORKBENCH")).toBeTruthy();
+    expect(screen.getByText("LOCAL_PRIVATE")).toBeTruthy();
   });
 
-  it("/workbench sin sesión redirige a /auth", async () => {
+  it.each(["/auth", "/login", "/register", "/signup", "/reset-password"])("%s ya no existe: redirige a /workbench", async (path) => {
+    renderAt(path);
+    await waitFor(() => expect(window.location.pathname).toBe("/workbench"));
+    expect(await screen.findByText("VALUATION WORKBENCH")).toBeTruthy();
+  });
+
+  it("no hay login, registro, recuperación de contraseña ni logout visibles", async () => {
     renderAt("/workbench");
-    await waitFor(() => expect(window.location.pathname).toBe("/auth"));
+    await screen.findByText("VALUATION WORKBENCH");
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/Iniciar sesi[oó]n|Registr|Crear cuenta|Sign ?up|contraseña|Recuperar|Salir|Cuenta\b/i);
+    expect(screen.getByText("Settings")).toBeTruthy();
   });
 
-  it("/auth con sesión redirige a /workbench", async () => {
-    auth.user = { id: "u1", email: "n@example.com" };
-    renderAt("/auth");
-    await waitFor(() => expect(window.location.pathname).toBe("/workbench"));
+  it("LOCAL_PRIVATE sin sesión: la pide al servidor local y entra sin interacción", async () => {
+    sb.session = null;
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ access_token: "a", refresh_token: "r" }), { status: 200 }));
+    sb.setSession.mockImplementation(async () => { sb.session = OWNER; return { error: null }; });
+    renderAt("/");
+    expect(await screen.findByText("VALUATION WORKBENCH")).toBeTruthy();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/__velarix/owner-session");
+    expect(init).toMatchObject({ method: "POST", headers: { "x-velarix-owner": "1" } });
+    expect(sb.setSession).toHaveBeenCalledWith({ access_token: "a", refresh_token: "r" });
   });
 
-  it("logout cierra sesión y vuelve a /auth", async () => {
-    auth.user = { id: "u1", email: "n@example.com" };
-    const view = renderAt("/workbench");
-    fireEvent.click(await screen.findByText("Salir"));
-    await waitFor(() => expect(auth.signOut).toHaveBeenCalled());
-    view.rerender(<App />);
-    await waitFor(() => expect(window.location.pathname).toBe("/auth"));
+  it("sin sesión y sin servidor local: fail closed (bloqueado, sin datos, sin registro)", async () => {
+    sb.session = null;
+    fetchMock.mockResolvedValue(new Response(null, { status: 404 }));
+    renderAt("/workbench");
+    expect(await screen.findByText("Velarix bloqueado")).toBeTruthy();
+    expect(screen.queryByText("VALUATION WORKBENCH")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Registr|Crear cuenta|Sign ?up|Recuperar|Olvidaste/i);
+    expect(window.location.pathname).toBe("/workbench");
   });
 
-  it("rutas legacy /dashboard y /admin redirigen al workbench (y exigen sesión)", async () => {
-    auth.user = { id: "u1", email: "n@example.com" };
+  it("rutas legacy /dashboard y /admin redirigen al workbench", async () => {
     renderAt("/dashboard/analisis/abc");
     await waitFor(() => expect(window.location.pathname).toBe("/workbench"));
     renderAt("/admin/revisiones");
     await waitFor(() => expect(window.location.search).toBe("?view=reviews"));
-  });
-
-  it("no queda ningún texto comercial ni de demo en la entrada", async () => {
-    renderAt("/");
-    await waitFor(() => expect(window.location.pathname).toBe("/auth"));
-    expect(document.body.textContent).not.toMatch(/cuenta gratuita|Solicitar demo|institucional|\bDemo\b/i);
   });
 });

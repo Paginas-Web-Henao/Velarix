@@ -13,13 +13,15 @@ tags: [velarix, modulo, workbench]
 Interfaz privada de trabajo (`/workbench`). Un **caso** es una fila de `analyses`. El estado de navegación vive en la URL (`?case=<id>&tab=<sección>`, `?view=new|reviews|qa|account`) para no multiplicar rutas.
 
 ## Archivos
-- `src/pages/Workbench.tsx`: barra superior, panel lateral (casos, Quick Model, Review Center, QA, Cuenta) y vista principal.
+- `src/pages/Workbench.tsx`: barra superior, panel lateral (casos, Quick Model, Review Center, QA, Settings); la barra superior muestra el modo de acceso (LOCAL_PRIVATE / DEPLOYED_PRIVATE), sin email ni logout y vista principal.
+- `src/components/workbench/OwnerGate.tsx` + `src/contexts/OwnerSessionContext.tsx`: acceso single-owner sin login ([[ADR-008-single-owner-private-mode]]).
+- `src/components/workbench/SettingsPanel.tsx`: modo, Supabase, sesión del owner y rol interno (sustituye a "Cuenta").
 - `src/components/workbench/CaseWorkbench.tsx`: cabecera del caso (A) y pestañas B–K.
 - `src/components/workbench/CaseSections.tsx`: secciones de solo lectura sobre Supabase y el envelope canónico.
 - `src/components/workbench/useCaseData.ts`: carga del caso (bajo RLS).
 - `src/components/workbench/ui.tsx`, `format.ts`: primitivas (Panel, DataTable, etiquetas de capa).
 - `src/lib/canonical-pdf-download.ts`: PDF fail-closed desde el `calculation_result` canónico.
-- Reutilizados de `src/components/dashboard/`: `NewAnalysisStepper` (nuevo caso), `DocumentUpload`, `ProgressPanel`, `QAChecklist`, `UserProfile`.
+- Reutilizados de `src/components/dashboard/`: `NewAnalysisStepper` (nuevo caso), `DocumentUpload`, `ProgressPanel`, `QAChecklist` (`UserProfile` se eliminó con ADR-008).
 - Review Center: `src/pages/AdminReviews.tsx` embebido; detalle en `/workbench/reviews/:revisionId` (`AdminReviewDetail.tsx`).
 
 ## Secciones del caso
