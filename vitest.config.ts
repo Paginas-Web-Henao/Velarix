@@ -13,6 +13,7 @@ export default defineConfig({
       "supabase/functions/_shared/**/*.{test,spec}.ts",
       "vite/**/*.{test,spec}.ts",
       "scripts/benchmark-ai/**/*.{test,spec}.ts",
+      "scripts/alpina/**/*.{test,spec}.ts",
       "scripts/benchmark-narrative/**/*.{test,spec}.ts",
     ],
   },
