@@ -50,11 +50,10 @@ export default function CaseWorkbench({ caseId, tab, onTabChange, onArchive }: P
             <div className="mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-0.5 font-mono text-[10px] text-muted-foreground">
               <span>{a.sector}</span>
               <span>moneda {a.moneda_analisis ?? "—"}</span>
-              <span>período base {cr?.source_input_snapshot?.base_period ?? "—"}</span>
-              <span title="No hay columna en BD: se documenta en el case MOC">fecha de valoración —</span>
-              <span title="No hay columna en BD: se documenta en el case MOC">basis of value —</span>
-              <span className={status?.color}>{status?.label}</span>
-              <span>actualizado {date(a.updated_at)}</span>
+              <span>período base {a.base_period ?? cr?.source_input_snapshot?.base_period ?? "—"}</span>
+              <span>fecha de valoración {a.valuation_date ?? "—"}</span>
+              <span>basis of value {a.basis_of_value ?? "—"}</span>
+              <span className={status?.color} title={`actualizado ${date(a.updated_at)}`}>{status?.label}</span>
               {cr?.valuation && <span className="text-foreground">EV {fmt(cr.valuation.enterpriseValue)} · Equity {fmt(cr.valuation.equityValue)}</span>}
             </div>
           </div>

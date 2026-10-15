@@ -7,8 +7,10 @@ import DocumentUpload from "@/components/dashboard/DocumentUpload";
 import { downloadCanonicalPdf } from "@/lib/canonical-pdf-download";
 import type { PersistedCalculationResult, ResolvedCalculationAssumptions } from "@/types/calculation-result";
 import { evaluateMinimumExpedienteCheckpoint } from "../../../supabase/functions/_shared/minimum-expediente-checkpoint";
+import { parseBusinessProfile, type SourcedItem } from "@/types/case-metadata";
 import type { CaseData } from "./useCaseData";
-import { DataTable, Empty, KV, type Layer, LayerTag, Panel } from "./ui";
+import { DataTable, Empty, KV, type Layer, LayerTag, LongText, Panel } from "./ui";
+import { caseProvenance, officialVerification, questionThreads, questionTitle, splitSource, type ProvenanceState, type SourceLayer } from "./case-provenance";
 import { date, fmt, fmt2, pct } from "./format";
 
 interface SectionProps {
@@ -23,12 +25,37 @@ const noCalc = (
   </Empty>
 );
 
+const TONE: Record<ProvenanceState["tone"], string> = {
+  ok: "text-emerald-300",
+  info: "text-sky-300",
+  missing: "text-amber-300",
+};
+
+function ProvenanceRow({ label, state }: { label: string; state: ProvenanceState }) {
+  return (
+    <div className="grid grid-cols-[minmax(150px,max-content)_1fr] gap-x-4 py-1 border-b border-border/40 last:border-0">
+      <span className="font-body text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs">
+        <span className={`font-mono text-[11px] ${TONE[state.tone]}`}>{state.status}</span>
+        <span className="block text-[11px] text-muted-foreground whitespace-normal">{state.detail}</span>
+      </span>
+    </div>
+  );
+}
+
+/** Origen de los números: evidencia canónica del repo ≠ documentos subidos a Supabase. */
+export function SourceLayerTag({ layer }: { layer: SourceLayer }) {
+  const style = layer === "REPO_CANONICAL_EVIDENCE" ? "text-violet-300 bg-violet-500/10 border-violet-500/30" : "text-sky-300 bg-sky-500/10 border-sky-500/30";
+  return <span className={`inline-block border rounded px-1 py-px font-mono text-[9px] tracking-wide ${style}`}>{layer}</span>;
+}
+
 // ── B. EVIDENCE ────────────────────────────────────────────────────────────
 export function EvidenceSection({ data, reload }: SectionProps) {
   const [uploading, setUploading] = useState(false);
   const cr = data.calculation;
   const snap = cr?.source_input_snapshot;
   const prov = cr?.provenance;
+  const states = caseProvenance(data);
 
   if (uploading && data.analysis) {
     return (
@@ -41,11 +68,16 @@ export function EvidenceSection({ data, reload }: SectionProps) {
   return (
     <div className="grid gap-3 xl:grid-cols-2">
       <Panel
-        title="Documentos"
+        title="Documentos (SUPABASE_DOCUMENT_EVIDENCE)"
         layer="EVIDENCE"
         right={<button onClick={() => setUploading(true)} className="flex items-center gap-1 text-xs text-primary hover:underline"><Upload size={12} /> Cargar</button>}
       >
-        {data.documents.length === 0 ? <Empty>Sin documentos cargados.</Empty> : (
+        {data.documents.length === 0 ? (
+          <Empty>
+            Sin documentos cargados en Storage.
+            {states.evidenceLayer === "REPO_CANONICAL_EVIDENCE" && " Este caso se materializó desde evidencia canónica del repo, no desde documentos subidos: no se simula ninguna ingesta."}
+          </Empty>
+        ) : (
           <DataTable
             head={["Archivo", "Tipo declarado", "Estado", "Cargado"]}
             numericFrom={9}
@@ -55,10 +87,15 @@ export function EvidenceSection({ data, reload }: SectionProps) {
       </Panel>
 
       <Panel title="Provenance" layer="EVIDENCE">
-        {!prov ? <Empty>Sin provenance: no hay cálculo canónico persistido.</Empty> : (
+        <div className="mb-2">
+          <ProvenanceRow label="Case source provenance" state={states.caseSource} />
+          <ProvenanceRow label="Document provenance" state={states.documents} />
+          <ProvenanceRow label="Account homologation lineage" state={states.accountLineage} />
+        </div>
+        {!prov ? <Empty>Sin envelope de provenance: no hay cálculo canónico persistido.</Empty> : (
           <div className="space-y-2">
             <KV rows={[
-              { k: "Estado global", v: prov.overall_status },
+              { k: "Estado global (lineage documental)", v: prov.overall_status },
               { k: "Período base", v: prov.period_selection?.base_period ?? snap?.base_period ?? "—" },
               { k: "Modo de selección", v: prov.period_selection?.selection_mode ?? "—" },
               { k: "Moneda análisis / documento", v: `${prov.currency?.moneda_analisis ?? "—"} / ${prov.currency?.moneda_documento ?? "—"}` },
@@ -66,13 +103,16 @@ export function EvidenceSection({ data, reload }: SectionProps) {
               { k: "Documentos / homologaciones", v: `${prov.document_ids?.length ?? 0} / ${prov.homologation_ids?.length ?? 0}` },
             ]} />
             {prov.warnings?.length > 0 && (
-              <ul className="list-disc pl-4 text-xs text-amber-300">{prov.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+              <details className="text-[11px] text-muted-foreground">
+                <summary className="cursor-pointer">Detalle técnico del envelope ({prov.warnings.length})</summary>
+                <ul className="list-disc pl-4 mt-1 space-y-0.5 whitespace-normal">{prov.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+              </details>
             )}
           </div>
         )}
       </Panel>
 
-      <Panel title="Estados financieros observados (source_input_snapshot)" layer="EVIDENCE">
+      <Panel title="Estados financieros observados (source_input_snapshot)" layer="EVIDENCE" right={states.evidenceLayer ? <SourceLayerTag layer={states.evidenceLayer} /> : undefined}>
         {!snap ? <Empty>Sin snapshot de Evidence.</Empty> : (
           <div className="grid gap-4 md:grid-cols-2">
             <DataTable head={["Estado de resultados", "Valor"]} rows={Object.entries(snap.income_statement).map(([k, v]) => [k, fmt(v)])} />
@@ -85,24 +125,63 @@ export function EvidenceSection({ data, reload }: SectionProps) {
 }
 
 // ── C. COMPANY UNDERSTANDING ──────────────────────────────────────────────
+function SourcedList({ items, gap }: { items: SourcedItem[]; gap?: string }) {
+  if (items.length === 0) return <Empty>{gap ?? "No documentado."}</Empty>;
+  return (
+    <ul className="space-y-1.5">
+      {items.map((it, i) => (
+        <li key={i} className="text-xs text-foreground whitespace-normal">
+          {it.text}
+          <span className="block text-[10px] text-muted-foreground break-words">Fuente: {it.source}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function UnderstandingSection({ data }: SectionProps) {
   const a = data.analysis;
+  const bp = parseBusinessProfile(a?.business_profile);
+  const blocks: [string, keyof NonNullable<typeof bp>["gaps"], SourcedItem[]][] = bp
+    ? [["Segmentos", "segments", bp.segments], ["Geografías", "geographies", bp.geographies], ["Drivers de valor (documentados)", "value_drivers", bp.value_drivers], ["Riesgos clave", "key_risks", bp.key_risks]]
+    : [];
   return (
-    <div className="grid gap-3 xl:grid-cols-2">
-      <Panel title="Contexto registrado" layer="EVIDENCE">
-        <KV rows={[
-          { k: "Empresa", v: a?.company_name ?? "—" },
-          { k: "Sector", v: a?.sector ?? "—" },
-          { k: "Moneda del análisis", v: a?.moneda_analisis ?? "—" },
-        ]} />
-      </Panel>
-      <Panel title="Comprensión del negocio">
-        <Empty>
-          Velarix no tiene todavía una tabla para la comprensión del negocio (segmentos, geografía, drivers, riesgos).
-          Esa información se documenta en el case MOC de Obsidian (<code>docs/cases/&lt;caso&gt;/00-case-home.md</code>).
-          Las interpretaciones de cuentas materiales están en Accounts.
-        </Empty>
-      </Panel>
+    <div className="grid gap-3">
+      <div className="grid gap-3 xl:grid-cols-2">
+        <Panel title="Contexto registrado" layer="EVIDENCE">
+          <KV rows={[
+            { k: "Empresa", v: a?.company_name ?? "—" },
+            { k: "Sector", v: a?.sector ?? "—" },
+            { k: "Moneda del análisis", v: a?.moneda_analisis ?? "—" },
+            { k: "Interés valorado", v: <span className="whitespace-normal font-body">{a?.valued_interest ?? "—"}</span> },
+            { k: "Arquitectura", v: <span className="whitespace-normal font-body">{a?.calculation_architecture ?? "—"}</span> },
+            { k: "Fecha de valoración", v: a?.valuation_date ?? "—" },
+            { k: "Basis of value", v: a?.basis_of_value ?? "—" },
+          ]} />
+        </Panel>
+        <Panel title="Resumen del negocio">
+          {!bp ? (
+            <Empty>
+              Sin resumen operativo registrado para este caso. La comprensión del negocio se documenta en el case MOC
+              (<code>docs/cases/&lt;caso&gt;/00-case-home.md</code>).
+            </Empty>
+          ) : (
+            <div className="space-y-2">
+              {bp.summary ? <SourcedList items={[bp.summary]} /> : <Empty>{bp.gaps.summary ?? "Sin resumen documentado."}</Empty>}
+              <p className="text-[10px] text-muted-foreground">
+                Resumen operativo mínimo. El detalle completo vive en el case MOC{bp.moc_path ? <>: <code>{bp.moc_path}</code></> : ""}.
+              </p>
+            </div>
+          )}
+        </Panel>
+      </div>
+      {bp && (
+        <div className="grid gap-3 xl:grid-cols-2">
+          {blocks.map(([title, key, items]) => (
+            <Panel key={key} title={title}><SourcedList items={items} gap={bp.gaps[key]} /></Panel>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -127,7 +206,7 @@ export function AccountsSection({ data }: SectionProps) {
       <div className="grid gap-3 xl:grid-cols-2">
         <Panel title="Interpretación de cuentas materiales (account_notes)" layer="JUDGMENT">
           {data.accountNotes.length === 0 ? <Empty>Sin notas. (El Expediente solo es visible con rol analyst/admin.)</Empty> : (
-            <DataTable head={["Cuenta", "Interpretación"]} numericFrom={9} rows={data.accountNotes.map((n) => [n.canonical_account, n.interpretation_text])} />
+            <DataTable head={["Cuenta", "Interpretación"]} numericFrom={9} wrap={[1]} rows={data.accountNotes.map((n) => [<span className="font-mono">{n.canonical_account}</span>, <span className="text-xs leading-relaxed">{n.interpretation_text}</span>])} />
           )}
         </Panel>
         <Panel title="Validaciones">
@@ -135,6 +214,7 @@ export function AccountsSection({ data }: SectionProps) {
             <DataTable
               head={["Regla", "Severidad", "Estado", "Bloquea", "Detalle"]}
               numericFrom={9}
+              wrap={[4]}
               rows={data.validations.map((v) => [v.rule_code, v.severity, v.status, v.blocking_flag ? "sí" : "no", v.detail ?? ""])}
             />
           )}
@@ -153,6 +233,7 @@ export function AccountsSection({ data }: SectionProps) {
 // ── E. QUESTIONS ──────────────────────────────────────────────────────────
 export function QuestionsSection({ data }: SectionProps) {
   const answered = data.questions.filter((q) => q.expedient_answers.length > 0).length;
+  const threads = questionThreads(data.questions);
   const checkpoint = evaluateMinimumExpedienteCheckpoint({
     companyName: data.analysis?.company_name,
     sector: data.analysis?.sector,
@@ -171,23 +252,55 @@ export function QuestionsSection({ data }: SectionProps) {
         ]} />
         {!data.valuationFile && <p className="mt-2 text-xs text-muted-foreground">Sin <code>valuation_file</code> visible para este caso.</p>}
       </Panel>
-      <Panel title={`Preguntas del Expediente (${data.questions.length}, ${answered} respondidas)`} layer="JUDGMENT">
-        {data.questions.length === 0 ? <Empty>Sin preguntas registradas.</Empty> : (
-          <div className="space-y-2">
-            {data.questions.map((q) => (
-              <div key={q.id} className="border border-border/60 rounded p-2">
-                <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
-                  <span>{q.estado}</span>
-                  {q.materialidad && <span>· materialidad {q.materialidad}</span>}
-                  {q.generado_por_ia && <span className="text-sky-300">· propuesta por IA</span>}
-                </div>
-                <p className="text-xs text-foreground mt-1">{q.texto}</p>
-                {q.razon && <p className="text-[11px] text-muted-foreground">{q.razon}</p>}
-                {q.expedient_answers.map((ans) => (
-                  <p key={ans.id} className="text-xs text-emerald-200 mt-1 border-l-2 border-emerald-500/40 pl-2">{ans.respuesta_texto}</p>
-                ))}
-              </div>
-            ))}
+      <Panel title={`Preguntas del Expediente (${threads.length} vigentes · ${threads.filter((t) => t.current.expedient_answers.length > 0).length} respondidas · ${threads.filter((t) => t.current.expedient_answers.length === 0).length} abiertas)`} layer="JUDGMENT">
+        {threads.length === 0 ? <Empty>Sin preguntas registradas.</Empty> : (
+          <div className="space-y-1.5">
+            {threads.map(({ code, current: q, history }) => {
+              const open = q.expedient_answers.length === 0;
+              const ev = q.razon ? splitSource(q.razon) : null;
+              return (
+                <details key={q.id} className="border border-border/60 rounded group">
+                  <summary className="cursor-pointer list-none px-2 py-1.5 flex items-center gap-2">
+                    <span className="font-mono text-[10px] text-muted-foreground w-14 shrink-0">{code ?? "—"}</span>
+                    <span className="text-xs text-foreground flex-1 min-w-0">{questionTitle(q.texto)}</span>
+                    {history.length > 0 && <span className="font-mono text-[9px] text-sky-300">wording corregido</span>}
+                    <span className={`font-mono text-[10px] ${open ? "text-amber-300" : "text-emerald-300"}`}>{open ? "abierta" : "respondida"}</span>
+                  </summary>
+                  <div className="px-2 pb-2 space-y-2 text-xs whitespace-normal break-words">
+                    {(q.materialidad || q.generado_por_ia) && (
+                      <p className="text-[10px] font-mono text-muted-foreground">
+                        {q.materialidad && <>materialidad {q.materialidad} </>}{q.generado_por_ia && <span className="text-sky-300">· propuesta por IA</span>}
+                      </p>
+                    )}
+                    {ev && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pregunta / evidencia requerida</p>
+                        <p className="text-muted-foreground">{ev.body}</p>
+                        {ev.source && <p className="text-[10px] text-muted-foreground">Fuente: {ev.source}</p>}
+                      </div>
+                    )}
+                    {open ? (
+                      <p className="text-amber-300/90">Sin respuesta registrada: pendiente.</p>
+                    ) : q.expedient_answers.map((ans) => {
+                      const a = splitSource(ans.respuesta_texto);
+                      return (
+                        <div key={ans.id} className="border-l-2 border-emerald-500/40 pl-2">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Respuesta (Judgment) · {date(ans.respondido_at)}</p>
+                          <p className="text-emerald-200">{a.body}</p>
+                          {a.source && <p className="text-[10px] text-muted-foreground">Fuente: {a.source}</p>}
+                        </div>
+                      );
+                    })}
+                    {history.map((h) => (
+                      <div key={h.id} className="border-l-2 border-border pl-2 opacity-80">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Versión anterior (superseded) · {date(h.created_at)}</p>
+                        <p className="text-muted-foreground line-through decoration-muted-foreground/40">{h.razon ?? h.texto}</p>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              );
+            })}
           </div>
         )}
       </Panel>
@@ -255,16 +368,17 @@ export function JudgmentSection({ data }: SectionProps) {
       <DataTable
         head={["Área", "Valor", "Capa", "Estado", "Fuente", "Rationale"]}
         numericFrom={9}
+        wrap={[1, 4, 5]}
         rows={rows.map((r) => [
           <span className="font-medium">{r.area}</span>,
           <span className="font-mono tabular-nums">{r.value}</span>,
           <LayerTag layer={r.layer} />,
           r.status,
-          <span className="block max-w-[280px] truncate" title={r.source}>{r.source}</span>,
-          <span className="block max-w-[360px] truncate" title={r.rationale}>{r.rationale}</span>,
+          <LongText text={r.source} preview={110} className="text-[11px] text-muted-foreground" />,
+          <LongText text={r.rationale} preview={140} className="text-[11px]" />,
         ])}
       />
-      <p className="mt-2 text-[10px] text-muted-foreground">Pasa el cursor sobre fuente y rationale para ver el texto completo.</p>
+      <p className="mt-2 text-[10px] text-muted-foreground">Fuentes y rationales largos: «ver completo» despliega el texto íntegro.</p>
     </Panel>
   );
 }
@@ -350,7 +464,13 @@ export function ChallengeSection({ data }: SectionProps) {
             })])}
           />
         )}
-        <p className="mt-2 text-[10px] text-muted-foreground">n/c = no converge (WACC ≤ g). La suite mínima P-12 (pruebas adicionales de un factor) todavía no está implementada.</p>
+        <p className="mt-2 text-[10px] text-muted-foreground">n/c = no converge (WACC ≤ g).</p>
+      </Panel>
+      <Panel title="P-12 · suite adicional de challenge de un factor" right={<span className="font-mono text-[10px] text-amber-300">NOT IMPLEMENTED · PENDING</span>}>
+        <Empty>
+          La suite mínima de sensibilidades P-12 (pruebas adicionales de un factor) todavía no está implementada. No se muestran
+          resultados simulados: los únicos challenges calculados son los escenarios de g terminal y la matriz WACC × g de arriba.
+        </Empty>
       </Panel>
     </div>
   );
@@ -363,11 +483,18 @@ export function OutputSection({ data }: SectionProps) {
   const a = data.analysis;
   if (!cr || !a) return <Panel title="Output">{noCalc}</Panel>;
 
+  const verification = officialVerification(data);
+  const states = caseProvenance(data);
+  const lineageGaps = [
+    ...(states.documents.status === "MISSING" ? ["Sin lineage de ingesta documental (documentos en Storage → cifras)."] : []),
+    ...(states.accountLineage.status === "MISSING" ? ["Sin lineage de homologación de cuentas (account_homologations → cifras)."] : []),
+  ];
   const limitations = [
     ...(cr.valuation?.waccWarning ? [cr.valuation.waccWarning] : []),
-    ...(cr.provenance?.overall_status && cr.provenance.overall_status !== "complete" ? [`Provenance ${cr.provenance.overall_status}: no todas las cifras tienen procedencia completa.`] : []),
+    ...(lineageGaps.length
+      ? [`Trazabilidad documental: ${lineageGaps.join(" ")} Es una limitación de trazabilidad, no de reproducibilidad matemática${verification ? ": el cálculo está verificado oficialmente contra el resultado canónico congelado." : "."}`]
+      : cr.provenance?.overall_status && cr.provenance.overall_status !== "complete" ? [`Lineage documental ${cr.provenance.overall_status}: no todas las cifras tienen procedencia documental completa.`] : []),
     ...(!cr.resolved_assumptions_used ? ["Supuestos legacy por defecto: no es una valoración defendible."] : []),
-    ...(cr.provenance?.warnings ?? []),
   ];
 
   const handlePdf = async () => {
@@ -378,6 +505,21 @@ export function OutputSection({ data }: SectionProps) {
 
   return (
     <div className="grid gap-3 xl:grid-cols-2">
+      {verification ? (
+        <Panel title="Official calculation verified" layer="CALCULATION" right={<span className="font-mono text-[10px] text-emerald-300">VERIFIED</span>}>
+          <KV rows={[
+            { k: "Fingerprint", v: verification.fingerprint },
+            { k: "Assumptions", v: `${verification.assumptionsSource} · ${verification.assumptionsCount}` },
+            { k: "Verification", v: `${verification.realMismatches} real mismatches` },
+            { k: "Machine-precision equivalents", v: `${verification.floatEquivalent}${verification.toleranceK !== null ? ` (≤ ${verification.toleranceK}·ε)` : ""}` },
+            { k: "Verificado", v: date(verification.verifiedAt) },
+          ]} />
+        </Panel>
+      ) : (
+        <Panel title="Verificación oficial" layer="CALCULATION" right={<span className="font-mono text-[10px] text-muted-foreground">NOT VERIFIED</span>}>
+          <Empty>No hay una verificación oficial registrada para este cálculo (evento <code>official_calculation_verified</code> con el mismo fingerprint y fecha de cálculo).</Empty>
+        </Panel>
+      )}
       <Panel title="Conclusión" layer="CALCULATION" right={
         <button onClick={handlePdf} disabled={downloading} className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50">
           {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} PDF
@@ -393,7 +535,7 @@ export function OutputSection({ data }: SectionProps) {
       </Panel>
       <Panel title="Limitaciones">
         {limitations.length === 0 ? <Empty>Sin limitaciones registradas en el envelope.</Empty> : (
-          <ul className="list-disc pl-4 text-xs text-amber-300 space-y-1">{limitations.map((l, i) => <li key={i}>{l}</li>)}</ul>
+          <ul className="list-disc pl-4 text-xs text-amber-300 space-y-1 whitespace-normal">{limitations.map((l, i) => <li key={i}>{l}</li>)}</ul>
         )}
       </Panel>
       {data.narrative?.executive_summary && (
@@ -411,6 +553,7 @@ export function AuditSection({ data }: SectionProps) {
   const cr = data.calculation;
   const v = cr?.version;
   const fields = cr?.provenance?.fields ?? {};
+  const states = caseProvenance(data);
   return (
     <div className="grid gap-3">
       <div className="grid gap-3 xl:grid-cols-2">
@@ -423,7 +566,8 @@ export function AuditSection({ data }: SectionProps) {
               { k: "Metodología", v: v.methodology_version },
               { k: "Schema del cálculo", v: v.calculation_schema_version },
               { k: "Fuente de supuestos", v: v.assumptions_source },
-              { k: "Provenance", v: v.provenance_status },
+              { k: "Lineage documental", v: v.provenance_status },
+              { k: "Case source provenance", v: states.caseSource.status },
             ]} />
           )}
         </Panel>
@@ -438,14 +582,27 @@ export function AuditSection({ data }: SectionProps) {
       {Object.keys(fields).length > 0 && (
         <Panel title="Provenance por campo">
           <DataTable
-            head={["Campo", "Estado", "Documentos", "Homologaciones"]}
-            rows={Object.entries(fields).map(([k, f]) => [k, f.source_status, String(f.document_ids?.length ?? 0), String(f.homologation_ids?.length ?? 0)])}
+            head={["Campo", "Source layer", "Lineage", "Document lineage", "Homologation"]}
+            numericFrom={9}
+            rows={Object.entries(fields).map(([k, f]) => {
+              const docs = f.document_ids?.length ?? 0;
+              const homs = f.homologation_ids?.length ?? 0;
+              const layer: SourceLayer | null = docs > 0 ? "SUPABASE_DOCUMENT_EVIDENCE" : states.evidenceLayer;
+              return [
+                <span className="font-mono">{k}</span>,
+                layer ? <SourceLayerTag layer={layer} /> : <span className="text-muted-foreground">no registrada</span>,
+                f.source_status,
+                docs > 0 ? `${docs} documento(s)` : <span className="text-muted-foreground italic">not available</span>,
+                homs > 0 ? `${homs} homologación(es)` : <span className="text-muted-foreground italic">not available</span>,
+              ];
+            })}
           />
+          <p className="mt-2 text-[10px] text-muted-foreground">«not available» es una ausencia conocida de lineage documental, no un error: no se fabrican document_id, row_id ni homologation_id.</p>
         </Panel>
       )}
       <Panel title={`Eventos (${data.auditEvents.length})`}>
         {data.auditEvents.length === 0 ? <Empty>Sin eventos.</Empty> : (
-          <DataTable head={["Fecha", "Componente", "Evento", "Detalle"]} numericFrom={9} rows={data.auditEvents.map((e) => [date(e.created_at), e.component ?? "—", e.event_type, e.event_detail ?? ""])} />
+          <DataTable head={["Fecha", "Componente", "Evento", "Detalle"]} numericFrom={9} wrap={[3]} rows={data.auditEvents.map((e) => [date(e.created_at), e.component ?? "—", e.event_type, e.event_detail ?? ""])} />
         )}
       </Panel>
     </div>

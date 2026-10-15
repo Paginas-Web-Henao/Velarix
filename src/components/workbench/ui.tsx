@@ -54,7 +54,25 @@ export function KV({ rows }: { rows: { k: string; v: ReactNode; layer?: Layer }[
   );
 }
 
-export function DataTable({ head, rows, numericFrom = 1 }: { head: ReactNode[]; rows: ReactNode[][]; numericFrom?: number }) {
+/**
+ * Texto largo legible sin scroll horizontal: se envuelve y, si pasa de
+ * `preview` caracteres, muestra un extracto con "ver completo" (details).
+ * Nunca se trunca sin forma de leer el contenido completo.
+ */
+export function LongText({ text, preview = 180, className = "" }: { text: string; preview?: number; className?: string }) {
+  if (text.length <= preview) return <span className={`whitespace-normal break-words ${className}`}>{text}</span>;
+  return (
+    <details className={`group whitespace-normal break-words ${className}`}>
+      <summary className="cursor-pointer list-none">
+        <span className="group-open:hidden">{text.slice(0, preview).trimEnd()}… <span className="text-primary">ver completo</span></span>
+        <span className="hidden group-open:inline text-primary">ocultar</span>
+      </summary>
+      <span>{text}</span>
+    </details>
+  );
+}
+
+export function DataTable({ head, rows, numericFrom = 1, wrap = [] }: { head: ReactNode[]; rows: ReactNode[][]; numericFrom?: number; wrap?: number[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-xs">
@@ -69,7 +87,7 @@ export function DataTable({ head, rows, numericFrom = 1 }: { head: ReactNode[]; 
           {rows.map((r, ri) => (
             <tr key={ri} className="border-b border-border/40 hover:bg-muted/20">
               {r.map((c, ci) => (
-                <td key={ci} className={`px-2 py-1 whitespace-nowrap ${ci >= numericFrom ? "text-right font-mono tabular-nums" : "font-body"}`}>{c}</td>
+                <td key={ci} className={`px-2 py-1 align-top ${wrap.includes(ci) ? "whitespace-normal break-words min-w-[14rem] max-w-[40rem]" : "whitespace-nowrap"} ${ci >= numericFrom ? "text-right font-mono tabular-nums" : "font-body"}`}>{c}</td>
               ))}
             </tr>
           ))}
