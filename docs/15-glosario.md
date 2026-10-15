@@ -19,8 +19,10 @@ Volver a [[00-home]]
 - **structured_input** — Evidence financiera normalizada (estado de resultados + balance) que alimenta el cálculo.
 - **source_input_snapshot / resolved_assumptions_used** — congelación separada de Evidence y Judgment en el resultado. [[reproducibilidad]]
 - **Fingerprint** — hash determinístico de evidencia + supuestos; si cambia cualquiera, cambia la identidad del cálculo.
-- **Motor canónico** — `canonical-financial-engine.ts` (servidor). Opuesto al motor cliente del Estimador.
-- **Estimador**: demo pública sin login en la raíz `/` (`DemoDashboard`), con el motor cliente. [[estimador-demo]]
+- **Motor canónico**: `canonical-financial-engine.ts` (servidor). Opuesto al motor cliente del Quick Model.
+- **Workbench**: interfaz privada de trabajo (`/workbench`); un caso = una fila de `analyses`. [[workbench]]
+- **Quick Model** (antes Estimador): modelo rápido local con el motor cliente, **no canónico**. [[quick-model]]
+- **Case MOC**: nota índice de un caso en Obsidian (`docs/cases/<caso>/00-case-home.md`).
 - **Golden cases A/B/C** — fixtures sintéticos que fijan resultados esperados del motor.
 - **RC-1 … RC-5** — root causes de la auditoría del motor. [[05-financial-engine-audit]]
 - **P-01 … P-14 / C-01 … C-12 / O-01 … O-03** — principios cerrados, decisiones case-specific de Alpina y preguntas abiertas. [[03-methodology-decisions-v5]]

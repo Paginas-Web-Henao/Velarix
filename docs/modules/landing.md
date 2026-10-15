@@ -28,7 +28,7 @@ Ninguno de esos componentes lo usaba otra vista; antes de borrar se verificó qu
 Velarix v5.0 no es un producto comercial ([[ADR-001-redefinicion-v5]]). La landing contradecía el propósito del proyecto y era deuda legacy de v4.x.
 
 ## Reemplazo
-Ninguno: no hay otra landing. La ruta `/` abre directamente el [[estimador-demo]].
+Ninguno: no hay otra landing. Desde [[ADR-007-personal-valuation-workbench]], `/` redirige al [[workbench]] privado o al login.
 
 ## Recuperación
 Los archivos siguen en el historial de git (último commit que los contiene: `c52f901`).

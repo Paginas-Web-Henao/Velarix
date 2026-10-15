@@ -6,7 +6,7 @@ tags: [velarix, research]
 
 # Research
 
-Volver a [[00-home]]
+Volver a [[00-home]] · Mapa: [[06-RESEARCH]]
 
 Carpeta para investigación que **no es** decisión ni código: lecturas metodológicas, notas sobre fuentes (IVS, Damodaran, DIAN, Banco de la República), y evidencia del caso Alpina.
 

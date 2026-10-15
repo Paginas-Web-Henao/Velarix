@@ -1,14 +1,14 @@
 ---
 tipo: arquitectura
 actualizado: 2026-10-15
-tags: [velarix, arquitectura]
+tags: [velarix, arquitectura, system]
 ---
 
 # Arquitectura
 
 Volver a [[00-home]] · Contexto: [[01-contexto]] · Siguiente: [[03-modulos]] · Flujos: [[04-flujos]]
 
-Capas: frontend ([[estimador-demo]], [[dashboard]]) · backend ([[06-api]]) · persistencia ([[05-base-de-datos]]) · auth ([[07-autenticacion]]) · servicios externos ([[08-integraciones]]) · cálculo ([[motor-canonico]]) · deploy ([[14-deploy]])
+Capas: frontend ([[quick-model]], [[workbench]]) · backend ([[06-api]]) · persistencia ([[05-base-de-datos]]) · auth ([[07-autenticacion]]) · servicios externos ([[08-integraciones]]) · cálculo ([[motor-canonico]]) · deploy ([[14-deploy]])
 
 ## Vista general
 
@@ -29,10 +29,11 @@ flowchart LR
 ## Frontend (`src/`)
 
 - Entrada: `src/main.tsx` → `src/App.tsx` (React Router, `QueryClientProvider`, `AuthProvider`).
-- Rutas: `/` (Estimador público, `DemoDashboard`), `/auth`, `/dashboard`, `/admin/revisiones`, `/admin/revisiones/:revisionId`, `/reset-password`, `*`. Las rutas `dashboard` y `admin` usan `ProtectedRoute`. No hay landing ([[ADR-006-retirar-landing-comercial]]).
+- Rutas: `/` (redirige a `/workbench` con sesión o a `/auth`), `/auth` (solo login y recuperación), `/workbench`, `/workbench/reviews/:revisionId`, `/reset-password`, `*`. `/dashboard/*` y `/admin/*` solo redirigen (compatibilidad con emails viejos). Todo lo de `/workbench` usa `ProtectedRoute`. No hay landing ni demo pública ([[ADR-006-retirar-landing-comercial]], [[ADR-007-personal-valuation-workbench]]).
 - Alias `@` → `src/` (vite y vitest).
 - Acceso a backend: `src/integrations/supabase/client.ts`, `src/lib/api-client.ts`, `src/lib/manual-review-api.ts`.
-- Motor **cliente** (`src/lib/financial-engine.ts`) — solo lo usa el Estimador/demo. Ver [[estimador-demo]].
+- Motor **cliente** (`src/lib/financial-engine.ts`): solo lo usa el [[quick-model]], que no es canónico.
+- Workbench: `src/pages/Workbench.tsx` + `src/components/workbench/`. Ver [[workbench]].
 - PDF: `src/lib/pdf-generator.ts` + `src/lib/pdf-canonical-mapper.ts` (se genera en el navegador a partir del snapshot canónico). Ver [[informes-pdf]].
 
 Detalle de auth y rutas protegidas: [[07-autenticacion]].
@@ -97,7 +98,7 @@ Regla de [[05-financial-engine-audit]] §7: `source_input_snapshot` contiene **s
 Velarix/                         ← vault de Obsidian (.obsidian/)
 ├── velarix-code/                ← repo git (origin: Paginas-Web-Henao/Velarix)
 │   ├── src/                     ← frontend
-│   │   ├── pages/  components/{dashboard,demo,ui}/
+│   │   ├── pages/  components/{workbench,dashboard,demo,ui}/
 │   │   ├── lib/  contexts/  hooks/  integrations/supabase/
 │   │   ├── data/velarix-datos-2026.ts  types/  test/
 │   ├── supabase/{migrations,rollback,functions/{_shared,…}}

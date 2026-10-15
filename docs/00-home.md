@@ -1,96 +1,78 @@
 ---
 tipo: home
 proyecto: Velarix
-version_proyecto: v5.0
 actualizado: 2026-10-15
 tags: [velarix, home]
 ---
 
 # Velarix
 
-## Resumen
+**Personal Valuation & Projection Workbench**: mi sistema para estudiar empresas, preservar Evidence, documentar Judgment, ejecutar Calculation determinístico y producir valoraciones defendibles, trazables y reproducibles. No es un producto ni un negocio ([[ADR-007-personal-valuation-workbench]]).
 
-Velarix es un sistema de valoración corporativa por DCF (FCFF) construido con React + Vite y Supabase. Su propósito actual (v5.0) es ser un **proyecto técnico personal** que demuestre criterio financiero, modelación reproducible y trazabilidad de decisiones mediante **un único caso completo: Alpina Productos Alimenticios S.A.S. BIC**.
+> **Evidence ≠ Judgment ≠ Calculation.** El motor calcula. La metodología gobierna. El humano decide.
 
-El principio central: separar **Evidence** (dato observado) / **Judgment** (decisión humana documentada) / **Calculation** (motor determinístico que no decide nada). Ver [[01-contexto]].
+## Active Case
 
-La raíz de la app (`/`) es el Estimador público, sin login. La landing comercial v4.x se retiró el 2026-10-15 ([[ADR-006-retirar-landing-comercial]]).
+| | |
+|---|---|
+| Caso | **[[cases/alpina/00-case-home\|Alpina Productos Alimenticios S.A.S. BIC]]** |
+| Estado | 🟡 13/13 supuestos resueltos; primera ejecución canónica congelada en test |
+| Fecha de valoración | 2024-12-31 · Market Value (IVS 102) · COP miles |
+| Siguiente bloqueo | Ejecutar o confirmar Alpina por el flujo oficial `ejecutar-calculo` (checkpoint + preflight) |
 
-## Estado actual
+## Start Here
 
-| Frente | Estado | Fuente |
+1. **Metodología**: [[01-METHODOLOGY]]
+2. **Workbench**: [[03-WORKBENCH]]
+3. **Caso activo**: [[cases/alpina/00-case-home\|Alpina]]
+4. **Decisiones**: [[05-DECISIONS]]
+5. **Skill / IA**: [[07-SKILL]]
+
+Mapas: [[01-METHODOLOGY]] · [[02-SYSTEM]] · [[03-WORKBENCH]] · [[04-CASES]] · [[05-DECISIONS]] · [[06-RESEARCH]] · [[07-SKILL]] · [[99-archive]]
+
+## Current Work
+
+| Now | Next | Blocked |
 |---|---|---|
-| Metodología escrita (v5.0) | ✅ Congelada (commit `6748a6a`, 2026-09-02) | [[04-VALUATION-METHODOLOGY-V5]] |
-| Auditoría del motor | ✅ Congelada v1.3 (commit `dc3e2fb`) | [[05-financial-engine-audit]] |
-| Tests-first (Bloque 3B) | ✅ Escritos; sus `it.fails` ya pasaron a `it` | [[06-tests-first-plan]] |
-| Corrección del motor (Bloque 3C) | ✅ Implementado según commits 2026-09-03 → 09-06 (RC-1/2/3, WACC, FCFF, TV, reproducibilidad) | `git log` |
-| Caso Alpina | 🟡 Supuestos resueltos + primera ejecución canónica congelada en tests (2026-09-07). Ejecución por el flujo real `ejecutar-calculo` contra Supabase: **pendiente de confirmar** | [[caso-alpina]] |
-| Demo pública (Estimador) | 🟡 Pública en `/`, sin gate de login (2026-10-15). Falta decidir su relación con el motor canónico | [[estimador-demo]] |
-| Landing comercial v4.x | ✅ Retirada (2026-10-15) | [[ADR-006-retirar-landing-comercial]] |
-| README | 🟡 Reescrito con el framing v5.0 (2026-10-15). Writeup final pendiente | [[11-pendientes]] |
-| Suite de tests | ✅ 61 archivos, 1026 tests verdes, 1 fallo esperado (verificado 2026-10-15) | [[13-testing]] |
+| Revisar el workbench privado (rama `personal-workbench`, sin merge) | Alpina por `ejecutar-calculo` y suite de sensibilidades P-12 | Evidence de Alpina 4B–4F no versionada en el repo |
+| Documentar Company Understanding y Normalizations de Alpina en su case MOC | Writeup final del caso | Decisiones de roles y signups (abajo) |
 
-## Ruta de lectura
+Detalle: [[10-roadmap]] · [[11-pendientes]]
 
-[[01-contexto]] → [[02-arquitectura]] → [[03-modulos]] → [[caso-alpina]] → [[04-VALUATION-METHODOLOGY-V5]] → [[motor-canonico]] → [[expediente]] → [[13-testing]] → [[09-decisiones]] → [[10-roadmap]]
+## Financial Methodology
 
-## Navegación
+Autoridad única: **[[04-VALUATION-METHODOLOGY-V5]]**, con sus principios en [[03-methodology-decisions-v5]]. Índice por tema: [[01-METHODOLOGY]].
 
-- [[01-contexto]] — qué es, para qué, restricciones
-- [[02-arquitectura]] — capas, flujo de datos, carpetas
-- [[03-modulos]] — índice de módulos funcionales
-- [[04-flujos]] — pipeline de análisis, revisión manual, cálculo
-- [[05-base-de-datos]] — tablas, RLS, storage
-- [[06-api]] — Edge Functions y cliente frontend
-- [[07-autenticacion]] — Supabase Auth, roles, autorización
-- [[08-integraciones]] — Anthropic, OpenAI, Resend, Vercel, Damodaran
-- [[09-decisiones]] — registro de decisiones técnicas y metodológicas
-- [[10-roadmap]] — alcance congelado v5.0
-- [[11-pendientes]] — trabajo abierto
-- [[12-bugs]] — defectos y limitaciones conocidas
-- [[13-testing]] — Vitest, golden cases, tests v5
-- [[14-deploy]] — Vercel + Supabase
-- [[15-glosario]] — términos financieros y del dominio
+## System
 
-## Módulos principales
+[[02-SYSTEM]]: arquitectura ([[02-arquitectura]]), Supabase ([[05-base-de-datos]]), motor ([[motor-canonico]]), reproducibilidad ([[reproducibilidad]]).
 
-Núcleo v5.0 (lo que importa para Alpina):
-- [[motor-canonico]] · [[supuestos-y-preflight]] · [[reproducibilidad]] · [[caso-alpina]] · [[expediente]]
+## Case
 
-Pipeline y soporte:
-- [[pipeline-documental]] · [[revision-manual]] · [[narrativa-ia]] · [[informes-pdf]] · [[autorizacion]] · [[datos-de-mercado]] · [[notificaciones]]
+Alpina: [[cases/alpina/00-case-home\|case home]] · evidence y supuestos en `alpina-2024.*` ([[caso-alpina]]) · cálculo y sensibilidades en el workbench (Valuation y Challenge) · todos los casos en [[04-CASES]].
 
-Frontend:
-- [[estimador-demo]] (público, `/`) · [[dashboard]] (privado)
+## Open Decisions
 
-Herramientas:
-- [[benchmarks-ia]]
+1. Roles: dejar `user/analyst/admin` como está o pasar a dueño único ([[ADR-007-personal-valuation-workbench]]).
+2. Desactivar los signups en Supabase Auth (ajuste remoto; la UI ya no ofrece registro).
+3. Prompt de `generate-narrative` ("plataforma de inteligencia financiera institucional"): reescribirlo o dejarlo, dado el benchmark congelado.
+4. Dónde versionar la evidencia de Alpina (4B–4F).
+5. `valuation_date` / `basis_of_value` como columnas de `analyses` (migración) o solo en el case MOC.
+6. Metodológicas abiertas: O-01 perímetro/NCI y O-02 materialidad ([[03-methodology-decisions-v5]]).
 
-## Prioridades actuales
+## Known Issues
 
-Derivadas del checklist congelado v5.0 y del estado del repo (ver [[10-roadmap]]):
+- Alpina no confirmada por el flujo oficial ([[11-pendientes]]).
+- Horizonte fijo de 5 años y convención de fin de año (LIM-01, LIM-02).
+- Dos motores, cliente y canónico: el [[quick-model]] no es canónico (LIM-03).
+- Sin CI. Lint con 266 errores previos (BUG-05). Ver [[12-bugs]].
 
-1. Confirmar/ejecutar Alpina por el flujo oficial `ejecutar-calculo` (no solo el test del motor puro).
-2. Cerrar los ítems case-dependent de Alpina documentados en [[05-financial-engine-audit]] §10–§12.
-3. Estimador: decidir su relación con el motor canónico (el gate de login ya se quitó).
-4. Writeup final y archivo de los documentos de negocio v4.x.
+## Claude / AI
 
-## Riesgos técnicos
+- [[VELARIX-VALUATION-SKILL]]: qué puede y qué no puede hacer la IA, y el workflow de 13 pasos.
+- [[claude-commands]]: `/velarix-new-case`, `/velarix-assumptions`, `/velarix-run-valuation`…
+- `CLAUDE.md` (raíz del repo).
 
-- **Dos motores DCF** (cliente `src/lib/financial-engine.ts` vs. servidor canónico). Unificación explícitamente `NOT BUILDING`; riesgo de que la demo muestre números que el motor canónico no produciría. → [[estimador-demo]]
-- **Horizonte de 5 años fijo** en el motor (`MOTOR_SUPPORTED_PROJECTION_HORIZON_YEARS = 5`). → [[12-bugs]]
-- **Evidencia Alpina (4B–4F) no versionada** en este repo: los archivos `alpina-2024.*` lo declaran explícitamente. → [[caso-alpina]]
-- **Sin CI**: no hay `.github/`; los tests solo se ejecutan localmente. → [[13-testing]]
-- `supabase/functions/_shared` no está cubierto por ningún `tsconfig` oficial (no hay typecheck de Deno en el repo). → [[13-testing]]
+## Archive
 
-## Documentación rápida
-
-- Metodología canónica: [[04-VALUATION-METHODOLOGY-V5]] (manda sobre el código)
-- Decisiones de principio: [[03-methodology-decisions-v5]]
-- Auditoría del motor: [[05-financial-engine-audit]]
-- Inventario estructural v5.0: [[01-scope-surgery]]
-- Spec del Expediente: [[EXPEDIENTE-DE-VALORACION-V1]]
-- Registro histórico de decisiones D-01…D-11: [[REGISTRO-DE-DECISIONES]]
-- Auditoría inicial del repo (jul-2026): [[00-RESUMEN-EJECUTIVO]]
-- Contexto para Claude / agentes: [CLAUDE.md](../CLAUDE.md)
-- Cómo usar este vault: [[obsidian-guia]]
+Material histórico (SaaS, boutique, roadmaps comerciales, los 8 casos de aprendizaje): **[[99-archive]]**.

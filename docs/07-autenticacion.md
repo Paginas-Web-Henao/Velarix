@@ -1,7 +1,7 @@
 ---
 tipo: autenticacion
 actualizado: 2026-10-15
-tags: [velarix, auth, seguridad]
+tags: [velarix, auth, seguridad, system]
 ---
 
 # Autenticación y autorización
@@ -10,20 +10,22 @@ Volver a [[00-home]] · Arquitectura: [[02-arquitectura]] · Módulo: [[autoriza
 
 ## Autenticación (Supabase Auth)
 
-- Email + contraseña. Implementado en `src/contexts/AuthContext.tsx`: `signUp` (guarda `full_name` en metadata), `signIn`, `signOut`, `resetPassword` (redirige a `/reset-password`), `updatePassword`.
-- Sesión escuchada con `onAuthStateChange`; `ProtectedRoute` en `src/App.tsx` redirige a `/auth` si no hay usuario, `AuthRoute` redirige a `/dashboard` si ya hay sesión.
+- Email + contraseña, **una cuenta personal**. Implementado en `src/contexts/AuthContext.tsx`: `signIn`, `signOut`, `resetPassword` (redirige a `/reset-password`), `updatePassword`.
+- Sesión escuchada con `onAuthStateChange`; `ProtectedRoute` en `src/App.tsx` redirige a `/auth` si no hay usuario, `AuthRoute` redirige a `/workbench` si ya hay sesión. `RootRedirect` resuelve `/`.
+- **Sin registro público** en la UI (ADR-007). `signUp` sigue existiendo en el contexto, pero ninguna vista lo usa. Para bloquear el registro también por API hay que desactivar los signups en la configuración de Supabase Auth: es un ajuste remoto pendiente de decisión.
 - Cliente: `src/integrations/supabase/client.ts` con `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`.
 
 ## Público vs. protegido (frontend)
 
 | Ruta | Acceso |
 |---|---|
-| `/` (Estimador, [[estimador-demo]]) | **Pública**, sin login. Cálculo 100% en el navegador |
-| `/auth`, `/reset-password` | Públicas (`/auth` redirige a `/dashboard` si ya hay sesión) |
-| `/dashboard` ([[dashboard]]) | Protegida (`ProtectedRoute` → `/auth`) |
-| `/admin/revisiones`, `/admin/revisiones/:revisionId` ([[revision-manual]]) | Protegidas; los datos además requieren rol `analyst`/`admin` vía RLS |
+| `/` | Sin contenido: redirige a `/workbench` con sesión o a `/auth` sin ella |
+| `/auth`, `/reset-password` | Públicas (`/auth` redirige a `/workbench` si ya hay sesión) |
+| `/workbench` ([[workbench]], incluye el [[quick-model]]) | Protegida (`ProtectedRoute` → `/auth`) |
+| `/workbench/reviews/:revisionId` ([[revision-manual]]) | Protegida; los datos además requieren rol `analyst`/`admin` vía RLS |
+| `/dashboard/*`, `/admin/*` | Redirecciones legacy al workbench (siguen exigiendo sesión) |
 
-Desde el 2026-10-15 el Estimador no usa `useAuth`: el login ya no funciona como gate comercial ([[ADR-006-retirar-landing-comercial]]).
+No hay ninguna vista pública con datos ni cálculos ([[ADR-007-personal-valuation-workbench]]). Lo verifica `src/test/private-routing.test.tsx`.
 
 ## Roles
 

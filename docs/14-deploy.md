@@ -1,7 +1,7 @@
 ---
 tipo: deploy
 actualizado: 2026-10-15
-tags: [velarix, deploy]
+tags: [velarix, deploy, system]
 ---
 
 # Deploy

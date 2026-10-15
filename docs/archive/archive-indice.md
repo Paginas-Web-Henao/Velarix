@@ -6,7 +6,7 @@ tags: [velarix, archive]
 
 # Archivo
 
-Volver a [[00-home]]
+Volver a [[00-home]] · Índice principal del material histórico: **[[99-archive]]**
 
 Esta carpeta está vacía a propósito. **No se movió nada** para no romper enlaces entre documentos históricos (muchos se citan por ruta, p. ej. `docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md`).
 

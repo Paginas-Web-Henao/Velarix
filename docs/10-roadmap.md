@@ -8,7 +8,7 @@ tags: [velarix, roadmap]
 
 Volver a [[00-home]] · Anterior: [[09-decisiones]] · Pendientes concretos: [[11-pendientes]] · Limitaciones que condicionan la fase 3: [[12-bugs]]
 
-Orden fijado por el usuario y por [[01-scope-surgery]] §8: **metodología → auditoría/corrección del motor → expediente → caso Alpina → demo → README**. Nada fuera de esta lista se construye.
+Orden fijado por el usuario y por [[01-scope-surgery]] §8: **metodología → auditoría/corrección del motor → expediente → caso Alpina → ~~demo~~ workbench → README**. Nada fuera de esta lista se construye.
 
 | # | Entregable | Estado | Evidencia |
 |---|---|---|---|
@@ -17,8 +17,8 @@ Orden fijado por el usuario y por [[01-scope-surgery]] §8: **metodología → a
 | 2b | Tests-first de root causes | ✅ Hecho | [[06-tests-first-plan]], commit `884173d` |
 | 2c | Corrección del motor (Bloque 3C) | ✅ Hecho según commits | `79f1695` preflight · `50cfcf4` equity/estructura · `d512c88` WACC/Ke · `757405f` drivers/FCFF · `2cbe1bf` terminal value · `a07c225` reproducibilidad |
 | 3 | Caso Alpina completo | 🟡 En curso | `325f71c` supuestos resueltos · `b9e362c` input preflight · `0df086c` primera ejecución canónica · `7e52dfc`/`50f2d08`/`c52f901` sensibilidad, escenarios, KPIs (todo 2026-09-07) |
-| 4 | Estimador como demo pública sin login | 🟡 Gate eliminado y `/` = Estimador (2026-10-15, sin commit). Falta decidir su relación con el motor canónico | [[ADR-006-retirar-landing-comercial]], [[estimador-demo]] |
-| 5 | README / writeup final | 🟡 README reescrito con el framing v5.0 (2026-10-15, sin commit); writeup final pendiente | `README.md` |
+| 4 | ~~Estimador como demo pública sin login~~ | ⛔ Superado por [[ADR-007-personal-valuation-workbench]]: no hay demo pública. El Estimador es el [[quick-model]] privado y el entregable pasa a ser el [[workbench]] privado (implementado en la rama `personal-workbench`) | [[ADR-007-personal-valuation-workbench]] |
+| 5 | README / writeup final | 🟡 README reescrito como workbench personal (2026-10-15); falta el writeup del caso Alpina | `README.md`, [[cases/alpina/00-case-home\|Alpina]] |
 
 ## Detalle de la fase 3 (Alpina)
 

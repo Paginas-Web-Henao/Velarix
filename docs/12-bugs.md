@@ -1,7 +1,7 @@
 ---
 tipo: bugs
 actualizado: 2026-10-15
-tags: [velarix, bugs]
+tags: [velarix, bugs, system]
 ---
 
 # Bugs y limitaciones conocidas
@@ -14,11 +14,11 @@ Regla v5.0: **un cálculo financieramente incorrecto es bloqueante absoluto**, p
 
 | ID | Descripción | Ubicación | Severidad | Fuente |
 |---|---|---|---|---|
-| BUG-01 | `revenue = 0` produce márgenes `Infinity`/`NaN` en el motor **cliente** | `src/lib/financial-engine.ts` | Baja (solo Estimador) | `test.fails` en `financial-engine.golden-cases.test.ts:154`; [[DECISIONES-FINANCIERAS-PENDIENTES]] |
-| BUG-02 | `types.ts` generado no incluye `valuation_files`, `account_notes`, `expedient_questions`, `expedient_answers` | `src/integrations/supabase/types.ts` | Baja | Comparación con migración `20260817140000` |
+| BUG-01 | `revenue = 0` produce márgenes `Infinity`/`NaN` en el motor **cliente** | `src/lib/financial-engine.ts` | Baja (solo Quick Model) | `test.fails` en `financial-engine.golden-cases.test.ts:154`; [[DECISIONES-FINANCIERAS-PENDIENTES]] |
+| ~~BUG-02~~ | ✅ Resuelto el 2026-10-15: `types.ts` incluye las tablas del Expediente y `admin_set_user_role` (a mano, idéntico a las migraciones) | `src/integrations/supabase/types.ts` | — | Commit `1a52f2e` |
 | BUG-03 | `playwright.config.ts` apunta a `./tests`, que no existe | raíz | Baja | Inspección del repo |
 | BUG-04 | `npx tsc --noEmit -p tsconfig.app.json` falla en `pdf-canonical-calculation.regression.test.ts` (`node:fs`, `node:path`, `__dirname` sin tipos de Node). No afecta a `npm run build` ni a `npm test` | `src/lib/pdf-canonical-calculation.regression.test.ts` | Baja | Verificado el 2026-10-15; ya existía antes de retirar la landing |
-| BUG-05 | `npm run lint` da 268 errores y 25 warnings (sobre todo `no-explicit-any`; incluye `velarix-code-latest/`, que eslint no ignora) | varios | Baja | Mismo número antes y después de retirar la landing (2026-10-15) |
+| BUG-05 | `npm run lint` da 266 errores y 25 warnings (sobre todo `no-explicit-any`; incluye `velarix-code-latest/`, que eslint no ignora). Línea base previa: 268/25; los 2 errores menos son del `Dashboard.tsx` eliminado | varios | Baja | Comparación regla por regla, 2026-10-15: 0 introducidos |
 
 ## Limitaciones de diseño (documentadas, no bugs)
 

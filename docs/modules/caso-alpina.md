@@ -8,7 +8,7 @@ tags: [velarix, modulo, alpina, caso]
 
 # Caso Alpina
 
-Índice: [[03-modulos]] · Decisión: [[ADR-004-alpina-base-de-valoracion]] · Roadmap: [[10-roadmap]]
+Índice: [[03-modulos]] · **Case home:** [[cases/alpina/00-case-home|Alpina]] · Decisión: [[ADR-004-alpina-base-de-valoracion]] · Roadmap: [[10-roadmap]]
 
 Cadena del caso: metodología [[04-VALUATION-METHODOLOGY-V5]] (§19, decisiones C-01…C-12) → Evidence y gate [[expediente]] → Judgment [[supuestos-y-preflight]] → Calculation [[motor-canonico]] → trazabilidad [[reproducibilidad]]. Tests: [[13-testing]].
 

@@ -1,5 +1,7 @@
 # Fase 02 — Seguridad y Cumplimiento Mínimo
 
+> [!warning] HISTORICAL / SUPERSEDED: documento de una etapa anterior de Velarix (SaaS, boutique o plan comercial). No define el alcance, el roadmap ni la metodología actuales. Velarix es hoy un Personal Valuation & Projection Workbench (ADR-007). Autoridad vigente y orden de lectura: `docs/99-archive.md`.
+
 > **Actualizado 2026-07-23 (tras D-07)**: `BL-07`, `BL-08`, el recorte de
 > `BL-09` (impedir autoaprobación) y `BL-10` **ya no viven aquí** — se
 > adelantaron al Bloque 1D de la Fase 1 (ver

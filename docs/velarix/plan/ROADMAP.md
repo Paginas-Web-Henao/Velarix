@@ -1,5 +1,7 @@
 # Roadmap
 
+> [!warning] HISTORICAL / SUPERSEDED: documento de una etapa anterior de Velarix (SaaS, boutique o plan comercial). No define el alcance, el roadmap ni la metodología actuales. Velarix es hoy un Personal Valuation & Projection Workbench (ADR-007). Autoridad vigente y orden de lectura: `docs/99-archive.md`.
+
 Refleja las Fases 0–8 de `Negocio_Velarix_v4.2.md` §18 (antes v4.1 — ver
 nota de actualización abajo). Sin fechas inventadas — solo estados y
 dependencias. Ver `fases/FASE-XX-*.md` para el detalle ejecutable de cada

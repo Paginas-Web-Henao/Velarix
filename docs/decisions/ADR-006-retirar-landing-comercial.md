@@ -1,14 +1,16 @@
 ---
 tipo: decision
 id: ADR-006
-estado: aceptada
+estado: aceptada (parcialmente superada por ADR-007)
 fecha: 2026-10-15
 tags: [velarix, decision, frontend, alcance]
 ---
 
 # ADR-006 — Retirar la landing comercial
 
-Índice: [[09-decisiones]] · Módulos: [[landing]], [[estimador-demo]] · Antecedente: [[ADR-001-redefinicion-v5]]
+> [!note] Parcialmente superado por [[ADR-007-personal-valuation-workbench]]: el retiro de la landing se mantiene, pero `/` ya no es un Estimador público. La app es privada.
+
+Índice: [[09-decisiones]] · Módulos: [[landing]], [[quick-model]] · Antecedente: [[ADR-001-redefinicion-v5]]
 
 ## Contexto
 Velarix v5 no es un producto comercial. La raíz `/` mostraba una landing B2B de v4.x ("Solicitar demo", CTAs, narrativa de SaaS o boutique), y el Estimador funcionaba como embudo de captación: varias pestañas exigían "Crear cuenta gratuita". [[01-scope-surgery]] §5 ya había clasificado la landing como eliminable sin riesgo técnico. El usuario confirmó explícitamente la decisión el 2026-10-15, lo que adelanta el retiro que estaba previsto para el final del roadmap.

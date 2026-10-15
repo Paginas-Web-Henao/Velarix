@@ -1,7 +1,7 @@
 ---
 tipo: integraciones
 actualizado: 2026-10-15
-tags: [velarix, integraciones, ia]
+tags: [velarix, integraciones, ia, system]
 ---
 
 # Integraciones externas

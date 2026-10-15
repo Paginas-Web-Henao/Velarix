@@ -1,7 +1,7 @@
 ---
 tipo: indice-modulos
 actualizado: 2026-10-15
-tags: [velarix, modulos]
+tags: [velarix, modulos, system]
 ---
 
 # Módulos
@@ -36,8 +36,8 @@ Clasificación v5.0 tomada de [[01-scope-surgery]] §3 (KEEP / MODIFY / FREEZE) 
 
 | Módulo | Ubicación | Rol v5.0 |
 |---|---|---|
-| [[estimador-demo]] | `src/components/demo/`, `src/lib/financial-engine.ts` | Demo pública en `/`, sin login |
-| [[dashboard]] | `src/pages/Dashboard.tsx`, `src/components/dashboard/` | Área privada (requiere auth) |
+| [[workbench]] | `src/pages/Workbench.tsx`, `src/components/workbench/` | Interfaz privada de trabajo (requiere auth) |
+| [[quick-model]] | `src/components/demo/QuickModel.tsx`, `src/lib/financial-engine.ts` | Modelo rápido local, **no canónico** (dentro del workbench) |
 
 ## Retirados
 

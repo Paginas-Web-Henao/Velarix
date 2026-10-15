@@ -1,14 +1,14 @@
 ---
 tipo: testing
 actualizado: 2026-10-15
-tags: [velarix, testing, vitest]
+tags: [velarix, testing, vitest, system]
 ---
 
 # Testing
 
 Volver a [[00-home]] · Anterior: [[expediente]] · Siguiente: [[09-decisiones]] · Relacionado: [[06-tests-first-plan]], [[MATRIZ-DE-PRUEBAS-FINANCIERAS]]
 
-Qué protege la suite: [[motor-canonico]], [[supuestos-y-preflight]], [[reproducibilidad]], [[expediente]], [[caso-alpina]], [[estimador-demo]].
+Qué protege la suite: [[motor-canonico]], [[supuestos-y-preflight]], [[reproducibilidad]], [[expediente]], [[caso-alpina]], [[quick-model]].
 
 ## Comandos
 
@@ -19,11 +19,11 @@ npm run test:watch
 npm run lint      # eslint .
 ```
 
-## Estado verificado (2026-10-15)
+## Estado verificado (2026-10-15, rama `personal-workbench`)
 
 ```
-Test Files  61 passed (61)
-     Tests  1026 passed | 1 expected fail (1027)
+Test Files  62 passed (62)
+     Tests  1033 passed | 1 expected fail (1034)
 ```
 
 El único fallo esperado es `test.fails` de BUG-01 (revenue = 0 en el motor cliente). Ver [[12-bugs]].

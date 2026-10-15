@@ -18,17 +18,21 @@ Solo trabajo derivado del alcance congelado v5.0 o de hechos verificables en el 
 - [ ] Versionar o referenciar la evidencia de Alpina (fases 4B–4F): los archivos `alpina-2024.*` declaran que es un "artefacto histórico no versionado dentro de este repositorio". → [[caso-alpina]]
 - [ ] Suite mínima de sensibilidades P-12 completa (hoy: matriz WACC × g y overlays de `g` en escenarios).
 
-## Demo (prioridad 2)
+## Workbench (prioridad 2)
 
-- [x] Quitar el gate de login del Estimador y servirlo en `/` (2026-10-15, sin commit). → [[ADR-006-retirar-landing-comercial]]
-- [ ] Decidir explícitamente si el Estimador refleja las correcciones del motor canónico o queda como pieza aislada más simple ([[01-scope-surgery]] §8.5).
+- [x] App privada: `/` → `/workbench` o `/auth`; sin demo pública (rama `personal-workbench`). → [[ADR-007-personal-valuation-workbench]]
+- [ ] Revisar el workbench con datos reales de Supabase (solo se probó con mocks y con el envelope de Alpina en tests).
+- [ ] Decidir si el [[quick-model]] se conserva, refleja el motor canónico o se retira. Unificar sigue siendo `NOT BUILDING`.
+- [ ] Desplegar el frontend y la Edge Function `enviar-notificacion` (cambiaron copy y enlaces) tras el merge.
+- [ ] Desactivar los signups en Supabase Auth (ajuste remoto).
 
 ## Cierre (prioridad 3)
 
-- [x] README reescrito con el framing v5.0 (2026-10-15, sin commit).
+- [x] README reescrito como workbench personal (2026-10-15).
 - [x] Landing comercial eliminada (2026-10-15, sin commit). → [[landing]]
-- [ ] Hacer commit de los cambios del 2026-10-15 (landing, Estimador, README, docs).
-- [ ] Revisar textos que quedan con tono comercial fuera de la landing: subtítulo "Inteligencia financiera institucional" en `src/pages/Auth.tsx` y título "Checklist de Lanzamiento" en `QAChecklist.tsx`. Solo se anotan; no se cambiaron.
+- [x] Commits locales en la rama `personal-workbench` (sin push ni merge).
+- [x] Copy comercial retirado de Auth, QA, PDF, emails e `index.html` ([[personal-workbench-surgery-2026-10-15]]).
+- [ ] Prompt de `generate-narrative` con framing "institucional / usuarios de negocio": requiere decisión (benchmark congelado).
 - [ ] Archivar `Negocio.md`, `Negocio_Velarix_v4.1.md`, `Negocio_Velarix_v4.2.md`, `NEGOCIO_V4_VELARIX.md` (raíz de `velarix-code/`) tras desenganchar sus referencias desde [[EXPEDIENTE-DE-VALORACION-V1]].
 - [ ] Writeup/arquitectura final.
 
@@ -39,6 +43,6 @@ Solo trabajo derivado del alcance congelado v5.0 o de hechos verificables en el 
 
 ## Mantenimiento técnico (no bloqueante, no ampliar alcance)
 
-- [ ] Regenerar `src/integrations/supabase/types.ts` (le faltan las 4 tablas del Expediente). → [[12-bugs]] BUG-02
+- [x] `types.ts` con las tablas del Expediente (a mano, desde la migración). Regenerar con el CLI cuando haya acceso, para confirmar que no hay drift.
 - [ ] `quickValuation` (`src/lib/financial-engine.ts`) quedó sin uso en producción tras borrar la landing; solo lo cubre un test de caracterización. Decidir si se conserva.
 - [ ] Ordenar archivos sueltos de la raíz de `velarix-code/`: 10 `.zip` de bloques históricos. **No se movieron** — ver [[obsidian-guia]] §"Cosas que no se tocaron".

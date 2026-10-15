@@ -1,7 +1,7 @@
 ---
 tipo: flujos
 actualizado: 2026-10-15
-tags: [velarix, flujos]
+tags: [velarix, flujos, system]
 ---
 
 # Flujos
@@ -10,7 +10,7 @@ Volver a [[00-home]] · Relacionado: [[06-api]], [[05-base-de-datos]]
 
 ## 1. Pipeline de análisis (end-to-end)
 
-Orquestado por `supabase/functions/run-analysis-pipeline/index.ts`; el frontend lo dispara desde `src/components/dashboard/DocumentUpload.tsx`.
+Orquestado por `supabase/functions/run-analysis-pipeline/index.ts`; el frontend lo dispara desde `src/components/dashboard/DocumentUpload.tsx` (Workbench → Evidence → Cargar, o Nuevo caso).
 
 ```mermaid
 sequenceDiagram
@@ -61,7 +61,7 @@ Ver [[supuestos-y-preflight]], [[expediente]], [[motor-canonico]], [[reproducibi
 ## 3. Revisión manual
 
 1. Se crea una revisión (`crearRevisionManual` en `src/lib/manual-review-api.ts`) → `analyses.status = revision_manual_requerida`. `generate-narrative` también puede dejar ese estado si su auditoría interna no pasa.
-2. Un `analyst`/`admin` la toma, corrige cuentas, y aprueba o bloquea (`/admin/revisiones`).
+2. Un `analyst`/`admin` la toma, corrige cuentas, y aprueba o bloquea (Workbench → Review Center; detalle en `/workbench/reviews/:id`).
 3. Al aprobar, se invoca `continuar-tras-revision`, que reconstruye el `structured_input` y deja el análisis en `validacion_aprobada`.
 
 Ver [[revision-manual]] y [[07-autenticacion]].

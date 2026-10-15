@@ -1,5 +1,7 @@
 # Fase 01 — Exactitud Financiera
 
+> [!warning] HISTORICAL / SUPERSEDED: documento de una etapa anterior de Velarix (SaaS, boutique o plan comercial). No define el alcance, el roadmap ni la metodología actuales. Velarix es hoy un Personal Valuation & Projection Workbench (ADR-007). Autoridad vigente y orden de lectura: `docs/99-archive.md`.
+
 > **Actualizado 2026-07-23 (v2, tras D-07)**: el fundador revisó el ZIP
 > completo de la auditoría y aprobó la auditoría y la decisión `D-06`,
 > pero la Fase 1 **no queda autorizada para implementación** — se

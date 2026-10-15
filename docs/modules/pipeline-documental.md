@@ -24,7 +24,7 @@ Ingesta de estados financieros (PDF, Excel, CSV) hasta el `structured_input`.
 | Structured input | `build-structured-input` | `structured-input-builder.ts`, `structured-input-resolution.ts`, `structured-input-derivations.ts`, `currency.ts`, `period-resolution.ts` |
 
 ## Frontend
-`src/components/dashboard/DocumentUpload.tsx`, `NewAnalysisStepper.tsx`, `ProgressPanel.tsx`, `src/hooks/useAnalysisProgress.ts`.
+`src/components/dashboard/DocumentUpload.tsx` (Workbench → Evidence), `NewAnalysisStepper.tsx` (Nuevo caso), `ProgressPanel.tsx`, `src/hooks/useAnalysisProgress.ts`.
 
 ## Documentos
 [[03-FLUJOS-END-TO-END]] · [[REPORTE-IMPLEMENTACION-1B-P0]]

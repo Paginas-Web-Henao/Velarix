@@ -1,5 +1,7 @@
 # Guía paso a paso — todo lo que falta para que Velarix funcione como negocio
 
+> [!warning] HISTORICAL / SUPERSEDED: documento de una etapa anterior de Velarix (SaaS, boutique o plan comercial). No define el alcance, el roadmap ni la metodología actuales. Velarix es hoy un Personal Valuation & Projection Workbench (ADR-007). Autoridad vigente y orden de lectura: `docs/99-archive.md`.
+
 Este documento es un mapa general, en lenguaje simple, de **todo el camino**:
 lo que ya está hecho, lo que falta, y quién tiene que hacer cada cosa (tú o
 Claude Code). No reemplaza los documentos técnicos detallados que ya existen

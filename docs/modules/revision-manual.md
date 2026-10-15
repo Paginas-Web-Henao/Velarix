@@ -15,7 +15,7 @@ Cola de revisión humana para homologaciones dudosas o narrativas que no pasan s
 
 ## Archivos
 - `src/lib/manual-review-api.ts` — `crearRevisionManual`, `obtenerRevisiones*`, `tomarRevision`, `obtenerDetalleRevision`, `corregirCuenta`, `aprobarRevision`, `bloquearRevision`.
-- `src/pages/AdminReviews.tsx`, `src/pages/AdminReviewDetail.tsx` (rutas `/admin/revisiones`).
+- `src/pages/AdminReviews.tsx` (embebido en el workbench como **Review Center**) y `src/pages/AdminReviewDetail.tsx` (`/workbench/reviews/:revisionId`).
 - `supabase/functions/continuar-tras-revision/index.ts` — reanuda tras aprobación → `validacion_aprobada`.
 - Tabla `manual_reviews`.
 

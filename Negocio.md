@@ -1,5 +1,7 @@
 # Velarix — Definición de Negocio y Plan de Desarrollo
 
+> [!warning] HISTORICAL / SUPERSEDED: documento de una etapa anterior de Velarix (SaaS, boutique o plan comercial). No define el alcance, el roadmap ni la metodología actuales. Velarix es hoy un Personal Valuation & Projection Workbench (ADR-007). Autoridad vigente y orden de lectura: `docs/99-archive.md`.
+
 > Documento de referencia única. Cualquier decisión de producto, feature o
 > prioridad técnica se valida contra este documento antes de tocar código.
 > Si algo en el código contradice lo que dice aquí, este documento manda —

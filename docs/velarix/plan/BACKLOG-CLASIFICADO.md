@@ -1,5 +1,7 @@
 # Backlog Clasificado
 
+> [!warning] HISTORICAL / SUPERSEDED: documento de una etapa anterior de Velarix (SaaS, boutique o plan comercial). No define el alcance, el roadmap ni la metodología actuales. Velarix es hoy un Personal Valuation & Projection Workbench (ADR-007). Autoridad vigente y orden de lectura: `docs/99-archive.md`.
+
 Todos los hallazgos de esta auditoría, consolidados por causa raíz (sin
 duplicar el mismo defecto en varias filas). Referencia cruzada a
 `MATRIZ-DE-RIESGOS.md` (R-xx) y `auditoria/11-CONTRADICCIONES-NEGOCIO-CODIGO.md`

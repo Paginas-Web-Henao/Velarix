@@ -1,7 +1,7 @@
 ---
 tipo: api
 actualizado: 2026-10-15
-tags: [velarix, api, edge-functions]
+tags: [velarix, api, edge-functions, system]
 ---
 
 # API

@@ -6,6 +6,8 @@ tags: [velarix, contexto]
 
 # Contexto del proyecto
 
+> **Definición vigente (2026-10-15):** Velarix es un **Personal Valuation & Projection Workbench**, el sistema personal de Nicolás. No es un negocio, un SaaS ni una demo pública ([[ADR-007-personal-valuation-workbench]]).
+
 Volver a [[00-home]] · Siguiente: [[02-arquitectura]] · Decisión de origen: [[ADR-001-redefinicion-v5]]
 
 ## Qué hace
@@ -57,8 +59,8 @@ Según [[04-VALUATION-METHODOLOGY-V5]] §1: la mayoría de errores serios de val
 1. Documento de metodología (10–15 págs.) — ✅
 2. Auditoría + corrección del motor — ✅ (según commits)
 3. **Un** caso completo: Alpina — 🟡 en curso ([[caso-alpina]])
-4. Estimador como demo pública sin login — 🟡 público en `/` desde 2026-10-15 ([[estimador-demo]])
-5. README / writeup final — 🟡 README reescrito; writeup pendiente
+4. ~~Estimador como demo pública sin login~~: superado por [[ADR-007-personal-valuation-workbench]] (no hay demo pública; el Estimador es el [[quick-model]] privado)
+5. README / writeup final: 🟡 README reescrito como workbench personal; falta el writeup del caso
 
 Detalle en [[10-roadmap]].
 

@@ -1,5 +1,7 @@
 # Plan Maestro
 
+> [!warning] HISTORICAL / SUPERSEDED: documento de una etapa anterior de Velarix (SaaS, boutique o plan comercial). No define el alcance, el roadmap ni la metodología actuales. Velarix es hoy un Personal Valuation & Projection Workbench (ADR-007). Autoridad vigente y orden de lectura: `docs/99-archive.md`.
+
 Este documento ordena el trabajo recomendado **sin implementarlo**. Fuente
 de evidencia: `auditoria/*`. Fuente de autoridad de negocio:
 `Negocio_Velarix_v4.1.md`.

@@ -1,31 +1,36 @@
 ---
 tipo: modulo
 capa: frontend
-estado_v5: KEEP (público en "/")
+estado_v5: KEEP (no canónico)
 actualizado: 2026-10-15
-tags: [velarix, modulo, demo]
+tags: [velarix, modulo, workbench]
 ---
 
-# Estimador (demo pública)
+# Quick Model
 
-Índice: [[03-modulos]] · Decisión: [[ADR-006-retirar-landing-comercial]] · Arquitectura: [[02-arquitectura]]
+Índice: [[03-modulos]] · Mapa: [[03-WORKBENCH]] · Decisión: [[ADR-007-personal-valuation-workbench]]
 
 ## Qué es
-La raíz de la aplicación (`/`). Es una demo pública **sin login**: el cálculo corre entero en el navegador con el **motor cliente**, no con el [[motor-canonico]].
+Modelo rápido, **local y exploratorio** dentro del workbench (panel lateral → Quick Model). Corre entero en el navegador con el **motor cliente** (`src/lib/financial-engine.ts`). **No es canónico**: no usa Evidence del caso ni supuestos resueltos, no persiste nada y no tiene fingerprint.
+
+| | Quick Model | Caso canónico |
+|---|---|---|
+| Motor | `src/lib/financial-engine.ts` (cliente) | `canonical-financial-engine.ts` ([[motor-canonico]]) |
+| Inputs | Formulario libre, supuestos por defecto | Evidence + 13 supuestos resueltos ([[supuestos-y-preflight]]) |
+| Gates | Ninguno | Checkpoint del [[expediente]] + preflight |
+| Persistencia / trazabilidad | No | Supabase + envelope ([[reproducibilidad]]) |
+| Uso | Explorar órdenes de magnitud | Valoración defendible |
+
+Unificar los motores sigue siendo `NOT BUILDING` (D-06 en [[REGISTRO-DE-DECISIONES]]).
 
 ## Archivos
-- `src/components/demo/DemoDashboard.tsx`: montado directamente en la ruta `/` (`src/App.tsx`). `open` y `onClose` son opcionales: sin `onClose` no aparece el botón de cerrar.
-- `src/components/demo/`: `DemoInputsForm`, `DemoKPIs`, `DemoCharts`, `DemoSensitivity`, `DemoNormalization`, `DemoMacro`, `DemoDataIntegrity`, `DemoBenchmarkView`, `DemoReport` (PDF generado en el navegador).
-- `src/lib/financial-engine.ts`: motor cliente (`runAnalysis`).
+- `src/components/demo/QuickModel.tsx` (antes `DemoDashboard.tsx`; solo se renombró el contenedor).
+- `src/components/demo/Demo*.tsx`: subpaneles (inputs, normalización, KPIs, proyecciones, sensibilidad, benchmarks, macro, reporte, integridad). Sus nombres internos conservan el prefijo `Demo`; el texto visible ya no dice "demo".
 
-## Cambios del 2026-10-15
-- Se eliminó el gate comercial: `SeccionBloqueada` ("… disponible con cuenta gratuita" / "Crear cuenta gratuita"), los candados y la pestaña "Reporte" oculta sin sesión. Ya no se usa `useAuth`.
-- Las 9 pestañas (Inputs, Normalización, KPIs, Proyecciones, Valuación, Benchmarks, Macro, Reporte, Integridad) son públicas.
-- Se quitó el texto "Mid-year en versión completa", porque aludía a una versión de pago.
-- Se añadió un enlace discreto "Área privada →" a `/dashboard`. Es la única vía de navegación hacia el login que quedaba tras borrar el `Navbar` de la landing.
-
-## Pendiente
-- Decidir si el Estimador refleja las correcciones del motor canónico o queda como pieza aislada más simple ([[01-scope-surgery]] §8.5). Unificar motores es `NOT BUILDING`. Ver [[11-pendientes]].
+## Historia
+- v4.x: gancho de captación de leads en la landing.
+- [[ADR-006-retirar-landing-comercial]]: demo pública en `/` sin login.
+- [[ADR-007-personal-valuation-workbench]]: deja de ser pública y pasa a ser una herramienta privada no canónica.
 
 ## Tests
 `DemoInputsForm.test.tsx`, `financial-engine.golden-cases.test.ts`, `financial-engine.characterization.test.ts`. BUG-01 en [[12-bugs]].

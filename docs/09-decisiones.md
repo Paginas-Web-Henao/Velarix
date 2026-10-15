@@ -1,7 +1,7 @@
 ---
 tipo: decisiones
 actualizado: 2026-10-15
-tags: [velarix, decisiones, adr]
+tags: [velarix, decisiones, adr, decision]
 ---
 
 # Decisiones
@@ -24,7 +24,8 @@ Volver a [[00-home]] · Anterior: [[13-testing]] · Siguiente: [[10-roadmap]] ·
 | [[ADR-003-separacion-evidence-judgment-snapshots]] | `resolved_assumptions_used` separado de `source_input_snapshot` | 2026-09-03 |
 | [[ADR-004-alpina-base-de-valoracion]] | Alpina: Market Value, 2024-12-31, standalone parent DCF + SOTP separado | 2026-09-07 |
 | [[ADR-005-lambda-juicio-directo]] | `country_risk_lambda` admite juicio directo documentado | 2026-09-07 |
-| [[ADR-006-retirar-landing-comercial]] | Se elimina la landing B2B; `/` pasa a ser el Estimador público sin login | 2026-10-15 |
+| [[ADR-006-retirar-landing-comercial]] | Se elimina la landing B2B (la parte "Estimador público" quedó superada por ADR-007) | 2026-10-15 |
+| [[ADR-007-personal-valuation-workbench]] | Velarix = Personal Valuation & Projection Workbench; app privada, sin demo pública | 2026-10-15 |
 
 ## Principios metodológicos cerrados (P-01 … P-14)
 

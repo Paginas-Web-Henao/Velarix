@@ -1,5 +1,7 @@
 # Fase 03 — Pilotos Controlados
 
+> [!warning] HISTORICAL / SUPERSEDED: documento de una etapa anterior de Velarix (SaaS, boutique o plan comercial). No define el alcance, el roadmap ni la metodología actuales. Velarix es hoy un Personal Valuation & Projection Workbench (ADR-007). Autoridad vigente y orden de lectura: `docs/99-archive.md`.
+
 ## Estado
 
 Bloqueada. Depende del cierre de Fase 01 y Fase 02.

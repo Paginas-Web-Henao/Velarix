@@ -1,7 +1,7 @@
 ---
 tipo: base-de-datos
 actualizado: 2026-10-15
-tags: [velarix, supabase, postgres]
+tags: [velarix, supabase, postgres, system]
 ---
 
 # Base de datos
@@ -10,8 +10,7 @@ Volver a [[00-home]] · Arquitectura: [[02-arquitectura]] · Relacionado: [[07-a
 
 Postgres gestionado por Supabase. Fuente de verdad: `supabase/migrations/*.sql`. Tipos TS generados: `src/integrations/supabase/types.ts`.
 
-> [!warning] `types.ts` está desactualizado
-> No incluye las 4 tablas del Expediente (`valuation_files`, `account_notes`, `expedient_questions`, `expedient_answers`) creadas en la migración `20260817140000`. Ver [[12-bugs]].
+> [!note] `types.ts` incluye desde el 2026-10-15 las 4 tablas del Expediente y la RPC `admin_set_user_role`, añadidas a mano copiando exactamente las migraciones (no se pudo regenerar: no hay CLI de Supabase ni token). Clasificación personal del schema: [[personal-workbench-surgery-2026-10-15]] §5.
 
 ## Migraciones
 
