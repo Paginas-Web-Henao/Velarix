@@ -26,9 +26,10 @@ Caso activo y **único caso completo** de Velarix v5. Este MOC **no duplica dato
 | Supuestos resueltos | ✅ 13/13 (`ALPINA_2024_RESOLVED_ASSUMPTIONS`) | commit `325f71c` |
 | Primera ejecución canónica | ✅ congelada en test (motor puro) | `alpina-2024.canonical-execution.test.ts`, commit `0df086c` |
 | Caso operativo en Supabase | ✅ materializado 2026-10-15 (`analyses` `ca6de328-…`, owner) desde los fixtures, commit `18f34a0` | `npm run materialize:alpina` · `scripts/alpina/materialization-plan.ts` |
-| Ejecución por `ejecutar-calculo` (flujo oficial) | ⏸ pendiente. El primer intento (2026-10-15) pasó el checkpoint pero cayó en el preflight **legacy**: la función remota (v13) era la del commit `5750fcf`, anterior al v5 y sin la detección de `resolved_assumptions` (3C.6). Se re-desplegó `ejecutar-calculo` desde `5a36ef2` → **v14**, idéntica al repo. Falta relanzar | `npm run materialize:alpina -- --calculate` |
+| Ejecución por `ejecutar-calculo` (flujo oficial) | ✅ 2026-10-15: `calculo_completo`, `resolved_case_input`, fingerprint `db5429ad178da7f5`. EV 1,668,259,651.21 · Equity (standalone, antes de SOTP) 920,678,902.21 · WACC 10.5542%. **Verificado contra el resultado congelado:** 530 exactos, 10 equivalentes en punto flotante (1 ULP, Deno vs. Node, rel ≤ 1.82e-16), 0 diferencias reales (evento `official_calculation_verified`, commit `c020cca`). El evento `official_calculation_mismatch` previo (comparación con tolerancia cero) se conserva en el historial | `npm run materialize:alpina -- --calculate` |
+| Historial del flujo oficial | El primer intento (2026-10-15) pasó el checkpoint pero cayó en el preflight **legacy**: la función remota (v13) era la del commit `5750fcf`, anterior al v5 y sin la detección de `resolved_assumptions` (3C.6). Se re-desplegó `ejecutar-calculo` desde `5a36ef2` → **v14**, idéntica al repo. Falta relanzar | `npm run materialize:alpina -- --calculate` |
 
-**Siguiente bloqueo:** revisar en el workbench (Accounts, Questions) el Expediente transcrito y luego ejecutar el flujo oficial con `npm run materialize:alpina -- --calculate`, que compara sin tolerancia contra el resultado congelado. Hoy, además, la evidencia de las fases 4B–4F no está versionada en el repo (ver Evidence).
+**Siguiente bloqueo:** completar el challenge (suite P-12) y responder C-05, C-06, C-09 y C-12. El cálculo oficial ya está persistido y verificado. Hoy, además, la evidencia de las fases 4B–4F no está versionada en el repo (ver Evidence).
 
 ## Evidence
 
@@ -88,7 +89,7 @@ Resultado del motor sobre el input real (**CALCULATION**): `alpina-2024.canonica
 ## Open Items
 
 - [x] Materializar Alpina en Supabase (2026-10-15, `npm run materialize:alpina`).
-- [ ] Revisar el Expediente transcrito en el workbench y ejecutar `npm run materialize:alpina -- --calculate`.
+- [x] Ejecutar `ejecutar-calculo` y verificarlo contra el congelado (0 diferencias reales; tolerancia de máquina 4·ε).
 - [ ] Responder C-05 (normalizaciones), C-06 (supplier finance), C-09 (DLOM/size premium) y C-12 (drivers de forecast).
 - [ ] Versionar o enlazar la evidencia 4B–4F.
 - [ ] Documentar Company Understanding y Normalizations aquí.

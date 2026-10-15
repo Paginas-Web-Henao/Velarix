@@ -15,7 +15,7 @@ Solo trabajo derivado del alcance congelado v5.0 o de hechos verificables en el 
 - [x] Alpina materializada en Supabase como primer caso operativo (2026-10-15, `npm run materialize:alpina`). → [[cases/alpina/00-case-home|Alpina]]
 - [x] `ejecutar-calculo` remoto sincronizado con el repo (v14, 2026-10-15; la v13 era pre-v5). → [[14-deploy]]
 - [ ] Verificar el drift repo↔remoto de las otras 11 Edge Functions (desplegadas en agosto, antes del v5).
-- [ ] Ejecutar Alpina por `ejecutar-calculo` tras revisar el Expediente: `npm run materialize:alpina -- --calculate` (compara sin tolerancia con el resultado congelado). → [[caso-alpina]]
+- [x] Alpina ejecutada por `ejecutar-calculo` y verificada contra el congelado (2026-10-15; 0 diferencias reales). Antes: `npm run materialize:alpina -- --calculate` (compara sin tolerancia con el resultado congelado). → [[caso-alpina]]
 - [ ] Workbench → Judgment y Evidence solo muestran datos desde un cálculo persistido; antes de calcular aparecen vacíos aunque `structured_inputs` ya tenga los 13 supuestos.
 - [ ] Ítems case-dependent de [[05-financial-engine-audit]] §12 (RC-4, horizonte, bridge, realización fiscal).
 - [ ] Definir el alcance del SOTP mencionado en `alpina-2024.*` (análisis separado del parent DCF).
