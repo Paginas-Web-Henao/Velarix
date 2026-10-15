@@ -25,14 +25,31 @@ Caso activo y **único caso completo** de Velarix v5. Este MOC **no duplica dato
 | Moneda / unidad | COP miles | `alpina-2024.structured-input.ts` |
 | Supuestos resueltos | ✅ 13/13 (`ALPINA_2024_RESOLVED_ASSUMPTIONS`) | commit `325f71c` |
 | Primera ejecución canónica | ✅ congelada en test (motor puro) | `alpina-2024.canonical-execution.test.ts`, commit `0df086c` |
-| Ejecución por `ejecutar-calculo` (flujo oficial) | ❓ pendiente de confirmar | [[11-pendientes]] |
+| Caso operativo en Supabase | ✅ materializado 2026-10-15 (`analyses` `ca6de328-…`, owner) desde los fixtures, commit `18f34a0` | `npm run materialize:alpina` · `scripts/alpina/materialization-plan.ts` |
+| Ejecución por `ejecutar-calculo` (flujo oficial) | ⏸ pendiente: el Expediente transcrito debe revisarse antes en el workbench | `npm run materialize:alpina -- --calculate` |
 
-**Siguiente bloqueo:** confirmar o ejecutar Alpina por el flujo oficial (checkpoint del Expediente + preflight). Hoy, además, la evidencia de las fases 4B–4F no está versionada en el repo (ver Evidence).
+**Siguiente bloqueo:** revisar en el workbench (Accounts, Questions) el Expediente transcrito y luego ejecutar el flujo oficial con `npm run materialize:alpina -- --calculate`, que compara sin tolerancia contra el resultado congelado. Hoy, además, la evidencia de las fases 4B–4F no está versionada en el repo (ver Evidence).
 
 ## Evidence
 
 - Evidence FY2024 standalone (ingresos, EBITDA, EBIT, caja, deuda bancaria, leases, equity): `supabase/functions/_shared/alpina-2024.structured-input.ts`. **EVIDENCE**
 - Estados financieros separados FY2024 y notas revisadas en 4B.1: **artefacto histórico no versionado** según los propios archivos. > Pendiente: ubicar y enlazar aquí (candidato: `docs/cases/alpina/evidence/`).
+
+## Supabase (caso operativo)
+
+Materializado con `npm run materialize:alpina -- --apply`, en una sola dirección: fixtures del repo → Supabase. Los fixtures nunca se modifican. Es idempotente: si se repite, no escribe nada, y aborta ante duplicados o cualquier divergencia.
+
+| Capa | Dónde quedó | Origen |
+|---|---|---|
+| REPO_CANONICAL_EVIDENCE | `structured_inputs.input_payload` (income statement / balance sheet FY2024) | `alpina-2024.structured-input.ts` (copia exacta) |
+| JUDGMENT | `structured_inputs.input_payload.resolved_assumptions` (13/13) | `alpina-2024.resolved-assumptions.ts` |
+| JUDGMENT (Expediente) | 2 `account_notes` (`financial_debt_total`, `da`) y 12 `expedient_questions` C-01…C-12: 8 respondidas, transcritas con el prefijo `[REPO_CANONICAL_JUDGMENT]` y su archivo fuente; **C-05, C-06, C-09, C-12 abiertas** (el repo no las responde) | `alpina-2024.*`, [[03-methodology-decisions-v5]] Capa B |
+| SUPABASE_DOCUMENT_EVIDENCE | **Ninguna**: no se subieron documentos ni se simuló el pipeline documental | — |
+| CALCULATION | **Pendiente**: solo por `ejecutar-calculo`, nunca copiado del test | — |
+
+Sin columna en el esquema (están solo en el metadata del audit event `case_materialized_from_repo`): fecha de valoración, basis of value, sujeto, arquitectura y unidad.
+
+Las filas del Expediente son inmutables desde la app (RLS solo permite INSERT).
 
 ## Company Understanding
 
@@ -70,7 +87,9 @@ Resultado del motor sobre el input real (**CALCULATION**): `alpina-2024.canonica
 
 ## Open Items
 
-- [ ] Ejecutar o confirmar Alpina por `ejecutar-calculo`.
+- [x] Materializar Alpina en Supabase (2026-10-15, `npm run materialize:alpina`).
+- [ ] Revisar el Expediente transcrito en el workbench y ejecutar `npm run materialize:alpina -- --calculate`.
+- [ ] Responder C-05 (normalizaciones), C-06 (supplier finance), C-09 (DLOM/size premium) y C-12 (drivers de forecast).
 - [ ] Versionar o enlazar la evidencia 4B–4F.
 - [ ] Documentar Company Understanding y Normalizations aquí.
 - [ ] Completar la suite mínima de sensibilidades P-12.

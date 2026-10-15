@@ -12,7 +12,9 @@ Solo trabajo derivado del alcance congelado v5.0 o de hechos verificables en el 
 
 ## Caso Alpina (prioridad 1)
 
-- [ ] Confirmar si Alpina ya se ejecutó por `ejecutar-calculo` contra Supabase o solo dentro de Vitest. → [[caso-alpina]]
+- [x] Alpina materializada en Supabase como primer caso operativo (2026-10-15, `npm run materialize:alpina`). → [[cases/alpina/00-case-home|Alpina]]
+- [ ] Ejecutar Alpina por `ejecutar-calculo` tras revisar el Expediente: `npm run materialize:alpina -- --calculate` (compara sin tolerancia con el resultado congelado). → [[caso-alpina]]
+- [ ] Workbench → Judgment y Evidence solo muestran datos desde un cálculo persistido; antes de calcular aparecen vacíos aunque `structured_inputs` ya tenga los 13 supuestos.
 - [ ] Ítems case-dependent de [[05-financial-engine-audit]] §12 (RC-4, horizonte, bridge, realización fiscal).
 - [ ] Definir el alcance del SOTP mencionado en `alpina-2024.*` (análisis separado del parent DCF).
 - [ ] Versionar o referenciar la evidencia de Alpina (fases 4B–4F): los archivos `alpina-2024.*` declaran que es un "artefacto histórico no versionado dentro de este repositorio". → [[caso-alpina]]

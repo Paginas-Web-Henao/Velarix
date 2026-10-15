@@ -18,9 +18,9 @@ tags: [velarix, home]
 | | |
 |---|---|
 | Caso | **[[cases/alpina/00-case-home\|Alpina Productos Alimenticios S.A.S. BIC]]** |
-| Estado | 🟡 13/13 supuestos resueltos; primera ejecución canónica congelada en test |
+| Estado | 🟡 13/13 supuestos resueltos; ejecución canónica congelada en test; **materializado en Supabase** (Expediente transcrito, cálculo oficial pendiente) |
 | Fecha de valoración | 2024-12-31 · Market Value (IVS 102) · COP miles |
-| Siguiente bloqueo | Ejecutar o confirmar Alpina por el flujo oficial `ejecutar-calculo` (checkpoint + preflight) |
+| Siguiente bloqueo | Revisar el Expediente en el workbench → `npm run materialize:alpina -- --calculate` (flujo oficial + comparación con el congelado) |
 
 ## Start Here
 

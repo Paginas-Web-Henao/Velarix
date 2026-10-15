@@ -29,6 +29,7 @@ El **único caso completo** de v5.0: Alpina Productos Alimenticios S.A.S. BIC.
 - `alpina-2024.resolved-assumptions.ts` — los 13 supuestos resueltos reales.
 - `alpina-2024.canonical-execution.test.ts` — primera ejecución canónica real contra `runCanonicalFinancialEngine` (sin mock), comprueba que el sector no altera outputs DCF.
 - `alpina-2024.resolved-assumptions.test.ts`, `alpina-2024.structured-input.test.ts`.
+- `scripts/alpina/materialization-plan.ts` (+ test) y `scripts/materialize-alpina.mjs` → `npm run materialize:alpina`: snapshot idempotente de estos fixtures a Supabase con la sesión del owner (dry-run / `--apply` / `--calculate`). Estado en el [[cases/alpina/00-case-home|case home]].
 
 ## Trazabilidad de la evidencia
 Los propios archivos indican que los estados financieros y notas revisados en las fases 4B–4F son un **artefacto histórico no versionado** en este repo. > Pendiente de confirmar dónde viven (candidato: `docs/research/`).
