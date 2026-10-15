@@ -98,7 +98,7 @@ describe("compareJson (oficial vs. congelado: EXACT_MATCH / FLOAT_EQUIVALENT / R
     const ev = 1668259651.2050533;
     expect(compareJson({ ev }, { ev: ev + 0.001 }).realMismatches).toHaveLength(1); // 1 peso (COP miles)
     expect(compareJson({ ev }, { ev: ev + 1e-5 }).realMismatches).toHaveLength(1);  // ~6e-15 relativo
-    expect(compareJson({ w: 10.554236424286662 }, { w: 10.554236424286663 + 1e-12 }).realMismatches).toHaveLength(1);
+    expect(compareJson({ w: 10.554236424286662 }, { w: 10.554236424286662 + 1e-12 }).realMismatches).toHaveLength(1);
     expect(isFloatEquivalent(0, 5e-16)).toBe(true); // suelo absoluto 4·ε ≈ 8.9e-16 cerca de cero
     expect(isFloatEquivalent(0, 1e-15)).toBe(false);
     expect(isFloatEquivalent(0, 1e-12)).toBe(false);
