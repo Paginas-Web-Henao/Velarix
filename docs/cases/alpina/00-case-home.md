@@ -72,7 +72,12 @@ Las filas del Expediente son inmutables desde la app (RLS solo permite INSERT).
 Las decisiones case-specific C-01…C-12 están en [[04-VALUATION-METHODOLOGY-V5]] §19 y [[03-methodology-decisions-v5]] (Capa B).
 
 - **C-11, wording corregido (2026-10-15):** la pregunta decía "el CRP de 2.85%", un snapshot fechado de ene-2026. Ahora dice "el CRP vigente aplicado al caso" (el vigente es 2.541%). La versión anterior se conserva en Supabase como *superseded* (`supersedes_question_id` + audit event `expedient_question_superseded`). El Judgment (λ = 1, R-01) no cambia.
-- **C-07.1, abierta:** el cross-check g/ROC terminal sigue **pendiente**: ninguna fuente canónica lo da por resuelto (`capexReinvestmentDriver.rationale`; 05 §8/§11, "Verificación manual"). Es un cross-check metodológico adicional: no bloquea ni invalida el cálculo oficial ya verificado.
+- **Cross-check g/ROC terminal (antes C-07.1):** resuelto como validación **determinística**, no como Judgment. Es el **TERMINAL REINVESTMENT CHECK** (workbench → Challenge; audit event `terminal_reinvestment_check`), calculado sobre el cálculo persistido:
+  - Y5: Net Reinvestment = CAPEX 119,695,825 − D&A 102,168,929.29 + ΔNWC 1,821,877 = 19,348,772.71.
+  - Net Reinvestment / NOPAT 154,790,063.51 = **0.1250001**, frente a g/ROC = 3%/24% = 0.125. La banda documentada (ROC 23.5–24.5%) es 0.1224–0.1277. ROC implícito: 23.99998%. **PASS**.
+  - La fila C-07.1 se conserva como historial, reclasificada `CALCULATION_VALIDATION` (`expedient_question_reclassified`).
+  - La transcripción de C-07 tiene una nueva versión sin la frase "pendiente"; la anterior queda como superseded. El rationale congelado del fixture no cambia.
+  - C-04 ("g verificado contra Net Reinvestment/NOPAT ≈ g/ROC") y C-07 quedan consistentes.
 - Siguen abiertas: C-05, C-06, C-09 y C-12.
 
 ## Normalizations
@@ -106,7 +111,7 @@ Resultado del motor sobre el input real (**CALCULATION**): `alpina-2024.canonica
 - [x] Materializar Alpina en Supabase (2026-10-15, `npm run materialize:alpina`).
 - [x] Ejecutar `ejecutar-calculo` y verificarlo contra el congelado (0 diferencias reales; tolerancia de máquina 4·ε).
 - [ ] Responder C-05 (normalizaciones), C-06 (supplier finance), C-09 (DLOM/size premium) y C-12 (drivers de forecast).
-- [ ] C-07.1: cross-check g/ROC terminal (Net Reinvestment/NOPAT ≈ g/ROC en Y5).
+- [x] Cross-check g/ROC terminal: TERMINAL REINVESTMENT CHECK = PASS (0.1250001 vs 0.125).
 - [ ] Documentar los segmentos de Alpina (Company Understanding).
 - [ ] Versionar o enlazar la evidencia 4B–4F.
 - [ ] Documentar Company Understanding y Normalizations aquí.

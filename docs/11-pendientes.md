@@ -19,7 +19,7 @@ Solo trabajo derivado del alcance congelado v5.0 o de hechos verificables en el 
 - [ ] Workbench → Judgment y Evidence solo muestran datos desde un cálculo persistido; antes de calcular aparecen vacíos aunque `structured_inputs` ya tenga los 13 supuestos.
 - [x] Metadata estructurado del caso + estados de provenance + bloque de verificación oficial en el workbench (2026-10-15, migración `20261015180000`).
 - [x] C-11: wording desacoplado del CRP fechado (versión superseded conservada).
-- [ ] C-07.1: cross-check g/ROC terminal de Alpina (pendiente; no bloquea el cálculo verificado).
+- [x] Cross-check g/ROC terminal de Alpina: TERMINAL REINVESTMENT CHECK = PASS. C-07.1 se reclasificó como validación de CALCULATION; la fila se conserva.
 - [ ] P-12: suite adicional de challenge de un factor (marcada NOT IMPLEMENTED en Challenge).
 - [ ] Ítems case-dependent de [[05-financial-engine-audit]] §12 (RC-4, horizonte, bridge, realización fiscal).
 - [ ] Definir el alcance del SOTP mencionado en `alpina-2024.*` (análisis separado del parent DCF).

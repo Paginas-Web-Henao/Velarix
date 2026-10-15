@@ -32,11 +32,11 @@ Interfaz privada de trabajo (`/workbench`). Un **caso** es una fila de `analyses
 | B | Evidence | `documents` (SUPABASE_DOCUMENT_EVIDENCE), `source_input_snapshot` (con su capa de origen), y tres estados de provenance: case source, document y account lineage | EVIDENCE |
 | C | Business | `analyses` (contexto, interés valorado, arquitectura) + `business_profile` (resumen, segmentos, geografías, drivers y riesgos, cada uno con su fuente); el narrativo completo vive en el case MOC | EVIDENCE |
 | D | Accounts | `account_homologations`, `validation_results`, `account_notes` | EVIDENCE / JUDGMENT |
-| E | Questions | Checkpoint mínimo; hilos C-xx colapsables (estado, evidencia, Judgment completo, fuente e historial de versiones superseded); `manual_reviews` | JUDGMENT |
+| E | Questions | Checkpoint mínimo; hilos C-xx colapsables (estado, evidencia, Judgment completo, fuente e historial de versiones superseded); preguntas reclasificadas fuera del Judgment (`expedient_question_reclassified`) en un historial aparte; `manual_reviews` | JUDGMENT |
 | F | Judgment | `resolved_assumptions_used` (o snapshot legacy, marcado como tal) + Ke/WACC calculados | JUDGMENT / CALCULATION |
 | G | Forecast | `calculation_result.projections` | CALCULATION |
 | H | Valuation | `calculation_result.valuation` | CALCULATION |
-| I | Challenge | `scenarios`, `sensitivityMatrix`; P-12 marcado como NOT IMPLEMENTED | CALCULATION |
+| I | Challenge | `scenarios`, `sensitivityMatrix`; TERMINAL REINVESTMENT CHECK (Net Reinvestment/NOPAT vs. g/ROC, determinístico; `src/lib/terminal-reinvestment-check.ts`); P-12 marcado como NOT IMPLEMENTED | CALCULATION |
 | J | Output | Bloque OFFICIAL CALCULATION VERIFIED (solo si existe un `official_calculation_verified` con el mismo fingerprint y `calculated_at` y 0 diferencias reales), rango, limitaciones de trazabilidad, narrativa (borrador IA), PDF | — |
 | K | Audit trail | `version`, provenance por campo (capa de origen; «not available» = ausencia conocida, nunca ids fabricados), snapshots, `audit_events` | — |
 
