@@ -20,7 +20,7 @@ Esta carpeta está vacía a propósito. **No se movió nada** para no romper enl
 | Auditoría jul-2026 | `docs/velarix/auditoria/` | Diagnóstico previo a v5 |
 | Paquetes `.zip` de bloques | raíz de `velarix-code/` | Copias de entregas |
 | `velarix-code-latest/` | dentro de `velarix-code/` | Snapshot viejo, ignorado por git (D-02) |
-| PDF/DOCX originales | raíz del vault `Velarix/` | Material v1 (marzo 2026) |
+| PDF/DOCX originales | `docs/archive/source-material/v1-2026-03/` ([[source-material-v1]]) | Material v1 (marzo 2026) |
 
 ## Eliminado (no archivado)
 La landing comercial (`src/pages/Index.tsx`, `src/components/landing/`) se **eliminó** del código el 2026-10-15 en vez de archivarse. Se puede recuperar desde git (commit `c52f901`). Registro: [[landing]], [[ADR-006-retirar-landing-comercial]].

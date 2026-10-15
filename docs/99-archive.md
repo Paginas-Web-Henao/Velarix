@@ -21,7 +21,7 @@ tags: [velarix, archive]
 
 | Era | Qué era | Dónde está | Superada por |
 |---|---|---|---|
-| v1 (2026-03) | SaaS de valoración automatizada con IA | PDF/DOCX de la raíz del vault, `Negocio.md` | [[ADR-001-redefinicion-v5]] |
+| v1 (2026-03) | SaaS de valoración automatizada con IA | [[source-material-v1]] (`docs/archive/source-material/v1-2026-03/`), `Negocio.md` | [[ADR-001-redefinicion-v5]] |
 | v4.1 / v4.2 (2026-08) | Boutique expert-led con clientes, pricing y fases comerciales | `Negocio_Velarix_v4.1.md`, `Negocio_Velarix_v4.2.md`, `NEGOCIO_V4_VELARIX.md`, `docs/velarix/fases/`, `docs/velarix/plan/ROADMAP.md`, `PLAN-MAESTRO.md`, [[REORIENTACION-BOUTIQUE-EXPERT-LED-2026-08-10]] | [[ADR-001-redefinicion-v5]] |
 | Landing comercial | Página B2B | Eliminada; registro en [[landing]] | [[ADR-006-retirar-landing-comercial]] |
 | Demo pública | Estimador sin login en `/` | Ahora [[quick-model]] privado | [[ADR-007-personal-valuation-workbench]] |

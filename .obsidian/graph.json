@@ -1,0 +1,65 @@
+{
+  "collapse-filter": false,
+  "search": "path:\"docs\" -path:\"docs/velarix/\" -path:\"docs/archive\" -tag:#retirado",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": true,
+  "showOrphans": false,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "file:\"00-home\"",
+      "color": {
+        "a": 1,
+        "rgb": 14722342
+      }
+    },
+    {
+      "query": "path:\"docs/velarix-v5\" OR tag:#methodology",
+      "color": {
+        "a": 1,
+        "rgb": 4882390
+      }
+    },
+    {
+      "query": "tag:#case",
+      "color": {
+        "a": 1,
+        "rgb": 10181046
+      }
+    },
+    {
+      "query": "tag:#decision",
+      "color": {
+        "a": 1,
+        "rgb": 14242639
+      }
+    },
+    {
+      "query": "tag:#skill",
+      "color": {
+        "a": 1,
+        "rgb": 1752220
+      }
+    },
+    {
+      "query": "tag:#system OR tag:#workbench OR path:\"docs/modules\"",
+      "color": {
+        "a": 1,
+        "rgb": 3055226
+      }
+    }
+  ],
+  "collapse-display": true,
+  "showArrow": true,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1.2,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": true,
+  "centerStrength": 0.518713248970312,
+  "repelStrength": 10,
+  "linkStrength": 1,
+  "linkDistance": 120,
+  "scale": 0.9208896393243408,
+  "close": true
+}

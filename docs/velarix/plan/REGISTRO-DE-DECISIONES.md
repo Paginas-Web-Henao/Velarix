@@ -581,6 +581,9 @@ esta decisión.
   en las rondas comparables. La velocidad no fue criterio de la decisión.
 - **Evidencia**: JSONL oficiales de las 3 rondas preservados **fuera de
   este repositorio**, en `../benchmark-evidence/...` — no se copian aquí.
+  *(Nota 2026-10-15: movidos a `evidence/benchmark/2026-08-18/` dentro de
+  la raíz del repo, que sigue **ignorada por git**; la decisión de no
+  versionarlos se mantiene.)*
   El harness que los produjo (fixtures, scorer, runner) sí vive en el
   repo: `scripts/benchmark-ai/`.
 - **Alcance de la decisión**: aplica **únicamente** al workload de IA de

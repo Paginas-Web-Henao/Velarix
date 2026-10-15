@@ -1,0 +1,9 @@
+{
+  "userIgnoreFilters": [
+    "node_modules/",
+    "dist/",
+    "velarix-code-latest/",
+    "supabase/.temp/",
+    "scripts/benchmark-narrative/results/"
+  ]
+}

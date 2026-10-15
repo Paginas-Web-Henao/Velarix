@@ -34,6 +34,8 @@
 
 ## Map
 
+- **Single root:** `velarix-code/` is the git repo, VS Code folder, Claude Code project and Obsidian vault (`.obsidian/`). Nothing active lives outside it.
+- `evidence/` = raw evidence (benchmark JSONL is git-ignored per D-11; never commit provider outputs or private evidence without asking). `assets/brand/` = logos. `docs/archive/source-material/` = original v1 PDFs/DOCX (historical).
 - App (private): `/` → `/workbench` (session) or `/auth`; workbench in `src/pages/Workbench.tsx` + `src/components/workbench/`.
 - Canonical engine: `supabase/functions/_shared/canonical-financial-engine.ts`. Assumptions/preflight: `_shared/resolved-calculation-assumptions.ts`, `_shared/calculation-preflight.ts`. Alpina: `_shared/alpina-2024.*`.
 - Commands: `npm run dev` (8080) · `npm test` (green except 1 known `test.fails`) · `npm run build` · `npm run lint` (266 pre-existing errors; add none).

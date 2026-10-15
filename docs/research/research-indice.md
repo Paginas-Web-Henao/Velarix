@@ -13,7 +13,7 @@ Carpeta para investigación que **no es** decisión ni código: lecturas metodol
 ## Material de investigación existente (no movido)
 - Casos históricos de aprendizaje: `docs/velarix/casos/` y [[00-INDICE-Y-SINTESIS-MAESTRA-V1]].
 - Reconciliación metodológica: [[02-methodology-reconciliation]].
-- Benchmarks de IA: [[benchmarks-ia]] y `Velarix/benchmark-evidence/`.
+- Benchmarks de IA: [[benchmarks-ia]] y `evidence/benchmark/` (evidencia bruta, fuera del control de versiones).
 - Referencias bibliográficas: [[04-VALUATION-METHODOLOGY-V5]] §20.
 
 ## Sugerido

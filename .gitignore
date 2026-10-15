@@ -38,3 +38,12 @@ supabase/.temp/
 # Outputs locales del benchmark narrativo (FASE 1E/Subbloque 2) — nunca
 # resultados reales de proveedores en el repo.
 scripts/benchmark-narrative/results/
+
+# Obsidian (vault root = este repo): versionar la configuración compartida
+# (app/graph/core-plugins/appearance), no el estado de UI por sesión.
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+
+# Evidencia bruta de benchmarks de IA (corridas reales de proveedores).
+# D-11 (REGISTRO-DE-DECISIONES): se preserva fuera del control de versiones.
+evidence/benchmark/

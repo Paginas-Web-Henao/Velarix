@@ -10,7 +10,8 @@ Volver a [[00-home]]
 
 ## Dónde está cada cosa
 
-- **Vault de Obsidian:** `Velarix/` (contiene `.obsidian/`). **Repo de código:** `Velarix/velarix-code/` (git). El conocimiento vive en `velarix-code/docs/`, versionado con el código.
+- **Raíz única: `Velarix/velarix-code/`.** Es a la vez vault de Obsidian (`.obsidian/`), repo git, carpeta de VS Code y proyecto de Claude Code. El conocimiento vive en `docs/`, la evidencia bruta en `evidence/` (ignorada por git) y los logos en `assets/brand/`.
+- En Obsidian: abrir `Velarix/velarix-code` como vault. Si aparece el vault viejo `Velarix`, quitarlo de la lista.
 - **Inicio:** [[00-home]] (fijarlo con Bookmarks).
 
 ## Estructura conceptual
@@ -40,14 +41,14 @@ Los mapas (`docs/maps/`) son índices encima de las notas existentes: enlazan, n
 
 ## Graph View (`.obsidian/graph.json`)
 
-- **Filtro:** `path:"velarix-code/docs" -path:"velarix-code/docs/velarix/" -path:"velarix-code/docs/archive" -tag:#retirado`. Muestra lo activo y los canónicos de v5. Oculta lo histórico de `docs/velarix/` (sigue en búsqueda y enlaces) y lo retirado. La barra final en `docs/velarix/` evita ocultar `docs/velarix-v5/`. Para ver todo, borra el filtro.
-- Huérfanos, adjuntos y enlaces sin resolver ocultos; flechas visibles; `showTags: false`, porque el nodo `#velarix` conectaría todo y taparía la estructura.
+- **Filtro:** `path:"docs" -path:"docs/velarix/" -path:"docs/archive" -tag:#retirado`. Muestra lo activo y los canónicos de v5. Oculta lo histórico de `docs/velarix/` (sigue en búsqueda y enlaces) y lo retirado. La barra final en `docs/velarix/` evita ocultar `docs/velarix-v5/`. Para ver todo, borra el filtro.
+- Huérfanos, adjuntos (PDF, imágenes, `assets/`, `evidence/`) y enlaces sin resolver ocultos; flechas visibles; `showTags: false`, porque el nodo `#velarix` conectaría todo y taparía la estructura.
 - **6 grupos de color** (gana el primero que coincide): Home · Methodology (`docs/velarix-v5` + `#methodology`) · Cases (`#case`) · Decisions (`#decision`) · Skill (`#skill`) · System (`#system`, `#workbench`, `docs/modules`).
 - Forma esperada: HOME → mapas 01–07 → notas de detalle. La metodología canónica queda visible.
 
 ## Búsquedas útiles
 
-- Pendientes: `"- [ ]" path:"velarix-code/docs"`
+- Pendientes: `"- [ ]" path:"docs"`
 - Sin confirmar: `"Pendiente de confirmar"`
 - Fuera de alcance: `"NOT BUILDING"`
 - Histórico marcado: `"HISTORICAL / SUPERSEDED"`
@@ -58,4 +59,4 @@ Claude Code carga `velarix-code/CLAUDE.md`, la skill `.claude/skills/velarix-val
 
 ## Lo que no se toca sin decisión
 
-`docs/velarix-v5/` (canónico), `docs/velarix/` (histórico; solo recibió el aviso), `.env*`, `.vercel/`, `supabase/.temp/`, los `.zip`, `velarix-code-latest/` y los PDF/DOCX de la raíz del vault.
+`docs/velarix-v5/` (canónico), `docs/velarix/` (histórico; solo recibió el aviso), `.env*`, `.vercel/`, `supabase/.temp/`, los `.zip`, `velarix-code-latest/` y los PDF/DOCX originales en `docs/archive/source-material/`.

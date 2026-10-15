@@ -54,4 +54,4 @@ npm run lint
 
 ## Documentation
 
-Start at [`docs/00-home.md`](docs/00-home.md) (open `Velarix/` as an Obsidian vault). Decisions: [`docs/09-decisiones.md`](docs/09-decisiones.md). Historical material (earlier SaaS and boutique phases) is archived and marked as superseded: [`docs/99-archive.md`](docs/99-archive.md).
+Start at [`docs/00-home.md`](docs/00-home.md). This repository root is also the Obsidian vault (open `velarix-code/` as a vault). Decisions: [`docs/09-decisiones.md`](docs/09-decisiones.md). Historical material (earlier SaaS and boutique phases) is archived and marked as superseded: [`docs/99-archive.md`](docs/99-archive.md).

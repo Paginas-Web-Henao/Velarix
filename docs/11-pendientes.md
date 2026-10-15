@@ -46,3 +46,6 @@ Solo trabajo derivado del alcance congelado v5.0 o de hechos verificables en el 
 - [x] `types.ts` con las tablas del Expediente (a mano, desde la migración). Regenerar con el CLI cuando haya acceso, para confirmar que no hay drift.
 - [ ] `quickValuation` (`src/lib/financial-engine.ts`) quedó sin uso en producción tras borrar la landing; solo lo cubre un test de caracterización. Decidir si se conserva.
 - [ ] Ordenar archivos sueltos de la raíz de `velarix-code/`: 10 `.zip` de bloques históricos. **No se movieron** — ver [[obsidian-guia]] §"Cosas que no se tocaron".
+- [x] Raíz única `velarix-code/` (vault + repo + evidence + assets), 2026-10-15.
+- [ ] Decidir si los PDF/DOCX v1 de `docs/archive/source-material/` entran a git (depende de si el repo remoto es privado).
+- [ ] Borrar `Velarix/_quarantine-2026-10-15/` (lockfile accidental, archivo `~$` de Word, backups de `.obsidian` y del registro de Obsidian) cuando confirmes que todo funciona.

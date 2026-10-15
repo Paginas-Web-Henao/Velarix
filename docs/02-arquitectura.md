@@ -94,23 +94,27 @@ Regla de [[05-financial-engine-audit]] §7: `source_input_snapshot` contiene **s
 
 ## Estructura de carpetas
 
+Raíz única desde el 2026-10-15: `Velarix/velarix-code/` es a la vez repo git, carpeta de VS Code, proyecto de Claude Code y vault de Obsidian. Fuera de ella no queda contenido activo.
+
 ```
-Velarix/                         ← vault de Obsidian (.obsidian/)
-├── velarix-code/                ← repo git (origin: Paginas-Web-Henao/Velarix)
-│   ├── src/                     ← frontend
-│   │   ├── pages/  components/{workbench,dashboard,demo,ui}/
-│   │   ├── lib/  contexts/  hooks/  integrations/supabase/
-│   │   ├── data/velarix-datos-2026.ts  types/  test/
-│   ├── supabase/{migrations,rollback,functions/{_shared,…}}
-│   ├── scripts/{benchmark-ai,benchmark-narrative}/
-│   ├── docs/                    ← esta capa de conocimiento + docs históricos
-│   │   ├── 00-home.md … 15-glosario.md
-│   │   ├── modules/ decisions/ research/ archive/
-│   │   ├── velarix-v5/          ← documentos canónicos v5.0
-│   │   └── velarix/             ← documentación histórica (auditoría, bloques, casos, fases)
-│   ├── public/  dist/ (build, ignorado)
-│   ├── velarix-code-latest/     ← snapshot viejo de Lovable, ignorado por git
-│   └── *.zip, Negocio*.md       ← paquetes de bloques y docs de negocio v4.x
-├── benchmark-evidence/          ← JSONL de benchmarks IA (2026-08-18)
-└── *.pdf, *.docx, *.png         ← documentos y logos originales (v1)
+velarix-code/                    ← repo git + vault de Obsidian (origin: Paginas-Web-Henao/Velarix)
+├── .obsidian/                   ← config del vault (workspace.json ignorado por git)
+├── .claude/                     ← skill y comandos de Claude Code
+├── src/                         ← frontend (workbench privado)
+│   ├── pages/  components/{workbench,dashboard,demo,ui}/
+│   ├── lib/  contexts/  hooks/  integrations/supabase/
+│   └── data/velarix-datos-2026.ts  types/  test/
+├── supabase/{migrations,rollback,functions/{_shared,…}}
+├── scripts/{benchmark-ai,benchmark-narrative}/
+├── docs/                        ← knowledge system
+│   ├── 00-home.md … 15-glosario.md, 99-archive.md
+│   ├── maps/ cases/ modules/ decisions/ skill/ research/ audits/
+│   ├── archive/source-material/ ← PDF/DOCX originales de v1 (histórico)
+│   ├── velarix-v5/              ← documentos canónicos v5.0
+│   └── velarix/                 ← documentación histórica (auditoría, bloques, casos, fases)
+├── evidence/benchmark/          ← JSONL de benchmarks de IA (2026-08-18; ignorado por git, D-11)
+├── assets/brand/                ← logos de Velarix
+├── public/  dist/ (build, ignorado)
+├── velarix-code-latest/         ← snapshot viejo de Lovable, ignorado por git
+└── *.zip, Negocio*.md           ← paquetes de bloques y docs de negocio v4.x (históricos)
 ```

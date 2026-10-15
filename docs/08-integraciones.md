@@ -26,4 +26,4 @@ La IA puede extraer, clasificar y proponer preguntas/inconsistencias. **Nunca** 
 
 ## Selección de proveedor para `parse-document`
 
-Decisión **D-11** en [[REGISTRO-DE-DECISIONES]]: OpenAI (Terra, `reasoning.effort=none`) elegido provisionalmente tras benchmark; Anthropic/Sonnet 5 evaluado pero no conectado. Evidencia: `../benchmark-evidence/2026-08-18/` (fuera del repo) y [[benchmarks-ia]].
+Decisión **D-11** en [[REGISTRO-DE-DECISIONES]]: OpenAI (Terra, `reasoning.effort=none`) elegido provisionalmente tras benchmark; Anthropic/Sonnet 5 evaluado pero no conectado. Evidencia: `evidence/benchmark/2026-08-18/` (en la raíz del repo, ignorada por git según D-11) y [[benchmarks-ia]].
