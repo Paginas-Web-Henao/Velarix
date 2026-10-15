@@ -48,17 +48,32 @@ Materializado con `npm run materialize:alpina -- --apply`, en una sola direcció
 | SUPABASE_DOCUMENT_EVIDENCE | **Ninguna**: no se subieron documentos ni se simuló el pipeline documental | — |
 | CALCULATION | **Pendiente**: solo por `ejecutar-calculo`, nunca copiado del test | — |
 
-Sin columna en el esquema (están solo en el metadata del audit event `case_materialized_from_repo`): fecha de valoración, basis of value, sujeto, arquitectura y unidad.
+**Metadata estructurado** (columnas de `analyses`, migración `20261015180000`; rellenado el 2026-10-15 solo desde fuentes documentadas):
+
+| Campo | Valor | Fuente |
+|---|---|---|
+| `valuation_date` | 2024-12-31 | ADR-004 |
+| `base_period` | FY2024 (cierre 2024-12-31) | ADR-004 / fixtures |
+| `basis_of_value` | Market Value (IVS 102) | ADR-004 |
+| `valued_interest` | 100% del economic equity, standalone parent (antes de SOTP) | ADR-004 |
+| `calculation_architecture` | PARENT_DCF_PLUS_SOTP (en código solo el standalone parent DCF) | ADR-004 |
+| `business_profile` | Resumen, geografías, drivers y riesgos, cada uno con su fuente. **Segmentos vacíos** (no documentados) | `scripts/alpina/materialization-plan.ts` |
+
+**Provenance:** case source = `VERIFIED · REPO_CANONICAL`. Document provenance y account homologation lineage = `MISSING`: no hubo ingesta documental. Es una limitación de trazabilidad, no de validez: el cálculo está verificado oficialmente.
 
 Las filas del Expediente son inmutables desde la app (RLS solo permite INSERT).
 
 ## Company Understanding
 
-> Pendiente de documentar aquí: modelo de negocio, segmentos, geografía, drivers y riesgos. El razonamiento de por qué Alpina es un caso DCF corporativo limpio está en [[ADR-004-alpina-base-de-valoracion]].
+> Pendiente de documentar aquí en extenso: modelo de negocio y **segmentos**. Mientras tanto, el workbench → Business muestra solo el resumen operativo sustentado en el repo (geografías, drivers y riesgos ya documentados en los fixtures y en [[ADR-004-alpina-base-de-valoracion]]). Este MOC sigue siendo la fuente narrativa canónica.
 
 ## Questions
 
 Las decisiones case-specific C-01…C-12 están en [[04-VALUATION-METHODOLOGY-V5]] §19 y [[03-methodology-decisions-v5]] (Capa B).
+
+- **C-11, wording corregido (2026-10-15):** la pregunta decía "el CRP de 2.85%", un snapshot fechado de ene-2026. Ahora dice "el CRP vigente aplicado al caso" (el vigente es 2.541%). La versión anterior se conserva en Supabase como *superseded* (`supersedes_question_id` + audit event `expedient_question_superseded`). El Judgment (λ = 1, R-01) no cambia.
+- **C-07.1, abierta:** el cross-check g/ROC terminal sigue **pendiente**: ninguna fuente canónica lo da por resuelto (`capexReinvestmentDriver.rationale`; 05 §8/§11, "Verificación manual"). Es un cross-check metodológico adicional: no bloquea ni invalida el cálculo oficial ya verificado.
+- Siguen abiertas: C-05, C-06, C-09 y C-12.
 
 ## Normalizations
 
@@ -91,6 +106,8 @@ Resultado del motor sobre el input real (**CALCULATION**): `alpina-2024.canonica
 - [x] Materializar Alpina en Supabase (2026-10-15, `npm run materialize:alpina`).
 - [x] Ejecutar `ejecutar-calculo` y verificarlo contra el congelado (0 diferencias reales; tolerancia de máquina 4·ε).
 - [ ] Responder C-05 (normalizaciones), C-06 (supplier finance), C-09 (DLOM/size premium) y C-12 (drivers de forecast).
+- [ ] C-07.1: cross-check g/ROC terminal (Net Reinvestment/NOPAT ≈ g/ROC en Y5).
+- [ ] Documentar los segmentos de Alpina (Company Understanding).
 - [ ] Versionar o enlazar la evidencia 4B–4F.
 - [ ] Documentar Company Understanding y Normalizations aquí.
 - [ ] Completar la suite mínima de sensibilidades P-12.

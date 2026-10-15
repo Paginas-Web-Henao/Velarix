@@ -26,6 +26,7 @@ Postgres gestionado por Supabase. Fuente de verdad: `supabase/migrations/*.sql`.
 | `20260413152520_…` | `analyses.calculation_result jsonb` |
 | `20260723090000_bloque_1d_bl10_role_protection` | Trigger anti auto-escalamiento de `profiles.role`, RPC `admin_set_user_role`, políticas de `manual_reviews` por rol. Rollback en `supabase/rollback/` |
 | `20260817140000_minimum_expediente_checkpoint` | Tablas del [[expediente]] mínimo |
+| `20261015180000_case_metadata_and_question_versions` | **Aditiva.** Columnas nullable de `analyses`: `valuation_date`, `base_period`, `basis_of_value`, `valued_interest`, `calculation_architecture` y `business_profile` (jsonb, cada ítem con su fuente). Además `expedient_questions.supersedes_question_id`: corrige el wording insertando una nueva versión, sin UPDATE. Sin cambios de RLS. Rollback manual en `supabase/rollback/`. Aplicada en remoto el 2026-10-15 |
 
 ## Modelo de datos
 
@@ -54,7 +55,7 @@ erDiagram
 ## Tablas
 
 ### Análisis y pipeline
-- **analyses** — `id, user_id, company_name, sector, expected_growth, status, validation_status, moneda_analisis, snapshot_id, input_payload, calculation_result, deleted_at, completed_at`.
+- **analyses** — `id, user_id, company_name, sector, expected_growth, status, validation_status, moneda_analisis, snapshot_id, input_payload, calculation_result, deleted_at, completed_at`, más el metadata del caso (`valuation_date, base_period, basis_of_value, valued_interest, calculation_architecture, business_profile`; NULL en casos legacy).
 - **documents** — `analysis_id, original_filename, storage_path, mime_type, doc_type_declared, checksum, processing_status`.
 - **documents_parsed** — `document_id, parsed_structure, periods_detected, parsing_metadata`.
 - **account_homologations** — `analysis_id, document_id, original_label, canonical_account, category, value, period, confidence_score, ambiguity_flag, mapping_notes`.

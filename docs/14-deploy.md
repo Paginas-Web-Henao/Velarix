@@ -32,6 +32,10 @@ Volver a [[00-home]] · Relacionado: [[02-arquitectura]], [[08-integraciones]]
 - Las otras 11 funciones siguen en versiones de agosto. Hay que verificar si divergen del repo antes de usarlas con casos v5 (ver [[11-pendientes]]).
 - Para comparar lo desplegado con el repo: `npx supabase functions download <fn> --workdir <carpeta vacía> --use-api` y diff contra `supabase/functions/`. Nunca descargar sobre el repo, porque sobrescribe los archivos locales.
 
+## Migraciones aplicadas
+
+- 2026-10-15: `20261015180000_case_metadata_and_question_versions`, aditiva, aplicada con `npx supabase db push --linked` tras un `--dry-run` que mostró solo esa migración. Repo y remoto quedan sincronizados (11/11). No toca RLS, datos existentes ni `calculation_result`: se comprobó que la huella sha256 del `calculation_result` de Alpina es la misma antes y después.
+
 ## Desarrollo local
 
 ```bash

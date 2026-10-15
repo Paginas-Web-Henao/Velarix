@@ -28,19 +28,24 @@ Interfaz privada de trabajo (`/workbench`). Un **caso** es una fila de `analyses
 
 | | Sección | Fuente de datos | Capa |
 |---|---|---|---|
-| A | Case (cabecera) | `analyses` + `source_input_snapshot.base_period` | — |
-| B | Evidence | `documents`, `source_input_snapshot`, `provenance` | EVIDENCE |
-| C | Business | `analyses` (empresa, sector); el resto vive en el case MOC | EVIDENCE |
+| A | Case (cabecera) | `analyses`: período base, fecha de valoración y basis of value (metadata estructurado), status, EV/Equity | — |
+| B | Evidence | `documents` (SUPABASE_DOCUMENT_EVIDENCE), `source_input_snapshot` (con su capa de origen), y tres estados de provenance: case source, document y account lineage | EVIDENCE |
+| C | Business | `analyses` (contexto, interés valorado, arquitectura) + `business_profile` (resumen, segmentos, geografías, drivers y riesgos, cada uno con su fuente); el narrativo completo vive en el case MOC | EVIDENCE |
 | D | Accounts | `account_homologations`, `validation_results`, `account_notes` | EVIDENCE / JUDGMENT |
-| E | Questions | Checkpoint mínimo, `expedient_questions` + `expedient_answers`, `manual_reviews` | JUDGMENT |
+| E | Questions | Checkpoint mínimo; hilos C-xx colapsables (estado, evidencia, Judgment completo, fuente e historial de versiones superseded); `manual_reviews` | JUDGMENT |
 | F | Judgment | `resolved_assumptions_used` (o snapshot legacy, marcado como tal) + Ke/WACC calculados | JUDGMENT / CALCULATION |
 | G | Forecast | `calculation_result.projections` | CALCULATION |
 | H | Valuation | `calculation_result.valuation` | CALCULATION |
-| I | Challenge | `scenarios`, `sensitivityMatrix` | CALCULATION |
-| J | Output | Rango, limitaciones, narrativa (borrador IA), PDF | — |
-| K | Audit trail | `version`, `provenance.fields`, snapshots, `audit_events` | — |
+| I | Challenge | `scenarios`, `sensitivityMatrix`; P-12 marcado como NOT IMPLEMENTED | CALCULATION |
+| J | Output | Bloque OFFICIAL CALCULATION VERIFIED (solo si existe un `official_calculation_verified` con el mismo fingerprint y `calculated_at` y 0 diferencias reales), rango, limitaciones de trazabilidad, narrativa (borrador IA), PDF | — |
+| K | Audit trail | `version`, provenance por campo (capa de origen; «not available» = ausencia conocida, nunca ids fabricados), snapshots, `audit_events` | — |
 
-**Sin tabla todavía (honesto en la UI):** fecha de valoración y basis of value como columnas, comprensión del negocio y ajustes de normalización. Viven en el case MOC de Obsidian.
+**Semántica de provenance** (`case-provenance.ts`, sin nada específico de un caso):
+- *Case source provenance:* `REPO_CANONICAL` si existe el evento `case_materialized_from_repo`. Pasa a `VERIFIED · REPO_CANONICAL` solo si además hay una verificación oficial que coincide con el cálculo persistido.
+- *Document provenance* y *Account homologation lineage:* `MISSING`, `PARTIAL` o `COMPLETE`, según el envelope del cálculo.
+- `REPO_CANONICAL_EVIDENCE` ≠ `SUPABASE_DOCUMENT_EVIDENCE`. No se simulan documentos.
+
+**Sin tabla todavía (honesto en la UI):** los ajustes de normalización (viven en el case MOC).
 
 ## Tests
-`src/test/private-routing.test.tsx` (rutas privadas, logout y redirecciones legacy) y `pdf-canonical-calculation.regression.test.ts` (PDF fail-closed).
+`src/test/private-routing.test.tsx` (rutas privadas), `pdf-canonical-calculation.regression.test.ts` (PDF fail-closed), `CaseWorkbench.test.tsx` (cabecera con metadata o con NULL), `CaseSections.test.tsx` (provenance, VERIFIED, Questions, texto largo, P-12) y `src/test/engine-integrity.test.ts` (SHA-256 fijos del motor y de los fixtures de Alpina).
