@@ -31,7 +31,13 @@ function fail(msg) {
 const log = (...a) => console.log(...a);
 
 // ─── Cargar módulos TS del repo (solo lectura) vía Vite ─────────────
-const vite = await createServer({ server: { middlewareMode: true, hmr: false }, appType: "custom", logLevel: "error", configFile: false });
+// Solo se usa ssrLoadModule (Node): el pre-bundling de dependencias del
+// navegador no aplica. Sin `noDiscovery`/`entries: []`, el scanner recorre
+// index.html → src/ y falla al no conocer el alias `@/` (configFile:false).
+const vite = await createServer({
+  server: { middlewareMode: true, hmr: false }, appType: "custom", logLevel: "error", configFile: false,
+  optimizeDeps: { noDiscovery: true, entries: [] },
+});
 let plan, engine, fp, snap;
 try {
   plan = await vite.ssrLoadModule("/scripts/alpina/materialization-plan.ts");
