@@ -26,7 +26,7 @@ Caso activo y **único caso completo** de Velarix v5. Este MOC **no duplica dato
 | Supuestos resueltos | ✅ 13/13 (`ALPINA_2024_RESOLVED_ASSUMPTIONS`) | commit `325f71c` |
 | Primera ejecución canónica | ✅ congelada en test (motor puro) | `alpina-2024.canonical-execution.test.ts`, commit `0df086c` |
 | Caso operativo en Supabase | ✅ materializado 2026-10-15 (`analyses` `ca6de328-…`, owner) desde los fixtures, commit `18f34a0` | `npm run materialize:alpina` · `scripts/alpina/materialization-plan.ts` |
-| Ejecución por `ejecutar-calculo` (flujo oficial) | ⏸ pendiente: el Expediente transcrito debe revisarse antes en el workbench | `npm run materialize:alpina -- --calculate` |
+| Ejecución por `ejecutar-calculo` (flujo oficial) | ⏸ pendiente. El primer intento (2026-10-15) pasó el checkpoint pero cayó en el preflight **legacy**: la función remota (v13) era la del commit `5750fcf`, anterior al v5 y sin la detección de `resolved_assumptions` (3C.6). Se re-desplegó `ejecutar-calculo` desde `5a36ef2` → **v14**, idéntica al repo. Falta relanzar | `npm run materialize:alpina -- --calculate` |
 
 **Siguiente bloqueo:** revisar en el workbench (Accounts, Questions) el Expediente transcrito y luego ejecutar el flujo oficial con `npm run materialize:alpina -- --calculate`, que compara sin tolerancia contra el resultado congelado. Hoy, además, la evidencia de las fases 4B–4F no está versionada en el repo (ver Evidence).
 

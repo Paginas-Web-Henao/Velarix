@@ -26,6 +26,12 @@ Volver a [[00-home]] · Relacionado: [[02-arquitectura]], [[08-integraciones]]
 - Secrets requeridos por las funciones (solo nombres): `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENAI_PARSE_MODEL`, `PARSE_AI_PROVIDER`, `RESEND_API_KEY`, `APP_URL`. `SUPABASE_URL`, `SUPABASE_SECRET_KEYS` y `SUPABASE_PUBLISHABLE_KEYS` los inyecta la plataforma.
 - > Pendiente de confirmar: cómo se programan `update-snapshots` y `check-data-freshness` (no hay cron definido en el repo).
 
+## Estado de las Edge Functions
+
+- 2026-10-15: `ejecutar-calculo` re-desplegada desde el commit `5a36ef2` (**v14**). La v13 (2026-08-26) correspondía al commit `5750fcf`, anterior a toda la implementación v5: hacía caer los casos v5 en el preflight legacy (`CALCULATION_PREFLIGHT_REQUIRED` con los 9 supuestos legacy). Se verificó que la v14 descargada es idéntica a HEAD. Comando: `npx supabase functions deploy ejecutar-calculo --project-ref <ref> --use-api`.
+- Las otras 11 funciones siguen en versiones de agosto. Hay que verificar si divergen del repo antes de usarlas con casos v5 (ver [[11-pendientes]]).
+- Para comparar lo desplegado con el repo: `npx supabase functions download <fn> --workdir <carpeta vacía> --use-api` y diff contra `supabase/functions/`. Nunca descargar sobre el repo, porque sobrescribe los archivos locales.
+
 ## Desarrollo local
 
 ```bash
