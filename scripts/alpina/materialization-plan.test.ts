@@ -11,8 +11,10 @@ import {
   ALPINA_STRUCTURED_PAYLOAD,
   METHODOLOGY_QUESTION_TEXT,
   SOURCE_FILES,
+  MACHINE_PRECISION_K,
   buildMaterializationMetadata,
-  diffJson,
+  compareJson,
+  isFloatEquivalent,
   questionKey,
   sameJson,
 } from "./materialization-plan";
@@ -70,11 +72,41 @@ describe("plan de materialización de Alpina", () => {
   });
 });
 
-describe("diffJson (comparación oficial vs. congelado, sin tolerancia)", () => {
-  it("detecta cualquier diferencia numérica, de clave o de tipo", () => {
-    expect(diffJson({ a: 1, b: [1, 2] }, { a: 1, b: [1, 2] })).toEqual([]);
-    expect(diffJson({ a: 1 }, { a: 1.0000000001 })).toHaveLength(1);
-    expect(diffJson({ a: 1 }, { a: 1, extra: 0 })).toEqual([{ path: "$.extra", expected: undefined, actual: 0 }]);
-    expect(diffJson({ a: [1] }, { a: { 0: 1 } })).toHaveLength(1);
+describe("compareJson (oficial vs. congelado: EXACT_MATCH / FLOAT_EQUIVALENT / REAL_MISMATCH)", () => {
+  it("estructura, claves, tipos y strings son exactos", () => {
+    expect(compareJson({ a: 1, b: [1, "x", null, true] }, { a: 1, b: [1, "x", null, true] })).toEqual({ exactMatches: 5, floatEquivalent: [], realMismatches: [] });
+    expect(compareJson({ a: 1 }, { a: 1, extra: 0 }).realMismatches).toEqual([{ path: "$.extra", expected: undefined, actual: 0 }]);
+    expect(compareJson({ a: [1] }, { a: { 0: 1 } }).realMismatches).toHaveLength(1);
+    expect(compareJson({ s: "resolved_case_input" }, { s: "legacy" }).realMismatches).toHaveLength(1);
+    expect(compareJson({ n: 1 }, { n: "1" }).realMismatches).toHaveLength(1);
+  });
+
+  it("acepta las 10 diferencias de 1 ULP observadas en Alpina (Deno vs. Node) como FLOAT_EQUIVALENT", () => {
+    const observed: [number, number][] = [
+      [82011383.31742637, 82011383.31742638],
+      [1593751363.2183373, 1593751363.2183375],
+      [1753330143.7317526, 1753330143.7317529],
+    ];
+    for (const [a, b] of observed) {
+      const r = compareJson({ v: a }, { v: b });
+      expect(r.realMismatches).toEqual([]);
+      expect(r.floatEquivalent).toHaveLength(1);
+    }
+  });
+
+  it("cualquier diferencia financiera real es REAL_MISMATCH, aunque sea minúscula", () => {
+    const ev = 1668259651.2050533;
+    expect(compareJson({ ev }, { ev: ev + 0.001 }).realMismatches).toHaveLength(1); // 1 peso (COP miles)
+    expect(compareJson({ ev }, { ev: ev + 1e-5 }).realMismatches).toHaveLength(1);  // ~6e-15 relativo
+    expect(compareJson({ w: 10.554236424286662 }, { w: 10.554236424286663 + 1e-12 }).realMismatches).toHaveLength(1);
+    expect(isFloatEquivalent(0, 5e-16)).toBe(true); // suelo absoluto 4·ε ≈ 8.9e-16 cerca de cero
+    expect(isFloatEquivalent(0, 1e-15)).toBe(false);
+    expect(isFloatEquivalent(0, 1e-12)).toBe(false);
+    expect(isFloatEquivalent(NaN, NaN)).toBe(false);
+  });
+
+  it("K se mantiene en precisión de máquina (≤ 8·ε), nunca una tolerancia financiera", () => {
+    expect(MACHINE_PRECISION_K).toBeGreaterThanOrEqual(1);
+    expect(MACHINE_PRECISION_K).toBeLessThanOrEqual(8);
   });
 });

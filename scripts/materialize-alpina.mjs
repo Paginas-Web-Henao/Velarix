@@ -219,28 +219,68 @@ try {
     }
 
     const local = JSON.parse(JSON.stringify(engine.runCanonicalFinancialEngine(PAYLOAD, A.sector, A.expected_growth)));
-    const diffs = [];
-    for (const k of plan.COMPARED_RESULT_KEYS) plan.diffJson(local[k], cr[k], `$.${k}`, diffs);
-    if (cr.version?.input_fingerprint !== localFingerprint) diffs.push({ path: "$.version.input_fingerprint", expected: localFingerprint, actual: cr.version?.input_fingerprint });
-    if (cr.version?.assumptions_source !== "resolved_case_input") diffs.push({ path: "$.version.assumptions_source", expected: "resolved_case_input", actual: cr.version?.assumptions_source });
-    plan.diffJson(JSON.parse(JSON.stringify(snap.buildResolvedAssumptionsSnapshot(PAYLOAD.resolved_assumptions))), cr.resolved_assumptions_used, "$.resolved_assumptions_used", diffs);
+    const cmp = { exactMatches: 0, floatEquivalent: [], realMismatches: [] };
+    for (const k of plan.COMPARED_RESULT_KEYS) plan.compareJson(local[k], cr[k], `$.${k}`, cmp);
+    plan.compareJson(JSON.parse(JSON.stringify(snap.buildResolvedAssumptionsSnapshot(PAYLOAD.resolved_assumptions))), cr.resolved_assumptions_used, "$.resolved_assumptions_used", cmp);
+    // Identidad del cálculo: siempre exactas, sin tolerancia.
+    for (const [path, expected, actual] of [
+      ["$.version.input_fingerprint", localFingerprint, cr.version?.input_fingerprint],
+      ["$.version.assumptions_source", "resolved_case_input", cr.version?.assumptions_source],
+    ]) {
+      if (expected === actual) cmp.exactMatches++;
+      else cmp.realMismatches.push({ path, expected, actual });
+    }
 
     const v = cr.valuation ?? {};
+    const raCount = Object.keys(cr.resolved_assumptions_used ?? {}).length;
+    log(`  fingerprint        ${cr.version?.input_fingerprint}`);
+    log(`  assumptions_source ${cr.version?.assumptions_source} · ${raCount} resolved assumptions`);
     log(`  oficial: EV ${v.enterpriseValue} · Equity ${v.equityValue} · WACC ${v.wacc}`);
     log(`  local:   EV ${local.valuation.enterpriseValue} · Equity ${local.valuation.equityValue} · WACC ${local.valuation.wacc}`);
 
-    must(await sb.from("audit_events").insert({
-      analysis_id: row.id, user_id: owner, component: "materialize-alpina",
-      event_type: diffs.length ? "official_calculation_mismatch" : "official_calculation_verified",
-      event_detail: diffs.length ? `${diffs.length} diferencias entre ejecutar-calculo y el motor local congelado.` : "ejecutar-calculo reproduce exactamente el resultado congelado del repo.",
-      metadata: { materialization_id: plan.MATERIALIZATION_ID, git_commit: gitCommit, input_fingerprint: localFingerprint, differences: diffs.slice(0, 50) },
-    }).select("id").single(), "registrando comparación");
+    const stats = cmp.floatEquivalent.map((d) => {
+      const abs = Math.abs(d.expected - d.actual);
+      return { ...d, abs, rel: abs / Math.max(1, Math.abs(d.expected), Math.abs(d.actual)) };
+    });
+    const maxAbs = Math.max(0, ...stats.map((s) => s.abs));
+    const maxRel = Math.max(0, ...stats.map((s) => s.rel));
+    log(`\n  exact matches:              ${cmp.exactMatches}`);
+    log(`  floating-point equivalent:  ${cmp.floatEquivalent.length}  (K=${plan.MACHINE_PRECISION_K}·ε; max abs ${maxAbs.toExponential(3)}, max rel ${maxRel.toExponential(3)})`);
+    log(`  real mismatches:            ${cmp.realMismatches.length}`);
+    for (const s of stats) log(`    ~ ${s.path}: ${s.expected} · oficial ${s.actual} (abs ${s.abs.toExponential(2)}, rel ${s.rel.toExponential(2)})`);
 
-    if (diffs.length) {
-      for (const d of diffs.slice(0, 30)) log(`  ≠ ${d.path}: esperado ${JSON.stringify(d.expected)} · oficial ${JSON.stringify(d.actual)}`);
-      fail(`${diffs.length} diferencias entre el flujo oficial y el resultado congelado.`);
+    const summary = {
+      materialization_id: plan.MATERIALIZATION_ID, git_commit: gitCommit, input_fingerprint: localFingerprint,
+      calculated_at: cr.version?.calculated_at ?? null,
+      tolerance: { rule: "|a-b| <= K*Number.EPSILON*max(1,|a|,|b|)", K: plan.MACHINE_PRECISION_K },
+      exact_matches: cmp.exactMatches, float_equivalent: cmp.floatEquivalent.length, real_mismatches: cmp.realMismatches.length,
+      max_abs_difference: maxAbs, max_rel_difference: maxRel,
+    };
+
+    if (cmp.realMismatches.length) {
+      must(await sb.from("audit_events").insert({
+        analysis_id: row.id, user_id: owner, component: "materialize-alpina", event_type: "official_calculation_mismatch",
+        event_detail: `${cmp.realMismatches.length} diferencias reales entre ejecutar-calculo y el motor local congelado.`,
+        metadata: { ...summary, differences: cmp.realMismatches.slice(0, 50) },
+      }).select("id").single(), "registrando comparación");
+      for (const d of cmp.realMismatches.slice(0, 30)) log(`  ≠ ${d.path}: esperado ${JSON.stringify(d.expected)} · oficial ${JSON.stringify(d.actual)}`);
+      fail(`${cmp.realMismatches.length} diferencias REALES entre el flujo oficial y el resultado congelado.`);
     }
-    log("\n✓ El flujo oficial reproduce exactamente el resultado congelado (0 diferencias).");
+
+    // Idempotente: un único evento de verificación por cálculo persistido.
+    // Los eventos anteriores (incluido un mismatch de la comparación de
+    // tolerancia cero) se conservan: el historial no se reescribe.
+    const prior = must(await sb.from("audit_events").select("id, metadata").eq("analysis_id", row.id).eq("event_type", "official_calculation_verified"), "leyendo verificaciones previas");
+    if (prior.some((e) => e.metadata?.calculated_at === summary.calculated_at && e.metadata?.input_fingerprint === localFingerprint)) {
+      log("\n✓ Verificado (ya registrado antes para este cálculo; no se duplica el evento).");
+      return;
+    }
+    must(await sb.from("audit_events").insert({
+      analysis_id: row.id, user_id: owner, component: "materialize-alpina", event_type: "official_calculation_verified",
+      event_detail: `Official result verified: 0 diferencias materiales/reales. ${cmp.floatEquivalent.length} diferencias numéricas aceptadas, exclusivamente de precisión de máquina (≤ ${plan.MACHINE_PRECISION_K}·ε relativo; max rel ${maxRel.toExponential(2)}).`,
+      metadata: { ...summary, float_equivalent_differences: stats.map(({ path, expected, actual, abs, rel }) => ({ path, expected, actual, abs, rel })) },
+    }).select("id").single(), "registrando verificación");
+    log("\n✓ Official result verified: 0 real mismatches; las diferencias aceptadas son solo de precisión de máquina.");
   }
 } finally {
   await sb.auth.signOut();

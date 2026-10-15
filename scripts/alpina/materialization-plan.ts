@@ -172,22 +172,59 @@ export function buildMaterializationMetadata(params: { gitCommit: string; inputF
 
 export interface Difference { path: string; expected: unknown; actual: unknown }
 
-/** Diferencias exactas (sin tolerancia) entre dos valores JSON. Ninguna diferencia se ignora en silencio. */
-export function diffJson(expected: unknown, actual: unknown, path = "$", out: Difference[] = []): Difference[] {
+/**
+ * Tolerancia técnica de precisión de máquina (no financiera):
+ * |a − b| ≤ K · ε · max(1, |a|, |b|), con ε = Number.EPSILON (2⁻⁵²).
+ *
+ * Evidencia (primera ejecución oficial de Alpina, 2026-10-15): 10 de 438
+ * números difirieron entre Deno/V8 (Edge Function) y Node/V8 (local), todos
+ * en exactamente 1 ULP, con K observado ≤ 0.818. Nacen en
+ * `discountedFcf` del año 5 (FCFF/(1+WACC)^5 — `Math.pow` no está obligado
+ * a redondear correctamente y puede diferir 1 ULP entre versiones de V8) y
+ * se propagan a las sumas de EV de escenarios y de la matriz.
+ * K = 4 deja margen para que ese ULP se acumule en una suma de pocos
+ * términos (EV = 5 PV + PV(TV)) y sigue siendo ~1e-15 relativo: un error
+ * financiero real de 1 COP miles sobre el EV (~6e-10 relativo) queda un
+ * millón de veces por encima.
+ */
+export const MACHINE_PRECISION_K = 4;
+
+export const isFloatEquivalent = (a: number, b: number) =>
+  Number.isFinite(a) && Number.isFinite(b) &&
+  Math.abs(a - b) <= MACHINE_PRECISION_K * Number.EPSILON * Math.max(1, Math.abs(a), Math.abs(b));
+
+export interface Comparison {
+  /** Hojas (string/number/boolean/null) idénticas. */
+  exactMatches: number;
+  /** Números distintos solo por precisión de máquina (diagnóstico, no bloquean). */
+  floatEquivalent: Difference[];
+  /** Cualquier otra diferencia: valor, tipo, clave, estructura. Bloquean. */
+  realMismatches: Difference[];
+}
+
+/**
+ * Compara dos valores JSON clasificando cada hoja en EXACT_MATCH,
+ * FLOAT_EQUIVALENT o REAL_MISMATCH. Estructura, claves, arrays, strings,
+ * booleans y null: exactos. Números: exactos o dentro de MACHINE_PRECISION_K.
+ * Ninguna diferencia se descarta en silencio: las float quedan listadas.
+ */
+export function compareJson(expected: unknown, actual: unknown, path = "$", out: Comparison = { exactMatches: 0, floatEquivalent: [], realMismatches: [] }): Comparison {
   if (typeof expected === "number" && typeof actual === "number") {
-    if (!Object.is(expected, actual)) out.push({ path, expected, actual });
+    if (Object.is(expected, actual)) out.exactMatches++;
+    else (isFloatEquivalent(expected, actual) ? out.floatEquivalent : out.realMismatches).push({ path, expected, actual });
     return out;
   }
   if (expected === null || actual === null || typeof expected !== "object" || typeof actual !== "object") {
-    if (expected !== actual) out.push({ path, expected, actual });
+    if (expected === actual) out.exactMatches++;
+    else out.realMismatches.push({ path, expected, actual });
     return out;
   }
   if (Array.isArray(expected) !== Array.isArray(actual)) {
-    out.push({ path, expected, actual });
+    out.realMismatches.push({ path, expected, actual });
     return out;
   }
   const keys = new Set([...Object.keys(expected as object), ...Object.keys(actual as object)]);
-  for (const k of keys) diffJson((expected as Record<string, unknown>)[k], (actual as Record<string, unknown>)[k], `${path}.${k}`, out);
+  for (const k of keys) compareJson((expected as Record<string, unknown>)[k], (actual as Record<string, unknown>)[k], `${path}.${k}`, out);
   return out;
 }
 
