@@ -1209,7 +1209,7 @@ export async function generatePDF(
   const renderAvisoLegal = () => {
     let y = dibujarTituloSeccion(doc, "Aviso legal", contentArea.y);
     const paragraphs = [
-      "Este reporte ha sido generado por la plataforma Velarix con fines exclusivos de análisis financiero informativo.",
+      "Este reporte ha sido generado con Velarix, un workbench personal de valoración, con fines exclusivos de análisis financiero informativo.",
       "Los resultados son estimaciones construidas a partir de supuestos del usuario y parámetros de mercado. No constituyen asesoría financiera regulada ni recomendación de inversión.",
       "Velarix no asume responsabilidad por decisiones tomadas con base en este análisis sin acompañamiento de un asesor certificado.",
       "Las proyecciones son inherentemente inciertas. Los resultados reales pueden diferir materialmente de los estimados.",
