@@ -108,7 +108,7 @@ const AdminReviewDetail = () => {
     try {
       await aprobarRevision({ revisionId: revisionId!, notas: notasResolucion });
       toast.success("Revisión aprobada. El flujo continuará automáticamente.");
-      setTimeout(() => navigate("/admin/revisiones"), 1500);
+      setTimeout(() => navigate("/workbench?view=reviews"), 1500);
     } catch (err: any) {
       toast.error(err.message);
       setProcessing(false);
@@ -122,7 +122,7 @@ const AdminReviewDetail = () => {
     try {
       await bloquearRevision({ revisionId: revisionId!, motivoBloqueo: notasResolucion });
       toast.success("Análisis bloqueado definitivamente.");
-      setTimeout(() => navigate("/admin/revisiones"), 1500);
+      setTimeout(() => navigate("/workbench?view=reviews"), 1500);
     } catch (err: any) {
       toast.error(err.message);
       setProcessing(false);
@@ -142,8 +142,8 @@ const AdminReviewDetail = () => {
     <div className="min-h-screen bg-background text-foreground">
       <div className="border-b border-border bg-card">
         <div className="flex items-center h-14 px-6 gap-4">
-          <button onClick={() => navigate("/admin/revisiones")} className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm">
-            <ArrowLeft size={16} /> Revisiones
+          <button onClick={() => navigate("/workbench?view=reviews")} className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm">
+            <ArrowLeft size={16} /> Review Center
           </button>
           <span className="font-display text-lg font-bold">{analysis?.company_name || "Detalle"}</span>
         </div>

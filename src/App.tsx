@@ -6,18 +6,20 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Auth from "./pages/Auth.tsx";
-import DemoDashboard from "@/components/demo/DemoDashboard";
-import Dashboard from "./pages/Dashboard.tsx";
+import Workbench from "./pages/Workbench.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import AdminReviews from "./pages/AdminReviews.tsx";
 import AdminReviewDetail from "./pages/AdminReviewDetail.tsx";
 
 const queryClient = new QueryClient();
 
+const Loading = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground font-body text-sm">Cargando...</p></div>
+);
+
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground font-body text-sm">Cargando...</p></div>;
+  if (loading) return <Loading />;
   if (!user) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 }
@@ -25,8 +27,15 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 function AuthRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to="/workbench" replace />;
   return <>{children}</>;
+}
+
+// "/" no tiene contenido propio (ADR-007): sesión → workbench, sin sesión → login.
+function RootRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <Loading />;
+  return <Navigate to={user ? "/workbench" : "/auth"} replace />;
 }
 
 const App = () => (
@@ -37,13 +46,15 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* v5.0 (ADR-006): sin landing — la raíz es el Estimador público. */}
-            <Route path="/" element={<DemoDashboard />} />
+            {/* App privada (ADR-007): sin landing ni demo pública. */}
+            <Route path="/" element={<RootRedirect />} />
             <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/admin/revisiones" element={<ProtectedRoute><AdminReviews /></ProtectedRoute>} />
-            <Route path="/admin/revisiones/:revisionId" element={<ProtectedRoute><AdminReviewDetail /></ProtectedRoute>} />
+            <Route path="/workbench" element={<ProtectedRoute><Workbench /></ProtectedRoute>} />
+            <Route path="/workbench/reviews/:revisionId" element={<ProtectedRoute><AdminReviewDetail /></ProtectedRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            {/* Compatibilidad: enlaces viejos (emails ya enviados, marcadores). */}
+            <Route path="/dashboard/*" element={<Navigate to="/workbench" replace />} />
+            <Route path="/admin/*" element={<Navigate to="/workbench?view=reviews" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

@@ -112,7 +112,7 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
               <label className="font-body text-xs text-muted-foreground block mb-1">Nombre de la empresa *</label>
               <input type="text" value={company} onChange={e => setCompany(e.target.value)}
                 className="w-full bg-background metallic-border rounded px-3 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50"
-                placeholder="Ej: Empresa ABC S.A.S." />
+                placeholder="Ej: Alpina Productos Alimenticios S.A.S. BIC" />
             </div>
             <div>
               <label className="font-body text-xs text-muted-foreground block mb-1">Sector *</label>

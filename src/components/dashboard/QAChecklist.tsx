@@ -42,7 +42,7 @@ const SECTIONS: CheckSection[] = [
       { id: 13, text: "Cuentas de patrimonio (reserva legal, superávit) se agregan a equity" },
       { id: 14, text: "El semáforo verde aparece en un P&L y balance completos y consistentes" },
       { id: 15, text: "El semáforo rojo bloquea cuando la ecuación patrimonial falla > 1%" },
-      { id: 16, text: "Las advertencias (amarillo) se muestran con mensajes en español institucional" },
+      { id: 16, text: "Las advertencias (amarillo) se muestran con mensajes claros en español" },
       { id: 17, text: "Un análisis con solo P&L (sin balance) genera semáforo amarillo, no rojo" },
       { id: 18, text: "Los valores en millones se detectan y se multiplican correctamente" },
       { id: 19, text: "El impuesto diferido se suma al impuesto corriente en structured input" },
@@ -105,7 +105,7 @@ export default function QAChecklist() {
           <CardTitle className="flex items-center justify-between text-lg">
             <span className="flex items-center gap-2">
               {isReady ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <AlertTriangle className="h-5 w-5 text-yellow-500" />}
-              Checklist de Lanzamiento — {done}/{total}
+              Valuation QA Checklist — {done}/{total}
             </span>
             <Badge variant={isReady ? "default" : "secondary"}>
               {isReady ? "✓ LISTO" : `${pct}%`}
@@ -116,8 +116,8 @@ export default function QAChecklist() {
           <Progress value={pct} className="h-2" />
           <p className="text-xs text-muted-foreground mt-2">
             {isReady
-              ? "Todos los puntos verificados. El sistema está listo para lanzamiento."
-              : `Faltan ${total - done} puntos por verificar antes del lanzamiento.`}
+              ? "Todos los puntos verificados."
+              : `Faltan ${total - done} puntos por verificar.`}
           </p>
         </CardContent>
       </Card>

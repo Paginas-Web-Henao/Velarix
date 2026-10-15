@@ -129,7 +129,7 @@ export interface FinancialInputs {
 }
 
 export const DEFAULT_INPUTS: FinancialInputs = {
-  companyName: "Empresa Demo",
+  companyName: "Empresa ejemplo",
   sector: "Software / Tecnología",
   reportingCurrency: "COP",
   revenue: 3_000_000,

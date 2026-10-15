@@ -21,7 +21,8 @@ const MOTIVOS: Record<string, string> = {
   solicitud_admin: "Solicitud de administrador",
 };
 
-const AdminReviews = () => {
+// Review Center del workbench (ADR-007): se renderiza embebido en /workbench.
+const AdminReviews = ({ embedded = false }: { embedded?: boolean }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [revisiones, setRevisiones] = useState<any[]>([]);
@@ -51,22 +52,22 @@ const AdminReviews = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="border-b border-border bg-card">
-        <div className="flex items-center h-14 px-6 gap-4">
-          <button onClick={() => navigate("/dashboard")} className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm">
-            <ArrowLeft size={16} /> Dashboard
-          </button>
-          <span className="font-display text-lg font-bold">Revisión manual</span>
-          <Badge variant="outline" className="text-xs">Admin</Badge>
+    <div className={embedded ? "text-foreground" : "min-h-screen bg-background text-foreground"}>
+      {!embedded && (
+        <div className="border-b border-border bg-card">
+          <div className="flex items-center h-14 px-6 gap-4">
+            <button onClick={() => navigate("/workbench")} className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm">
+              <ArrowLeft size={16} /> Workbench
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="max-w-4xl mx-auto p-8">
+      <div className={embedded ? "max-w-4xl" : "max-w-4xl mx-auto p-8"}>
         <div className="mb-6">
-          <h1 className="font-display text-2xl font-bold mb-1">Revisiones manuales</h1>
-          <p className="text-muted-foreground text-sm font-body">
-            Casos que requieren intervención del equipo de análisis
+          <h1 className="font-display text-lg font-semibold mb-1">Review Center</h1>
+          <p className="text-muted-foreground text-xs font-body">
+            Revisión humana (Judgment) de homologaciones, validaciones bloqueadas y narrativas que no pasaron su auditoría.
           </p>
         </div>
 
@@ -109,7 +110,7 @@ const AdminReviews = () => {
                   className={`bg-card border-border hover:border-primary/30 cursor-pointer transition-colors ${
                     rev.prioridad === "urgente" ? "border-destructive/30" : ""
                   }`}
-                  onClick={() => navigate(`/admin/revisiones/${rev.id}`)}
+                  onClick={() => navigate(`/workbench/reviews/${rev.id}`)}
                 >
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between">

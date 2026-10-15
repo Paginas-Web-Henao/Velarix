@@ -33,7 +33,9 @@ import { describe, test, expect } from "vitest";
 import { mapCanonicalCalculationToPdfData } from "./pdf-canonical-mapper";
 import type { PersistedCalculationResult, SourceInputSnapshot, ResolvedCalculationAssumptions } from "@/types/calculation-result";
 
-const DASHBOARD_SOURCE = readFileSync(resolve(__dirname, "../pages/Dashboard.tsx"), "utf-8");
+// ADR-007: la descarga del PDF real salió de `pages/Dashboard.tsx` (eliminado)
+// a `canonical-pdf-download.ts`, que usa el workbench. Mismas aserciones.
+const DASHBOARD_SOURCE = readFileSync(resolve(__dirname, "./canonical-pdf-download.ts"), "utf-8");
 const MAPPER_SOURCE = readFileSync(resolve(__dirname, "./pdf-canonical-mapper.ts"), "utf-8");
 
 // Bloque 3C.6 (cierre) — equivalente frontend de

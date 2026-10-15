@@ -74,6 +74,41 @@ export type Database = {
           },
         ]
       }
+      account_notes: {
+        Row: {
+          canonical_account: string
+          created_at: string
+          created_by: string
+          id: string
+          interpretation_text: string
+          valuation_file_id: string
+        }
+        Insert: {
+          canonical_account: string
+          created_at?: string
+          created_by: string
+          id?: string
+          interpretation_text: string
+          valuation_file_id: string
+        }
+        Update: {
+          canonical_account?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          interpretation_text?: string
+          valuation_file_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_notes_valuation_file_id_fkey"
+            columns: ["valuation_file_id"]
+            isOneToOne: false
+            referencedRelation: "valuation_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analyses: {
         Row: {
           calculation_result: Json | null
@@ -368,6 +403,85 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expedient_answers: {
+        Row: {
+          created_at: string
+          id: string
+          question_id: string
+          respondido_at: string
+          respondido_por: string
+          respuesta_texto: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_id: string
+          respondido_at?: string
+          respondido_por: string
+          respuesta_texto: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_id?: string
+          respondido_at?: string
+          respondido_por?: string
+          respuesta_texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expedient_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "expedient_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expedient_questions: {
+        Row: {
+          created_at: string
+          estado: string
+          generado_por: string | null
+          generado_por_ia: boolean
+          id: string
+          materialidad: string | null
+          razon: string | null
+          texto: string
+          valuation_file_id: string
+        }
+        Insert: {
+          created_at?: string
+          estado?: string
+          generado_por?: string | null
+          generado_por_ia?: boolean
+          id?: string
+          materialidad?: string | null
+          razon?: string | null
+          texto: string
+          valuation_file_id: string
+        }
+        Update: {
+          created_at?: string
+          estado?: string
+          generado_por?: string | null
+          generado_por_ia?: boolean
+          id?: string
+          materialidad?: string | null
+          razon?: string | null
+          texto?: string
+          valuation_file_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expedient_questions_valuation_file_id_fkey"
+            columns: ["valuation_file_id"]
+            isOneToOne: false
+            referencedRelation: "valuation_files"
             referencedColumns: ["id"]
           },
         ]
@@ -744,12 +858,44 @@ export type Database = {
           },
         ]
       }
+      valuation_files: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          created_by: string
+          id: string
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "valuation_files_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: true
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      admin_set_user_role: {
+        Args: { new_role: string; target_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       analysis_status:

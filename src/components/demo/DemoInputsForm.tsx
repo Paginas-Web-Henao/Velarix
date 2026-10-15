@@ -89,7 +89,7 @@ const DemoInputsForm = ({ inputs, setInputs, onRun }: Props) => {
           </div>
         </div>
         <p className="font-body text-[10px] text-muted-foreground mt-3">
-          País: Colombia (fijo) · Moneda: USD (demo)
+          País: Colombia (fijo) · Moneda: USD (Quick Model)
         </p>
 
         {sectorBm && (

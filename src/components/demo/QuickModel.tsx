@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, AlertTriangle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import {
   DEFAULT_INPUTS,
   SECTOR_KEYS,
@@ -30,7 +29,9 @@ interface TabDef {
   label: string;
 }
 
-// Demo pública (v5.0, ADR-006): todas las pestañas visibles sin login.
+// Quick Model (ADR-007): modelo rápido, local y exploratorio con el motor
+// cliente (`src/lib/financial-engine.ts`). NO es el motor canónico, no usa
+// Evidence ni supuestos resueltos y no persiste nada.
 const TABS: TabDef[] = [
   { key: "inputs", label: "Inputs financieros" },
   { key: "normalizacion", label: "Normalización" },
@@ -44,16 +45,14 @@ const TABS: TabDef[] = [
 ];
 
 interface Props {
-  // Como ruta "/" se renderiza siempre abierto y sin botón de cierre.
   open?: boolean;
   onClose?: () => void;
 }
 
-const DemoDashboard = ({ open = true, onClose }: Props) => {
+const QuickModel = ({ open = true, onClose }: Props) => {
   const [inputs, setInputs] = useState<FinancialInputs>({ ...DEFAULT_INPUTS });
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("inputs");
-  const navigate = useNavigate();
 
   const handleRun = () => {
     const r = runAnalysis(inputs);
@@ -69,7 +68,7 @@ const DemoDashboard = ({ open = true, onClose }: Props) => {
   return (
     <AnimatePresence>
       <motion.div
-        key="demo-overlay"
+        key="quick-model-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -79,7 +78,7 @@ const DemoDashboard = ({ open = true, onClose }: Props) => {
         <div className="w-56 shrink-0 border-r border-border bg-velarix-bg-secondary flex flex-col">
           <div className="h-14 flex items-center px-5 border-b border-border">
             <span className="font-display text-lg font-bold text-foreground">Velarix</span>
-            <span className="ml-2 text-[10px] font-body text-primary bg-primary/10 px-2 py-0.5 rounded">Demo</span>
+            <span className="ml-2 text-[10px] font-body text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">Quick Model · no canónico</span>
           </div>
           <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
             {TABS.map((t, i) => {
@@ -123,12 +122,9 @@ const DemoDashboard = ({ open = true, onClose }: Props) => {
             <p className="font-body text-[9px] text-muted-foreground mt-2 pt-2 border-t border-border/30">
               Convención: fin de año
             </p>
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="mt-3 font-body text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Área privada →
-            </button>
+            <p className="font-body text-[9px] text-amber-400/80 mt-2">
+              Exploratorio: no usa Evidence ni supuestos resueltos del caso. Para valoraciones defendibles usa el caso canónico.
+            </p>
           </div>
         </div>
 
@@ -222,4 +218,4 @@ const DemoDashboard = ({ open = true, onClose }: Props) => {
   );
 };
 
-export default DemoDashboard;
+export default QuickModel;

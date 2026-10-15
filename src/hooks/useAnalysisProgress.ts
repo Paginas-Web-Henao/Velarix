@@ -26,7 +26,7 @@ const ESTADOS_PROGRESO: Record<string, { pct: number; msg: string; fase: number 
   validacion_bloqueada:        { pct: 55,  msg: "Validación bloqueada.",                     fase: 3 },
   calculo_en_curso:            { pct: 65,  msg: "Calculando proyecciones y valoración...",   fase: 4 },
   calculo_completo:            { pct: 75,  msg: "Cálculo financiero completado.",            fase: 4 },
-  interpretacion_en_curso:     { pct: 85,  msg: "Generando análisis institucional...",       fase: 5 },
+  interpretacion_en_curso:     { pct: 85,  msg: "Generando narrativa...",                    fase: 5 },
   informe_generado:            { pct: 100, msg: "¡Informe listo para descarga!",             fase: 6 },
   error_tecnico:               { pct: 0,   msg: "Error en el análisis.",                     fase: 0 },
   revision_manual_requerida:   { pct: 55,  msg: "Revisión manual requerida.",                fase: 3 },

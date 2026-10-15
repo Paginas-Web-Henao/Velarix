@@ -274,7 +274,7 @@ export async function generatePDF(
   };
 
   const fecha = new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
-  const empresa = inputs.companyName?.trim() || "Empresa demo";
+  const empresa = inputs.companyName?.trim() || "Empresa sin nombre";
   const bm = result.sectorBenchmark;
   const sectorLabel = bm.label || inputs.sector;
   const reportId = Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -370,7 +370,7 @@ export async function generatePDF(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...DS.color.gris);
-    doc.text("Inteligencia financiera institucional", M + 6, 36);
+    doc.text("Personal Valuation Workbench", M + 6, 36);
 
     // Divider
     doc.setDrawColor(...DS.color.azul);
@@ -720,8 +720,8 @@ export async function generatePDF(
       : [
           ["Caja y equivalentes", fUSD(hist.cash), "—"],
           ["Caja mínima operativa", fUSD(result.kpis.cajaMinima), (hist.cash ?? 0) > result.kpis.cajaMinima ? "✓ Suficiente" : "⚠ Ajustada"],
-          ["Días de cartera", `${result.kpis.daysReceivable} días`, "Referencia demo"],
-          ["Ciclo de caja", `${result.kpis.cashCycle} días`, "Referencia demo"],
+          ["Días de cartera", `${result.kpis.daysReceivable} días`, "Referencia Quick Model"],
+          ["Ciclo de caja", `${result.kpis.cashCycle} días`, "Referencia Quick Model"],
         ];
     autoTable(doc, {
       startY: y, margin: { left: M, right: DS.margin.right },
@@ -781,9 +781,9 @@ export async function generatePDF(
       ? [["Rotación de activos", fRatioX(hist.revenue, hist.totalAssets), "Ingresos / Activos totales"]]
       : [
           ["Rotación de activos", fRatioX(hist.revenue, hist.totalAssets), "Ingresos / Activos totales"],
-          ["Días de cartera", `${result.kpis.daysReceivable} días`, "Referencia demo"],
-          ["Días de inventario", `${result.kpis.daysInventory} días`, "Referencia demo"],
-          ["Ciclo de caja", `${result.kpis.cashCycle} días`, "Referencia demo"],
+          ["Días de cartera", `${result.kpis.daysReceivable} días`, "Referencia Quick Model"],
+          ["Días de inventario", `${result.kpis.daysInventory} días`, "Referencia Quick Model"],
+          ["Ciclo de caja", `${result.kpis.cashCycle} días`, "Referencia Quick Model"],
         ];
     autoTable(doc, {
       startY: y, margin: { left: M, right: DS.margin.right },
@@ -1198,7 +1198,7 @@ export async function generatePDF(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...DS.color.gris);
-    doc.text("Inteligencia financiera institucional", M, y + 5);
+    doc.text("Personal Valuation Workbench", M, y + 5);
     doc.text("velarix.co", M, y + 10);
 
     doc.setTextColor(...DS.color.grisClaro);

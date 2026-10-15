@@ -69,9 +69,9 @@ const DemoKPIs = ({ result, inputs }: Props) => {
     {
       title: "Eficiencia operativa",
       items: [
-        { label: "Días de cartera", value: `${kpis.daysReceivable} días`, benchmark: null, interpretation: "Tiempo promedio de cobro (demo)" },
-        { label: "Días de inventario", value: `${kpis.daysInventory} días`, benchmark: null, interpretation: "Tiempo promedio de rotación (demo)" },
-        { label: "Días de proveedores", value: `${kpis.daysPayable} días`, benchmark: null, interpretation: "Tiempo promedio de pago (demo)" },
+        { label: "Días de cartera", value: `${kpis.daysReceivable} días`, benchmark: null, interpretation: "Tiempo promedio de cobro (referencial)" },
+        { label: "Días de inventario", value: `${kpis.daysInventory} días`, benchmark: null, interpretation: "Tiempo promedio de rotación (referencial)" },
+        { label: "Días de proveedores", value: `${kpis.daysPayable} días`, benchmark: null, interpretation: "Tiempo promedio de pago (referencial)" },
         { label: "Ciclo de caja", value: `${kpis.cashCycle} días`, benchmark: null, interpretation: kpis.cashCycle < 30 ? "Ciclo de caja eficiente" : "Ciclo de caja moderado" },
       ],
     },

@@ -10,7 +10,7 @@ const corsHeaders = {
 
 // ═══════════════════════════════════════════════════════════════
 // Velarix — Notificaciones transaccionales por correo
-// Templates HTML institucionales inline
+// Templates HTML inline
 // ═══════════════════════════════════════════════════════════════
 
 const AZUL = "#2563EB";
@@ -34,7 +34,7 @@ const base = (contenido: string, email: string) => `
         </td></tr>
         <tr><td style="padding:32px;">${contenido}</td></tr>
         <tr><td style="border-top:1px solid rgba(255,255,255,0.08);padding:16px 32px;text-align:center;">
-          <p style="color:${GRIS_TEXTO};font-size:11px;margin:0 0 3px;">Velarix · Inteligencia financiera institucional · velarix.co</p>
+          <p style="color:${GRIS_TEXTO};font-size:11px;margin:0 0 3px;">Velarix · Personal Valuation Workbench</p>
           <p style="color:${GRIS_SUPER};font-size:11px;margin:0;">Este correo fue enviado a ${email}</p>
         </td></tr>
       </table>
@@ -176,7 +176,7 @@ serve(async (req) => {
           enterpriseValue: calcResult?.valuation_dcf?.enterprise_value,
           wacc: calcResult?.valuation_dcf?.wacc,
           margenEBITDA: calcResult?.kpis?.profitability?.ebitda_margin_pct,
-          url: `${appUrl}/dashboard/analisis/${analysis_id}`,
+          url: `${appUrl}/workbench?case=${analysis_id}`,
           email,
         });
         break;
@@ -186,7 +186,7 @@ serve(async (req) => {
         html = templateReporteListo({
           nombre, empresa,
           nombreReporte: datos_extra.nombre_reporte || `Reporte · ${empresa}`,
-          urlReportes: `${appUrl}/dashboard/reportes`,
+          urlReportes: `${appUrl}/workbench?case=${analysis_id}&tab=output`,
           email,
         });
         break;
@@ -196,7 +196,7 @@ serve(async (req) => {
         html = templateErrorAnalisis({
           nombre, empresa,
           mensajeError: datos_extra.mensaje_error || "Error inesperado durante el procesamiento.",
-          urlDashboard: `${appUrl}/dashboard`,
+          urlDashboard: `${appUrl}/workbench`,
           email,
         });
         break;
@@ -206,7 +206,7 @@ serve(async (req) => {
         html = templateAnalisisBloqueado({
           nombre, empresa,
           problemas: datos_extra.problemas || ["Error desconocido en la validación."],
-          urlAnalisis: `${appUrl}/dashboard/analisis/${analysis_id}`,
+          urlAnalisis: `${appUrl}/workbench?case=${analysis_id}`,
           email,
         });
         break;

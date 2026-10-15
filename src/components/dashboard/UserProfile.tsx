@@ -7,18 +7,16 @@ import { Loader2 } from "lucide-react";
 const UserProfile = () => {
   const { user, updatePassword } = useAuth();
   const [fullName, setFullName] = useState("");
-  const [company, setCompany] = useState("");
   const [saving, setSaving] = useState(false);
   const [newPw, setNewPw] = useState("");
   const [changingPw, setChangingPw] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("full_name, company").eq("id", user.id).single()
+    supabase.from("profiles").select("full_name").eq("id", user.id).single()
       .then(({ data }) => {
         if (data) {
           setFullName(data.full_name || "");
-          setCompany(data.company || "");
         }
       });
   }, [user]);
@@ -26,7 +24,7 @@ const UserProfile = () => {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase.from("profiles").update({ full_name: fullName, company }).eq("id", user.id);
+    const { error } = await supabase.from("profiles").update({ full_name: fullName }).eq("id", user.id);
     setSaving(false);
     if (error) toast.error(error.message);
     else toast.success("Perfil actualizado.");
@@ -43,19 +41,13 @@ const UserProfile = () => {
 
   return (
     <div className="max-w-lg">
-      <h2 className="font-display text-lg font-semibold text-foreground mb-6">Mi perfil</h2>
+      <h2 className="font-display text-lg font-semibold text-foreground mb-6">Cuenta</h2>
 
       <div className="metallic-border rounded-lg bg-card p-6 space-y-4 mb-6">
         <div>
           <label className="font-body text-xs text-muted-foreground block mb-1">Nombre completo</label>
           <input type="text" value={fullName} onChange={e => setFullName(e.target.value)}
             className="w-full bg-background metallic-border rounded px-3 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50" />
-        </div>
-        <div>
-          <label className="font-body text-xs text-muted-foreground block mb-1">Empresa</label>
-          <input type="text" value={company} onChange={e => setCompany(e.target.value)}
-            className="w-full bg-background metallic-border rounded px-3 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50"
-            placeholder="Nombre de tu empresa" />
         </div>
         <div>
           <label className="font-body text-xs text-muted-foreground block mb-1">Correo electrónico</label>
