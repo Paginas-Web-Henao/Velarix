@@ -77,8 +77,6 @@ const SECTIONS: CheckSection[] = [
       { id: 36, text: "Los riesgos tienen el borde de color correcto (rojo/amarillo/verde)" },
       { id: 37, text: "La firma de Velarix aparece al final de la conclusión" },
       { id: 38, text: "El PDF se descarga con el nombre correcto (Velarix-Empresa-Fecha.pdf)" },
-      { id: 39, text: "Sin login: el botón de PDF no existe en el DOM (verificar con inspector)" },
-      { id: 40, text: "Los datos en los gráficos de la landing llegan hasta feb/mar 2026" },
     ],
   },
 ];
@@ -94,7 +92,7 @@ export default function QAChecklist() {
     });
   };
 
-  const total = 40;
+  const total = SECTIONS.reduce((n, s) => n + s.items.length, 0);
   const done = checked.size;
   const pct = Math.round((done / total) * 100);
   const isReady = done === total;

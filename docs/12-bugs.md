@@ -1,0 +1,45 @@
+---
+tipo: bugs
+actualizado: 2026-10-15
+tags: [velarix, bugs]
+---
+
+# Bugs y limitaciones conocidas
+
+Volver a [[00-home]] · Pendientes: [[11-pendientes]] · Roadmap: [[10-roadmap]] (las limitaciones CONDITIONAL afectan la fase 3, [[caso-alpina]])
+
+Regla v5.0: **un cálculo financieramente incorrecto es bloqueante absoluto**, por encima de cualquier trabajo de UI.
+
+## Abiertos
+
+| ID | Descripción | Ubicación | Severidad | Fuente |
+|---|---|---|---|---|
+| BUG-01 | `revenue = 0` produce márgenes `Infinity`/`NaN` en el motor **cliente** | `src/lib/financial-engine.ts` | Baja (solo Estimador) | `test.fails` en `financial-engine.golden-cases.test.ts:154`; [[DECISIONES-FINANCIERAS-PENDIENTES]] |
+| BUG-02 | `types.ts` generado no incluye `valuation_files`, `account_notes`, `expedient_questions`, `expedient_answers` | `src/integrations/supabase/types.ts` | Baja | Comparación con migración `20260817140000` |
+| BUG-03 | `playwright.config.ts` apunta a `./tests`, que no existe | raíz | Baja | Inspección del repo |
+| BUG-04 | `npx tsc --noEmit -p tsconfig.app.json` falla en `pdf-canonical-calculation.regression.test.ts` (`node:fs`, `node:path`, `__dirname` sin tipos de Node). No afecta a `npm run build` ni a `npm test` | `src/lib/pdf-canonical-calculation.regression.test.ts` | Baja | Verificado el 2026-10-15; ya existía antes de retirar la landing |
+| BUG-05 | `npm run lint` da 268 errores y 25 warnings (sobre todo `no-explicit-any`; incluye `velarix-code-latest/`, que eslint no ignora) | varios | Baja | Mismo número antes y después de retirar la landing (2026-10-15) |
+
+## Limitaciones de diseño (documentadas, no bugs)
+
+| ID | Limitación | Clasificación | Fuente |
+|---|---|---|---|
+| LIM-01 | Horizonte de proyección fijo en 5 años (`MOTOR_SUPPORTED_PROJECTION_HORIZON_YEARS = 5`) | CONDITIONAL FOR ALPINA | [[04-VALUATION-METHODOLOGY-V5]] §18.3 #6 |
+| LIM-02 | Sin lógica de stub period | CONDITIONAL (no aplica si fecha de valoración = cierre) | §18.3 #11 |
+| LIM-03 | Dos motores DCF (cliente vs. canónico) pueden divergir | Unificación `NOT BUILDING` | D-06 en [[REGISTRO-DE-DECISIONES]] |
+| LIM-04 | Rama legacy de `capital-structure.ts` conserva el fallback 70/30 cuando no hay `resolved_assumptions` | Compatibilidad con golden cases A/B/C | [[05-financial-engine-audit]] §4 |
+| LIM-05 | Modelo de Anthropic fijo en `anthropic-client.ts` | Decisión D-03 | [[REGISTRO-DE-DECISIONES]] |
+| LIM-06 | Dataset Damodaran 2026 hardcodeado en `update-snapshots` | Por diseño | `update-snapshots/index.ts` |
+| LIM-07 | `supabase/functions/_shared` no está cubierto por ningún `tsconfig` | Sin typecheck oficial | [[06-tests-first-plan]] |
+
+## Corregidos recientemente (referencia)
+
+Root causes de [[05-financial-engine-audit]] implementados en Bloque 3C (2026-09-03 → 09-06), con sus tests v5 en verde:
+- RC-1 `Math.abs()` sobre `equity` · RC-2 weights del WACC desde book equity · RC-3 contrato de supuestos resueltos · RC-5 lambda de riesgo país.
+- 2026-09-07: clasificación de leases de Alpina (`bbd5c7a`), procedencia de supuestos (`9f20de0`), sensibilidad con drivers v5 (`7e52dfc`), escenarios alineados con overlays de `g` (`50f2d08`), KPIs base desde evidencia observada (`c52f901`).
+
+> Pendiente de confirmar: si el bug de signo de equity negativo entre motores servidor/cliente (hallazgo v4.2) sigue presente en el motor **cliente**.
+
+## Cómo registrar un bug nuevo
+
+Añadir una fila con ID `BUG-NN`, archivo:línea, severidad (P0 financiero / P1 / baja) y la fuente que lo demuestra (test, commit o documento). Si es financiero, enlazar la sección de [[04-VALUATION-METHODOLOGY-V5]] que se incumple.

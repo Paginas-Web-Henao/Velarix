@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, AlertTriangle, Lock } from "lucide-react";
+import { X, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   DEFAULT_INPUTS,
   SECTOR_KEYS,
@@ -29,55 +28,32 @@ type Tab = "inputs" | "normalizacion" | "kpis" | "proyecciones" | "valuacion" | 
 interface TabDef {
   key: Tab;
   label: string;
-  siempreVisible: boolean; // visible without login
-  ocultoSinLogin: boolean; // completely hidden from sidebar without login
 }
 
+// Demo pública (v5.0, ADR-006): todas las pestañas visibles sin login.
 const TABS: TabDef[] = [
-  { key: "inputs", label: "Inputs financieros", siempreVisible: true, ocultoSinLogin: false },
-  { key: "normalizacion", label: "Normalización", siempreVisible: true, ocultoSinLogin: false },
-  { key: "kpis", label: "KPIs", siempreVisible: true, ocultoSinLogin: false },
-  { key: "proyecciones", label: "Proyecciones", siempreVisible: false, ocultoSinLogin: false },
-  { key: "valuacion", label: "Valuación", siempreVisible: false, ocultoSinLogin: false },
-  { key: "benchmarks", label: "Benchmarks", siempreVisible: false, ocultoSinLogin: false },
-  { key: "macro", label: "Contexto macro", siempreVisible: true, ocultoSinLogin: false },
-  { key: "reporte", label: "Reporte", siempreVisible: false, ocultoSinLogin: true },
-  { key: "integridad", label: "Integridad de datos", siempreVisible: true, ocultoSinLogin: false },
+  { key: "inputs", label: "Inputs financieros" },
+  { key: "normalizacion", label: "Normalización" },
+  { key: "kpis", label: "KPIs" },
+  { key: "proyecciones", label: "Proyecciones" },
+  { key: "valuacion", label: "Valuación" },
+  { key: "benchmarks", label: "Benchmarks" },
+  { key: "macro", label: "Contexto macro" },
+  { key: "reporte", label: "Reporte" },
+  { key: "integridad", label: "Integridad de datos" },
 ];
 
-// Blocked section component for unauthenticated users
-const SeccionBloqueada = ({ titulo, onRegistro }: { titulo: string; onRegistro: () => void }) => (
-  <div className="flex flex-col items-center justify-center h-96 text-center">
-    <div className="metallic-border rounded-lg bg-velarix-bg-tertiary p-10 max-w-md">
-      <Lock size={28} className="text-muted-foreground mx-auto mb-4" />
-      <p className="font-body text-sm text-muted-foreground mb-2">
-        {titulo} disponible con cuenta gratuita
-      </p>
-      <p className="font-body text-[11px] text-muted-foreground/60 mb-5">
-        Accede al análisis completo: proyecciones, DCF, sensibilidad y reporte descargable.
-      </p>
-      <button
-        onClick={onRegistro}
-        className="font-body text-sm px-6 py-2.5 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
-      >
-        Crear cuenta gratuita
-      </button>
-    </div>
-  </div>
-);
-
 interface Props {
-  open: boolean;
-  onClose: () => void;
+  // Como ruta "/" se renderiza siempre abierto y sin botón de cierre.
+  open?: boolean;
+  onClose?: () => void;
 }
 
-const DemoDashboard = ({ open, onClose }: Props) => {
+const DemoDashboard = ({ open = true, onClose }: Props) => {
   const [inputs, setInputs] = useState<FinancialInputs>({ ...DEFAULT_INPUTS });
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("inputs");
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const autenticado = !!user;
 
   const handleRun = () => {
     const r = runAnalysis(inputs);
@@ -85,19 +61,10 @@ const DemoDashboard = ({ open, onClose }: Props) => {
     setActiveTab("kpis");
   };
 
-  const handleRegistro = () => {
-    onClose();
-    navigate("/auth");
-  };
 
   if (!open) return null;
 
   const needsResult = !["inputs", "normalizacion", "macro", "integridad"].includes(activeTab);
-
-  // Tabs blocked without login
-  const tabsBloqueadas: Tab[] = autenticado
-    ? []
-    : ["proyecciones", "valuacion", "benchmarks", "reporte"];
 
   return (
     <AnimatePresence>
@@ -116,11 +83,6 @@ const DemoDashboard = ({ open, onClose }: Props) => {
           </div>
           <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
             {TABS.map((t, i) => {
-              // Completely hide "Reporte" tab from sidebar when not logged in
-              if (t.ocultoSinLogin && !autenticado) return null;
-
-              const isBloqueada = !autenticado && !t.siempreVisible;
-
               return (
                 <button
                   key={t.key}
@@ -133,9 +95,6 @@ const DemoDashboard = ({ open, onClose }: Props) => {
                 >
                   <span className="text-[10px] font-display font-bold text-muted-foreground w-4">{i + 1}</span>
                   {t.label}
-                  {isBloqueada && (
-                    <Lock size={10} className="ml-auto text-muted-foreground/50" />
-                  )}
                 </button>
               );
             })}
@@ -162,8 +121,14 @@ const DemoDashboard = ({ open, onClose }: Props) => {
               ))}
             </div>
             <p className="font-body text-[9px] text-muted-foreground mt-2 pt-2 border-t border-border/30">
-              Convención: fin de año · Mid-year en versión completa
+              Convención: fin de año
             </p>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="mt-3 font-body text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Área privada →
+            </button>
           </div>
         </div>
 
@@ -186,23 +151,24 @@ const DemoDashboard = ({ open, onClose }: Props) => {
                 </span>
               )}
             </div>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-              <X size={20} />
-            </button>
+            {onClose && (
+              <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X size={20} />
+              </button>
+            )}
           </div>
 
           <div className="flex-1 overflow-auto">
             <div className="flex">
               {/* Center */}
               <div className="flex-1 p-6">
-                {result?.waccWarning && activeTab === "valuacion" && autenticado && (
+                {result?.waccWarning && activeTab === "valuacion" && (
                   <div className="mb-4 p-3 rounded bg-yellow-950/50 border border-yellow-800 flex items-center gap-2">
                     <AlertTriangle size={14} className="text-yellow-400 shrink-0" />
                     <p className="font-body text-xs text-yellow-400">{result.waccWarning}</p>
                   </div>
                 )}
 
-                {/* Always visible tabs */}
                 {activeTab === "inputs" && (
                   <DemoInputsForm inputs={inputs} setInputs={setInputs} onRun={handleRun} />
                 )}
@@ -211,30 +177,13 @@ const DemoDashboard = ({ open, onClose }: Props) => {
                 {activeTab === "macro" && <DemoMacro />}
                 {activeTab === "integridad" && <DemoDataIntegrity />}
 
-                {/* Tabs that require auth — show blocked section or content */}
-                {activeTab === "proyecciones" && (
-                  !autenticado
-                    ? <SeccionBloqueada titulo="Proyecciones a 5 años" onRegistro={handleRegistro} />
-                    : result ? <DemoCharts result={result} inputs={inputs} /> : null
-                )}
-                {activeTab === "valuacion" && (
-                  !autenticado
-                    ? <SeccionBloqueada titulo="Valoración DCF y sensibilidad" onRegistro={handleRegistro} />
-                    : result ? <DemoSensitivity result={result} inputs={inputs} /> : null
-                )}
-                {activeTab === "benchmarks" && (
-                  !autenticado
-                    ? <SeccionBloqueada titulo="Benchmark empresa vs sector" onRegistro={handleRegistro} />
-                    : result ? <DemoBenchmarkView result={result} inputs={inputs} /> : null
-                )}
-                {activeTab === "reporte" && (
-                  !autenticado
-                    ? <SeccionBloqueada titulo="Reporte institucional PDF" onRegistro={handleRegistro} />
-                    : result ? <DemoReport result={result} inputs={inputs} /> : null
-                )}
+                {activeTab === "proyecciones" && result && <DemoCharts result={result} inputs={inputs} />}
+                {activeTab === "valuacion" && result && <DemoSensitivity result={result} inputs={inputs} />}
+                {activeTab === "benchmarks" && result && <DemoBenchmarkView result={result} inputs={inputs} />}
+                {activeTab === "reporte" && result && <DemoReport result={result} inputs={inputs} />}
 
-                {/* Need result prompt — only for authenticated users on result tabs */}
-                {needsResult && !result && autenticado && !tabsBloqueadas.includes(activeTab) && (
+                {/* Need result prompt */}
+                {needsResult && !result && (
                   <div className="flex flex-col items-center justify-center h-96 text-center">
                     <p className="font-body text-muted-foreground mb-4">Ejecuta el análisis primero para ver resultados.</p>
                     <button onClick={() => setActiveTab("inputs")} className="font-body text-sm px-6 py-2 rounded bg-primary text-primary-foreground">
