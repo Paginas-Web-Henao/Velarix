@@ -5,6 +5,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ALPINA_2024_STRUCTURED_INPUT } from "../../supabase/functions/_shared/alpina-2024.structured-input";
 import {
+  ALPINA_BUSINESS_PROFILE,
+  ALPINA_CASE_COLUMNS,
+  SUPERSEDED_QUESTION_WORDING,
   ALPINA_ACCOUNT_NOTES,
   ALPINA_ANALYSIS,
   ALPINA_QUESTIONS,
@@ -48,7 +51,8 @@ describe("plan de materialización de Alpina", () => {
   });
 
   it("las preguntas sin respuesta documentada quedan abiertas; las respondidas citan su fuente", () => {
-    expect(ALPINA_QUESTIONS.filter((q) => !q.answer).map((q) => q.code)).toEqual(["C-05", "C-06", "C-09", "C-12"]);
+    // C-05/C-06/C-09/C-12 siguen abiertas; C-07.1 (cross-check g/ROC) es un seguimiento abierto, no una respuesta.
+    expect(ALPINA_QUESTIONS.filter((q) => !q.answer).map((q) => q.code)).toEqual(["C-05", "C-06", "C-09", "C-12", "C-07.1"]);
     for (const q of ALPINA_QUESTIONS) {
       expect(questionKey(q.texto)).toBe(q.code);
       if (q.answer) {
@@ -69,6 +73,41 @@ describe("plan de materialización de Alpina", () => {
     expect(Object.keys(m.layers)).toEqual(["REPO_CANONICAL_EVIDENCE", "JUDGMENT", "SUPABASE_DOCUMENT_EVIDENCE", "CALCULATION"]);
     expect(m.layers.SUPABASE_DOCUMENT_EVIDENCE).toMatch(/ninguna/);
     expect(m.case.valuation_date).toBe("2024-12-31");
+  });
+});
+
+describe("metadata estructurado y wording corregido", () => {
+  it("las columnas de metadata de Alpina salen de fuentes documentadas", () => {
+    expect(ALPINA_CASE_COLUMNS).toMatchObject({ valuation_date: "2024-12-31", base_period: "FY2024 (cierre 2024-12-31)", basis_of_value: "Market Value (IVS 102)" });
+    expect(read("docs/decisions/ADR-004-alpina-base-de-valoracion.md")).toMatch(/2024-12-31[\s\S]*Market Value[\s\S]*100% del economic equity|100% del economic equity[\s\S]*Market Value[\s\S]*2024-12-31/);
+  });
+
+  it("el perfil de negocio solo trae ítems con fuente, sin segmentos inventados", () => {
+    const p = ALPINA_BUSINESS_PROFILE;
+    expect(p.segments).toEqual([]);
+    expect(p.gaps.segments).toMatch(/No documentados/);
+    for (const item of [p.summary!, ...p.geographies, ...p.value_drivers, ...p.key_risks]) {
+      expect(item.source).toMatch(/(docs|supabase)\//);
+    }
+    expect(p.value_drivers.map((d) => d.text).join(" ")).toContain("13.99%");
+    expect(p.key_risks.map((d) => d.text).join(" ")).toContain("18.06%");
+    expect(p.moc_path).toBe("docs/cases/alpina/00-case-home.md");
+  });
+
+  it("C-11 ya no acopla la pregunta vigente a un CRP fechado; el wording 2.85% queda solo como historial", () => {
+    const c11 = ALPINA_QUESTIONS.find((q) => q.code === "C-11")!;
+    expect(c11.razon).not.toContain("2.85%");
+    expect(c11.razon).toContain("CRP vigente aplicado al caso");
+    expect(SUPERSEDED_QUESTION_WORDING["C-11"].razon).toContain("el CRP de 2.85%");
+    expect(c11.answer).toContain("[REPO_CANONICAL_JUDGMENT]"); // el Judgment no cambia
+  });
+
+  it("C-07.1 deja el cross-check g/ROC pendiente y aclara que no bloquea el cálculo verificado", () => {
+    const q = ALPINA_QUESTIONS.find((x) => x.code === "C-07.1")!;
+    expect(q.answer).toBeNull();
+    expect(q.razon).toMatch(/no bloquea ni invalida el calculation_result/);
+    expect(read("supabase/functions/_shared/alpina-2024.resolved-assumptions.ts")).toContain("Verificación g/ROC terminal pendiente como cross-check fuera del motor");
+    expect(questionKey(q.texto)).toBe("C-07.1");
   });
 });
 

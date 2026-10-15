@@ -126,6 +126,12 @@ export type Database = {
           updated_at: string
           user_id: string
           validation_status: string | null
+          base_period: string | null
+          basis_of_value: string | null
+          business_profile: Json | null
+          calculation_architecture: string | null
+          valuation_date: string | null
+          valued_interest: string | null
         }
         Insert: {
           calculation_result?: Json | null
@@ -143,6 +149,12 @@ export type Database = {
           updated_at?: string
           user_id: string
           validation_status?: string | null
+          base_period?: string | null
+          basis_of_value?: string | null
+          business_profile?: Json | null
+          calculation_architecture?: string | null
+          valuation_date?: string | null
+          valued_interest?: string | null
         }
         Update: {
           calculation_result?: Json | null
@@ -160,6 +172,12 @@ export type Database = {
           updated_at?: string
           user_id?: string
           validation_status?: string | null
+          base_period?: string | null
+          basis_of_value?: string | null
+          business_profile?: Json | null
+          calculation_architecture?: string | null
+          valuation_date?: string | null
+          valued_interest?: string | null
         }
         Relationships: []
       }
@@ -451,6 +469,7 @@ export type Database = {
           id: string
           materialidad: string | null
           razon: string | null
+          supersedes_question_id: string | null
           texto: string
           valuation_file_id: string
         }
@@ -462,6 +481,7 @@ export type Database = {
           id?: string
           materialidad?: string | null
           razon?: string | null
+          supersedes_question_id?: string | null
           texto: string
           valuation_file_id: string
         }
@@ -473,6 +493,7 @@ export type Database = {
           id?: string
           materialidad?: string | null
           razon?: string | null
+          supersedes_question_id?: string | null
           texto?: string
           valuation_file_id?: string
         }

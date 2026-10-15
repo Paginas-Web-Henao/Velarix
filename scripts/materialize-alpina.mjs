@@ -123,17 +123,41 @@ try {
     if (found[0] && found[0].interpretation_text !== note.interpretation_text) fail(`account_notes.${note.canonical_account} existe con otro texto (las notas son inmutables: revisa a mano).`);
     if (!found[0]) actions.push(["account_notes", note.canonical_account]);
   }
-  for (const q of ALPINA_QUESTIONS) {
-    const found = questions.filter((r) => questionKey(r.texto) === q.code);
-    if (found.length > 1) fail(`expedient_questions duplicadas para ${q.code}.`);
-    const row = found[0];
-    if (row && (row.texto !== q.texto || row.razon !== q.razon)) fail(`expedient_questions ${q.code} existe con otro texto.`);
-    if (!row) actions.push(["expedient_questions", `${q.code} (${q.answer ? "respondida" : "ABIERTA"})`]);
-    const answers = row?.expedient_answers ?? [];
+  // Metadata estructurado (migración 20261015180000): solo se rellena lo
+  // que está NULL; un valor distinto al documentado aborta (nunca se pisa).
+  const caseColumns = { ...plan.ALPINA_CASE_COLUMNS, business_profile: plan.ALPINA_BUSINESS_PROFILE };
+  const metadataPatch = {};
+  if (analysis) {
+    for (const [k, v] of Object.entries(caseColumns)) {
+      if (!(k in analysis)) fail(`analyses.${k} no existe: aplica primero la migración 20261015180000_case_metadata_and_question_versions.`);
+      if (analysis[k] === null) metadataPatch[k] = v;
+      else if (!sameJson(analysis[k], v)) fail(`analyses.${k} ya tiene un valor distinto al documentado. No se sobrescribe.`);
+    }
+  } else Object.assign(metadataPatch, caseColumns);
+  if (Object.keys(metadataPatch).length) actions.push(["analyses (metadata)", Object.keys(metadataPatch).join(", ")]);
+
+  // Preguntas: la versión VIGENTE de cada código es la que ninguna otra fila
+  // supersede. Una corrección de wording se registra insertando una nueva
+  // versión (supersedes_question_id) — nunca UPDATE/DELETE de la anterior.
+  const supersededIds = new Set(questions.map((r) => r.supersedes_question_id).filter(Boolean));
+  const questionPlan = ALPINA_QUESTIONS.map((q) => {
+    const current = questions.filter((r) => questionKey(r.texto) === q.code && !supersededIds.has(r.id));
+    if (current.length > 1) fail(`expedient_questions: varias versiones vigentes para ${q.code}.`);
+    const row = current[0] ?? null;
+    const old = plan.SUPERSEDED_QUESTION_WORDING[q.code];
+    let kind = "ok";
+    if (!row) kind = "create";
+    else if (row.texto === q.texto && row.razon === q.razon) kind = "ok";
+    else if (old && row.texto === q.texto && row.razon === old.razon) kind = "supersede";
+    else fail(`expedient_questions ${q.code} existe con un texto que no coincide ni con la versión vigente ni con una versión superseded conocida.`);
+    const answers = kind === "ok" ? row.expedient_answers ?? [] : [];
     if (answers.length > 1) fail(`varias respuestas para ${q.code}.`);
     if (answers[0] && answers[0].respuesta_texto !== q.answer) fail(`la respuesta de ${q.code} difiere de la fuente del repo.`);
-    if (q.answer && !answers[0]) actions.push(["expedient_answers", q.code]);
-  }
+    if (kind === "create") actions.push(["expedient_questions", `${q.code} (${q.answer ? "respondida" : "ABIERTA"})`]);
+    if (kind === "supersede") actions.push(["expedient_questions", `${q.code} nueva versión (supersede ${row.id}; la anterior se conserva) + audit event`]);
+    if (q.answer && !answers[0]) actions.push(["expedient_answers", `${q.code}${kind === "supersede" ? " (nueva versión, mismo Judgment)" : ""}`]);
+    return { q, row, kind, answered: !!answers[0] };
+  });
   if (materializedEvent.length === 0) actions.push(["audit_events", `${plan.MATERIALIZATION_EVENT} (provenance + capas)`]);
 
   // ─── CALCULATE ────────────────────────────────────────────────────
@@ -159,7 +183,8 @@ try {
 
   async function apply() {
     if (!analysis) {
-      analysis = must(await sb.from("analyses").insert({ user_id: owner, ...A, status: "creado" }).select("*").single(), "creando analyses");
+      analysis = must(await sb.from("analyses").insert({ user_id: owner, ...A, ...metadataPatch, status: "creado" }).select("*").single(), "creando analyses");
+      for (const k of Object.keys(metadataPatch)) delete metadataPatch[k];
       log(`  ✓ analyses ${analysis.id}`);
     }
     if (!si) {
@@ -176,17 +201,32 @@ try {
       must(await sb.from("account_notes").insert({ valuation_file_id: vfId, created_by: owner, ...note }).select("id").single(), `creando account_notes ${note.canonical_account}`);
       log(`  ✓ account_notes ${note.canonical_account}`);
     }
-    for (const q of ALPINA_QUESTIONS) {
-      let row = questions.find((r) => questionKey(r.texto) === q.code);
+    if (Object.keys(metadataPatch).length) {
+      must(await sb.from("analyses").update(metadataPatch).eq("id", analysis.id).select("id").single(), "rellenando metadata del caso");
+      log(`  ✓ analyses metadata (${Object.keys(metadataPatch).join(", ")})`);
+    }
+    for (const { q, row: existingRow, kind, answered } of questionPlan) {
+      let row = kind === "ok" ? existingRow : null;
       if (!row) {
         row = must(await sb.from("expedient_questions").insert({
           valuation_file_id: vfId, texto: q.texto, razon: q.razon, materialidad: null,
           generado_por_ia: false, generado_por: owner, estado: q.answer ? "respondida" : "abierta",
+          ...(kind === "supersede" ? { supersedes_question_id: existingRow.id } : {}),
         }).select("*").single(), `creando pregunta ${q.code}`);
-        row.expedient_answers = [];
-        log(`  ✓ expedient_questions ${q.code}`);
+        log(`  ✓ expedient_questions ${q.code}${kind === "supersede" ? " (nueva versión)" : ""}`);
+        if (kind === "supersede") {
+          must(await sb.from("audit_events").insert({
+            analysis_id: analysis.id, user_id: owner, component: "materialize-alpina", event_type: "expedient_question_superseded",
+            event_detail: `${q.code}: wording corregido; la versión anterior se conserva (${existingRow.id}). ${plan.SUPERSEDED_QUESTION_WORDING[q.code].reason}`,
+            metadata: {
+              code: q.code, superseded_question_id: existingRow.id, new_question_id: row.id, git_commit: gitCommit,
+              previous_razon: existingRow.razon, new_razon: q.razon, reason: plan.SUPERSEDED_QUESTION_WORDING[q.code].reason,
+            },
+          }).select("id").single(), `registrando supersede ${q.code}`);
+          log(`  ✓ audit_events expedient_question_superseded ${q.code}`);
+        }
       }
-      if (q.answer && row.expedient_answers.length === 0) {
+      if (q.answer && !(kind === "ok" && answered)) {
         must(await sb.from("expedient_answers").insert({ question_id: row.id, respuesta_texto: q.answer, respondido_por: owner }).select("id").single(), `creando respuesta ${q.code}`);
         log(`  ✓ expedient_answers ${q.code}`);
       }

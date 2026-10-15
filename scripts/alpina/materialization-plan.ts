@@ -16,6 +16,7 @@
 import { ALPINA_2024_STRUCTURED_INPUT, ALPINA_2024_EXPECTED_GROWTH_PCT, ALPINA_2024_EXTENDED_EVIDENCE } from "../../supabase/functions/_shared/alpina-2024.structured-input";
 import { ALPINA_2024_RESOLVED_ASSUMPTIONS as RA } from "../../supabase/functions/_shared/alpina-2024.resolved-assumptions";
 import { canonicalStringify } from "../../supabase/functions/_shared/calculation-fingerprint";
+import type { BusinessProfile } from "../../src/types/case-metadata";
 
 export const MATERIALIZATION_ID = "alpina-2024-repo-canonical-v1";
 export const MATERIALIZATION_EVENT = "case_materialized_from_repo";
@@ -26,6 +27,8 @@ const FILES = {
   canonicalExecution: "supabase/functions/_shared/alpina-2024.canonical-execution.test.ts",
   methodologyDecisions: "docs/velarix-v5/03-methodology-decisions-v5.md",
   caseHome: "docs/cases/alpina/00-case-home.md",
+  adr004: "docs/decisions/ADR-004-alpina-base-de-valoracion.md",
+  engineAudit: "docs/velarix-v5/05-financial-engine-audit.md",
 } as const;
 export const SOURCE_FILES = Object.values(FILES);
 
@@ -58,6 +61,56 @@ export const ALPINA_CASE_METADATA = {
   lease_convention: "CAPITALIZED_LEASES",
   source: `${FILES.resolvedAssumptions} (cabecera) · ${FILES.caseHome}`,
 } as const;
+
+// ─── Metadata estructurado del caso (columnas de analyses) ──────────
+
+/** Columnas de `analyses` (migración 20261015180000), solo desde fuentes documentadas. */
+export const ALPINA_CASE_COLUMNS = {
+  valuation_date: ALPINA_CASE_METADATA.valuation_date,
+  base_period: "FY2024 (cierre 2024-12-31)",
+  basis_of_value: ALPINA_CASE_METADATA.basis_of_value,
+  valued_interest: "100% del economic equity de Alpina Productos Alimenticios S.A.S. BIC — standalone parent (antes de SOTP)",
+  calculation_architecture: "PARENT_DCF_PLUS_SOTP — en código solo el standalone parent DCF; SOTP es un análisis separado",
+} as const;
+
+const IS0 = ALPINA_2024_STRUCTURED_INPUT.income_statement;
+const ebitdaFy2024 = (IS0.revenue as number) - (IS0.cost_of_sales as number) - (IS0.opex as number) + (IS0.da as number);
+const leaseShare = ALPINA_2024_EXTENDED_EVIDENCE.leaseLiabilities / (ALPINA_2024_STRUCTURED_INPUT.balance_sheet.financial_debt_total as number);
+const p1 = (x: number) => `${(x * 100).toFixed(2)}%`;
+
+/**
+ * Resumen operativo mínimo para la pestaña Business. Solo lo que el repo ya
+ * documenta (ADR-004, fixtures, metodología); los números se derivan de los
+ * fixtures. Lo no documentado queda vacío con su motivo en `gaps`.
+ */
+export const ALPINA_BUSINESS_PROFILE: BusinessProfile = {
+  moc_path: FILES.caseHome,
+  summary: {
+    text: "Negocio operativo de consumo (sector lácteo/consumo) con ingresos recurrentes, inventario, cuentas por cobrar/pagar, CAPEX y deuda: un caso DCF corporativo limpio. Comparables: Emerging Markets — Food Processing (Damodaran, ene-2025).",
+    source: `${FILES.adr004} ("Por qué Alpina") · ${FILES.methodologyDecisions} (C-02) · ${FILES.resolvedAssumptions} (capitalStructure.source)`,
+  },
+  segments: [],
+  geographies: [
+    { text: "Colombia — entidad standalone; riesgo país vía CRP Colombia (Baa2) con λ = 1.", source: `${FILES.resolvedAssumptions} (countryRiskPremium, countryRiskLambda)` },
+    { text: "Desglose ingresos domésticos vs. exportación: no disponible en la Evidence revisada.", source: `${FILES.resolvedAssumptions} (countryRiskLambda.rationale)` },
+    { text: "Fuera del perímetro: la subsidiaria Alpina Cauca Zona Franca S.A.S.", source: `${FILES.resolvedAssumptions} (taxTreatment.rationale)` },
+  ],
+  value_drivers: [
+    { text: `Crecimiento de ingresos ${ALPINA_2024_EXPECTED_GROWTH_PCT}% plano a 5 años (parámetro del motor).`, source: `${FILES.structuredInput} (ALPINA_2024_EXPECTED_GROWTH_PCT)` },
+    { text: `Margen EBITDA FY2024 ${p1(ebitdaFy2024 / (IS0.revenue as number))} (EBITDA ${n(ebitdaFy2024)} COP miles), base del forecast.`, source: `${FILES.structuredInput} (income_statement)` },
+    { text: "Reinversión: CAPEX explícito desde ≈2.86% de ingresos hacia la reinversión terminal consistente con g/ROC (ROC ≈24%).", source: `${FILES.resolvedAssumptions} (capexReinvestmentDriver)` },
+    { text: `g terminal ${RA.terminalG.value.valuePct}% (overlays ${RA.terminalG.value.pessimisticScenarioPct}% / ${RA.terminalG.value.optimisticScenarioPct}%).`, source: `${FILES.resolvedAssumptions} (terminalG)` },
+  ],
+  key_risks: [
+    { text: "Cobertura de intereses ≈2.02x: credit sanity check a vigilar, no distress.", source: `${FILES.resolvedAssumptions} (capitalStructure.rationale)` },
+    { text: `Leases = ${p1(leaseShare)} de la deuda debt-like (${n(ALPINA_2024_EXTENDED_EVIDENCE.leaseLiabilities)} de ${n(ALPINA_2024_STRUCTURED_INPUT.balance_sheet.financial_debt_total as number)}), bajo CAPITALIZED_LEASES.`, source: `${FILES.structuredInput} (ALPINA_2024_EXTENDED_EVIDENCE)` },
+    { text: `Riesgo país Colombia: CRP ${RA.countryRiskPremium.value.valuePct}% con λ = ${RA.countryRiskLambda.value.value}; sensibilidad λ ≈ 1.10–1.15 documentada como escenario cualitativo.`, source: `${FILES.resolvedAssumptions} (countryRiskPremium, countryRiskLambda)` },
+    { text: `Costo de deuda sin referencia marginal observable: fallback histórico implícito ${RA.costOfDebt.value.valuePct}%.`, source: `${FILES.resolvedAssumptions} (costOfDebt)` },
+  ],
+  gaps: {
+    segments: "No documentados en el repo: Company Understanding sigue pendiente en el case MOC.",
+  },
+};
 
 // ─── Expediente: account_notes ──────────────────────────────────────
 
@@ -106,7 +159,7 @@ const C = {
   "C-08": ["Partidas del puente EV→Equity de Alpina", "Deuda financiera real (montos, tasas, vencimientos); si Alpina reporta bajo NIIF 16, el pasivo por arrendamiento y si el EBITDA usado ya lo excluye correctamente; caja total y si alguna porción está restringida (garantías, depósitos); inversiones/activos no operacionales si existen; si Alpina tiene subsidiarias con NCI o participaciones en asociadas/negocios conjuntos."],
   "C-09": ["Aplicabilidad de DLOM/size premium a Alpina", "Naturaleza exacta del interés que se valora (control total vs. participación específica), evidencia de mecanismos de salida/liquidez reales o su ausencia, tamaño relativo de Alpina frente a los comparables usados para beta/estructura de capital (C-02) — para verificar si ya hay algún efecto de tamaño implícito en esos comparables que evitaría doble conteo."],
   "C-10": ["Fecha de valoración y stub period de Alpina", "Fecha exacta de valoración acordada para el caso, fecha de cierre de los estados financieros base usados, y si ambas coinciden o requieren modelar un stub period."],
-  "C-11": ["Exposición de Alpina al riesgo país (lambda)", "Desagregación geográfica de ingresos de Alpina (¿qué % es doméstico Colombia vs. exportaciones/operación en otros países?), comparada contra el % doméstico promedio de una empresa colombiana típica, para calcular `λ` y decidir si el CRP de 2.85% se aplica completo, escalado hacia arriba o hacia abajo."],
+  "C-11": ["Exposición de Alpina al riesgo país (lambda)", "Desagregación geográfica de ingresos de Alpina (¿qué % es doméstico Colombia vs. exportaciones/operación en otros países?), comparada contra el % doméstico promedio de una empresa colombiana típica, para calcular `λ` y decidir si el CRP vigente aplicado al caso debe utilizarse completo, escalado hacia arriba o hacia abajo."],
   "C-12": ["Drivers de forecast de Alpina (crecimiento de ingresos, trayectoria de márgenes)", "Plan de negocio/proyecciones internas de Alpina si existen, histórico de crecimiento y de márgenes de varios años, evidencia de por qué el margen actual (o uno distinto) es sostenible o no hacia el año terminal."],
 } as const;
 export const METHODOLOGY_QUESTION_TEXT = C;
@@ -134,15 +187,43 @@ const ANSWERS: Record<keyof typeof C, string | null> = {
   "C-12": null, // expected_growth 3.0% plano está cerrado, pero el repo no documenta su rationale de drivers.
 };
 
-export const ALPINA_QUESTIONS: QuestionPlan[] = (Object.keys(C) as (keyof typeof C)[]).map((code) => ({
-  code,
-  texto: `[${code}] ${C[code][0]}`,
-  razon: `${C[code][1]} Fuente: ${FILES.methodologyDecisions} (Capa B, ${code}).`,
-  answer: ANSWERS[code],
-}));
+const razonFor = (code: string, evidence: string) => `${evidence} Fuente: ${FILES.methodologyDecisions} (Capa B, ${code}).`;
+
+export const ALPINA_QUESTIONS: QuestionPlan[] = [
+  ...(Object.keys(C) as (keyof typeof C)[]).map((code) => ({
+    code,
+    texto: `[${code}] ${C[code][0]}`,
+    razon: razonFor(code, C[code][1]),
+    answer: ANSWERS[code],
+  })),
+  {
+    // Seguimiento ABIERTO de C-07: el propio rationale de capexReinvestmentDriver
+    // declara pendiente el cross-check g/ROC (05 §10: "Verificación manual").
+    // Ninguna fuente canónica lo da por resuelto: no se cierra sin evidencia.
+    code: "C-07.1",
+    texto: "[C-07.1] Cross-check g/ROC terminal de la reinversión de Alpina",
+    razon:
+      `Verificar fuera del motor que Net Reinvestment/NOPAT ≈ g/ROC en el año terminal (g = ${RA.terminalG.value.valuePct}%, ROC diagnóstico ≈24%). ` +
+      "Es un cross-check metodológico/documental adicional: el cálculo oficial ya está completo y verificado contra el resultado congelado, y este pendiente no bloquea ni invalida el calculation_result persistido. " +
+      `Fuente: ${FILES.resolvedAssumptions} (capexReinvestmentDriver.rationale: "Verificación g/ROC terminal pendiente como cross-check fuera del motor (05 §10), no bloquea este valor") · ${FILES.engineAudit} (§8/§11, "Verificación manual").`,
+    answer: null,
+  },
+];
+
+/**
+ * Versiones superseded del wording (historial, nunca se borran). La fila
+ * vieja permanece en Supabase; la nueva la referencia con
+ * `supersedes_question_id` y queda un audit event `expedient_question_superseded`.
+ */
+export const SUPERSEDED_QUESTION_WORDING: Record<string, { razon: string; reason: string }> = {
+  "C-11": {
+    razon: razonFor("C-11", "Desagregación geográfica de ingresos de Alpina (¿qué % es doméstico Colombia vs. exportaciones/operación en otros países?), comparada contra el % doméstico promedio de una empresa colombiana típica, para calcular `λ` y decidir si el CRP de 2.85% se aplica completo, escalado hacia arriba o hacia abajo."),
+    reason: "El wording acoplaba la pregunta a un CRP fechado (2.85%, snapshot ene-2026 de 03 §P-05) distinto del CRP vigente del caso (2.541%, countryRiskPremium). La metodología declara esos valores \"snapshots fechados, nunca constantes del método\". El Judgment de C-11 (λ = 1, R-01) no cambia.",
+  },
+};
 
 /** Prefijo estable con el que el script reconoce una pregunta ya materializada. */
-export const questionKey = (texto: string) => /^\[(C-\d{2})\]/.exec(texto)?.[1] ?? null;
+export const questionKey = (texto: string) => /^\[(C-\d{2}(?:\.\d+)?)\]/.exec(texto)?.[1] ?? null;
 
 // ─── Audit trail ────────────────────────────────────────────────────
 

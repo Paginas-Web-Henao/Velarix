@@ -24,7 +24,7 @@ export interface CaseData {
   questions: CaseQuestion[];
   reviews: Pick<Tables<"manual_reviews">, "id" | "estado" | "reason" | "prioridad" | "created_at">[];
   narrative: Pick<Tables<"report_narratives">, "executive_summary" | "audit_passed" | "created_at"> | null;
-  auditEvents: Pick<Tables<"audit_events">, "id" | "event_type" | "event_detail" | "component" | "created_at">[];
+  auditEvents: Pick<Tables<"audit_events">, "id" | "event_type" | "event_detail" | "component" | "created_at" | "metadata">[];
   latestStructuredInput: { id: string; version_input: string | null; created_at: string; hasResolvedAssumptions: boolean } | null;
 }
 
@@ -53,7 +53,7 @@ export function useCaseData(caseId: string | null) {
         supabase.from("valuation_files").select("*").eq("analysis_id", caseId).maybeSingle(),
         supabase.from("manual_reviews").select("id, estado, reason, prioridad, created_at").eq("analysis_id", caseId).order("created_at", { ascending: false }),
         supabase.from("report_narratives").select("executive_summary, audit_passed, created_at").eq("analysis_id", caseId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-        supabase.from("audit_events").select("id, event_type, event_detail, component, created_at").eq("analysis_id", caseId).order("created_at", { ascending: false }).limit(100),
+        supabase.from("audit_events").select("id, event_type, event_detail, component, created_at, metadata").eq("analysis_id", caseId).order("created_at", { ascending: false }).limit(100),
         supabase.from("structured_inputs").select("id, version_input, created_at, input_payload").eq("analysis_id", caseId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
 
