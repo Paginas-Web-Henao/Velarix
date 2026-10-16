@@ -1,6 +1,6 @@
 ---
 tipo: guia
-actualizado: 2026-10-15
+actualizado: 2026-10-16
 tags: [velarix, obsidian]
 ---
 
@@ -56,6 +56,21 @@ Los mapas (`docs/maps/`) son índices encima de las notas existentes: enlazan, n
 ## Flujo con Claude
 
 Claude Code carga `velarix-code/CLAUDE.md`, la skill `.claude/skills/velarix-valuation/` y los comandos `/velarix-*` ([[claude-commands]]). Al cerrar un trabajo se actualizan el case MOC, [[11-pendientes]], [[10-roadmap]] y, si hubo decisión, un ADR.
+
+## Skills de Obsidian para agentes
+
+`.claude/skills/obsidian-markdown/` y `.claude/skills/obsidian-bases/` son copias sin modificar de `kepano/obsidian-skills` (MIT), fijadas a un commit. Procedencia, licencia y SHA256: `.claude/vendor/obsidian-skills/SOURCE.md`. No se editan en sitio. `json-canvas`, `obsidian-cli`, `defuddle` y `knap` quedan **diferidos**, no rechazados.
+
+Reglas de Velarix al usarlas (viven aquí, no dentro de las skills):
+
+1. Las convenciones de este vault (frontmatter `tipo`/`actualizado`/`tags`, case homes enlazados por ruta, avisos `HISTORICAL / SUPERSEDED`) prevalecen sobre los ejemplos genéricos de las skills.
+2. Supabase es la fuente operacional estructurada: casos, Evidence persistida, Judgment resuelto, cálculos y estados del pipeline.
+3. Obsidian es el sistema de conocimiento: metodología, research, razonamiento, decisiones y documentación extensa.
+4. Las Bases pueden indexar metadata de conocimiento (p. ej. `tipo`, estado de un ADR, caso al que pertenece una nota).
+5. No se duplican en frontmatter cifras de Calculation (EV, equity, WACC, g…) ni estados operacionales cuyo source of truth es Supabase (p. ej. `analyses.status`, `calculation_result`, fingerprint).
+6. Sí se permiten estados propios del documento o del conocimiento (p. ej. `estado: borrador`, estado de un ADR) si su nombre y significado no se confunden con el estado operacional del caso.
+7. Ninguna fórmula `.base` reproduce cálculos financieros del motor canónico.
+8. Evidence ≠ Judgment ≠ Calculation sigue siendo obligatorio también en el vault.
 
 ## Lo que no se toca sin decisión
 
