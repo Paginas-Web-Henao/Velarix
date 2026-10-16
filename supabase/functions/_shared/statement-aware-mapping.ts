@@ -269,3 +269,36 @@ export function evaluateAiProposalForContextRows(targets: readonly MappingDraft[
   if (side && BALANCE_SIDE[canonical] && BALANCE_SIDE[canonical] !== side) return { accepted: false, reason: `"${canonical}" es ${BALANCE_SIDE[canonical]}; la sección es ${side}` };
   return { accepted: true };
 }
+
+export type UncontextualAiDecision =
+  | { accepted: true }
+  | { accepted: false; code: "AI_SYNTHETIC_HOMOLOGATION_NOT_ALLOWED" | "AI_AMBIGUOUS_SOURCE" | "AI_VALUE_MISMATCH"; reason: string };
+
+interface UncontextualRow { original_label: string; category?: string | null; period?: string | null; value: number | null; canonical_account: string }
+
+/**
+ * Propuesta de IA sobre filas SIN contexto de estado (misma regla que
+ * `evaluateAiProposalForContextRows`, sin la parte de estado/sección que estas
+ * filas no tienen). AI classification ≠ Evidence creation:
+ * - sin fila fuente observada → rechazo (nunca se inserta una homologación
+ *   con cifra, etiqueta o documento propuestos por la IA, ni "consolidada");
+ * - varias filas candidatas, o una clave (etiqueta, estado, período) que no
+ *   identifica una sola fila → rechazo (no se elige);
+ * - valor propuesto ≠ valor observado → rechazo (la IA no corrige ni consolida cifras).
+ * Si se acepta, el llamador solo cambia metadata de mapping; `value` nunca.
+ */
+export function evaluateAiProposalForUncontextualRows(
+  candidates: readonly UncontextualRow[],
+  aiValue: number,
+  allRows: readonly UncontextualRow[] = candidates,
+): UncontextualAiDecision {
+  if (candidates.length === 0) {
+    return { accepted: false, code: "AI_SYNTHETIC_HOMOLOGATION_NOT_ALLOWED", reason: "sin fila fuente observada: la IA no crea homologaciones con cifras propias (ni consolidadas)" };
+  }
+  if (candidates.length !== 1) return { accepted: false, code: "AI_AMBIGUOUS_SOURCE", reason: `la propuesta coincide con ${candidates.length} filas fuente; no se elige una` };
+  const [t] = candidates;
+  const sameKey = allRows.filter((r) => r.original_label === t.original_label && (r.category ?? null) === (t.category ?? null) && (r.period ?? null) === (t.period ?? null));
+  if (sameKey.length !== 1) return { accepted: false, code: "AI_AMBIGUOUS_SOURCE", reason: `la etiqueta "${t.original_label}" aparece ${sameKey.length} veces en ${t.period ?? "el período"}; no se elige una` };
+  if (t.value !== aiValue) return { accepted: false, code: "AI_VALUE_MISMATCH", reason: `el valor propuesto (${aiValue}) no es el de la fila fuente (${t.value}); la IA no reescribe ni consolida cifras` };
+  return { accepted: true };
+}

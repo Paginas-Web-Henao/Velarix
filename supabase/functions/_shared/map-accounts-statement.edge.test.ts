@@ -45,7 +45,8 @@ let state: FakeState & { parsedRows: Row[] };
 
 function fake(s: typeof state) {
   const exec = (table: string, op: string, payload: unknown, filters: Record<string, unknown>, single: boolean) => {
-    if (op !== "select") s.writes.push({ table, op: op as "insert", payload, filters });
+    // Copia del payload en el momento de la escritura (lo que se envió a la base).
+    if (op !== "select") s.writes.push({ table, op: op as "insert", payload: structuredClone(payload), filters });
     if (table === "analyses" && op === "select") return { data: s.analysis, error: null };
     if (table === "analyses" && op === "update") { Object.assign(s.analysis!, payload as object); return { data: null, error: null }; }
     if (table === "documents" && op === "select") return { data: [{ id: "d1", doc_type_declared: "estados_financieros" }], error: null };
@@ -168,14 +169,16 @@ describe("L. métricas de IA en mapping_end: medidas, no supuestas", () => {
 });
 
 describe("map-accounts legacy (sin contexto) y casos protegidos", () => {
-  it("filas legacy: mismo resultado que la regla previa, incluida la consolidación de la IA", async () => {
+  it("filas sin contexto de estado: misma regla previa; la IA re-clasifica la fila fuente sin escribir value", async () => {
     setup([{ original_label: "Ventas netas", values: { "2024": 100 } }, { original_label: "Bancos", values: { "2024": 10 } }, { original_label: "Gastos raros", values: { "2024": 7 } }]);
     h.ai = JSON.stringify({ mappings: [{ canonical_account: "opex", values: { "2024": 7 }, confidence: 0.95, source_labels: ["Gastos raros"] }] });
     await call();
     expect(inserted().map((r) => [r.original_label, r.canonical_account, r.category, r.value])).toEqual([
       ["Ventas netas", "revenue", "income_statement", 100], ["Bancos", "cash", "balance_sheet", 10], ["Gastos raros", "unclassified", "balance_sheet", 7],
     ]);
-    expect(writesTo(state, "account_homologations", "update")[0].payload).toMatchObject({ canonical_account: "opex", value: 7 });
+    const update = writesTo(state, "account_homologations", "update")[0].payload as Record<string, unknown>;
+    expect(update).toMatchObject({ canonical_account: "opex" });
+    expect(update).not.toHaveProperty("value"); // AI classification ≠ Evidence creation
     const audit = writesTo(state, "audit_events", "insert").at(-1)!.payload as { metadata: Record<string, unknown> };
     expect(audit.metadata).not.toHaveProperty("statement_context");
   });

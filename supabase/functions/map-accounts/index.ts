@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
 import { normalizeLabel } from "../_shared/account-taxonomy.ts";
-import { buildRuleMappings, evaluateAiProposalForContextRows } from "../_shared/statement-aware-mapping.ts";
+import { buildRuleMappings, evaluateAiProposalForContextRows, evaluateAiProposalForUncontextualRows } from "../_shared/statement-aware-mapping.ts";
 import { createEvidenceRun, failEvidenceRun, markEvidenceRun } from "../_shared/evidence-runs.ts";
 import { effectiveDocType } from "../_shared/document-type.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
@@ -243,7 +243,7 @@ serve(async (req) => {
 
     // ──── PASS 2: AI Consolidation-based mapping ────
     const unclassifiedCount = mappings.filter(m => m.canonical_account === "unclassified").length;
-    const aiRejected: { canonical_account: string; period: string; reason: string }[] = [];
+    const aiRejected: { canonical_account: string; period: string; reason: string; code?: string; source_labels?: string[] }[] = [];
     // Métricas de IA medidas, no supuestas: candidatas (filas abiertas que la IA
     // podría clasificar; con contexto, sin conflicto determinístico), solicitudes,
     // estado de la respuesta, propuestas recibidas/omitidas/aplicadas/rechazadas.
@@ -336,51 +336,39 @@ serve(async (req) => {
                     .eq("period", period);
                   t.canonical_account = aiMap.canonical_account;
                   ai.classifications_applied++;
-                } else if (matchingUnclassified.length > 0) {
-                  // Update the first match. En un run versionado la base rechaza
-                  // reescribir `value` (Evidence) aunque el run esté en mapping
-                  // (20261016160000): la propuesta queda registrada como rechazada.
-                  const { error: consolidationError } = await supabase.from("account_homologations")
+                } else {
+                  // Lineage sin contexto de estado: misma regla que con contexto.
+                  // AI classification ≠ Evidence creation. La IA solo puede
+                  // re-clasificar UNA fila fuente observada cuyo valor sea
+                  // exactamente el que propone; nunca escribe `value`, nunca crea
+                  // una fila (ni "consolidada") con una cifra propia, ni inventa
+                  // etiqueta o documento. Lo demás se registra como rechazado.
+                  const decision = evaluateAiProposalForUncontextualRows(matchingUnclassified, value, mappings);
+                  if (!decision.accepted) {
+                    const existingRule = mappings.find(m => m.canonical_account === aiMap.canonical_account && m.period === period);
+                    if (decision.code === "AI_SYNTHETIC_HOMOLOGATION_NOT_ALLOWED" && existingRule) { ai.proposals_skipped++; continue; }
+                    aiRejected.push({ canonical_account: aiMap.canonical_account, period, reason: decision.reason, code: decision.code, source_labels: sourceLabels });
+                    continue;
+                  }
+                  const t = matchingUnclassified[0];
+                  const { error: classificationError } = await supabase.from("account_homologations")
                     .update({
                       canonical_account: aiMap.canonical_account,
                       confidence_score: aiMap.confidence >= 0.90 ? "alta" : "media",
                       ambiguity_flag: aiMap.confidence < 0.75,
-                      value: value,
-                      mapping_notes: `IA (consolidación): ${aiMap.nota || aiMap.canonical_account}`,
+                      mapping_notes: `IA (clasificación, valor de la fila fuente): ${aiMap.nota || aiMap.canonical_account} · ${t.mapping_notes ?? ""}`,
                     })
                     .eq("analysis_id", analysis_id)
                     .eq("evidence_run_id", runId)
-                    .eq("original_label", matchingUnclassified[0].original_label)
+                    .eq("original_label", t.original_label)
+                    .eq("category", t.category)
                     .eq("period", period);
-                  if (consolidationError) {
-                    aiRejected.push({ canonical_account: aiMap.canonical_account, period, reason: `la IA no reescribe la Evidence observada: ${consolidationError.message}` });
+                  if (classificationError) {
+                    aiRejected.push({ canonical_account: aiMap.canonical_account, period, reason: `la clasificación no se aplicó: ${classificationError.message}`, code: "AI_CLASSIFICATION_NOT_APPLIED" });
                     continue;
                   }
+                  t.canonical_account = aiMap.canonical_account;
                   ai.classifications_applied++;
-                } else {
-                  // Check if we already have this account from rule-based
-                  const existingRule = mappings.find(m =>
-                    m.canonical_account === aiMap.canonical_account && m.period === period
-                  );
-                  if (!existingRule) {
-                    // Insert new consolidated mapping
-                    await supabase.from("account_homologations").insert({
-                      analysis_id,
-                      evidence_run_id: runId,
-                      document_id: allRows[0]?.documentId || null,
-                      original_label: sourceLabels.join(" + "),
-                      canonical_account: aiMap.canonical_account,
-                      category: ["revenue", "cost_of_sales", "opex", "da", "ebit", "interest_expense", "taxes", "net_income"].includes(aiMap.canonical_account) ? "income_statement" : "balance_sheet",
-                      period,
-                      value: value,
-                      confidence_score: aiMap.confidence >= 0.90 ? "alta" : "media",
-                      ambiguity_flag: false,
-                      mapping_notes: `IA (consolidación): ${aiMap.nota || "Mapeado por contexto"}`,
-                    });
-                    ai.classifications_applied++;
-                  } else {
-                    ai.proposals_skipped++;
-                  }
                 }
                 foundAccounts.add(aiMap.canonical_account);
               }
@@ -407,10 +395,10 @@ serve(async (req) => {
         ai_candidates: ai.candidates, ai_requests: ai.requests, ai_response: ai.response,
         ai_proposals_received: ai.proposals_received, ai_proposals_skipped: ai.proposals_skipped,
         ai_classifications_applied: ai.classifications_applied, ai_proposals_rejected: aiRejected.length,
+        ai_rejected: aiRejected,
         ...(contextual ? {
           statement_context: true,
           rejected_by_rule: drafts.reduce((acc, d) => (d.rejection && d.rejection !== "NO_MATCH" ? { ...acc, [d.rejection]: (acc[d.rejection] ?? 0) + 1 } : acc), {} as Record<string, number>),
-          ai_rejected: aiRejected,
         } : {}),
       },
     });
