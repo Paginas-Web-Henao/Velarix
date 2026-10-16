@@ -33,8 +33,8 @@ export function createManualMappingRunInMemory(tables: Record<string, Row[]>, ar
       ambiguity_flag: hit ? false : h.ambiguity_flag,
       mapping_notes: hit ? `Corrección manual de mapping (ver manual_correction_*) · ${String(h.mapping_notes ?? "")}` : h.mapping_notes,
       evidence_run_id: runId, derived_from_homologation_id: h.id,
-      manual_correction_by: hit ? args.p_actor : null, manual_correction_reason: hit ? String(args.p_reason).trim() : null,
-      manual_corrected_at: hit ? now : null, previous_canonical_account: hit ? h.canonical_account : null,
+      manual_correction_by: hit ? args.p_actor : (h.manual_correction_by ?? null), manual_correction_reason: hit ? String(args.p_reason).trim() : (h.manual_correction_reason ?? null),
+      manual_corrected_at: hit ? now : (h.manual_corrected_at ?? null), previous_canonical_account: hit ? h.canonical_account : (h.previous_canonical_account ?? null),
     };
   });
   (tables.evidence_runs ??= []).push(newRun);

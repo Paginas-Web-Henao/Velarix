@@ -29,6 +29,7 @@ import type { HomologatedAccountRow } from "./financial-accounts.ts";
 import type { ResolvedCalculationAssumptions } from "./resolved-calculation-assumptions.ts";
 import { evaluateMinimumExpedienteCheckpoint, type MinimumExpedienteCheckpointInput } from "./minimum-expediente-checkpoint.ts";
 import type { JudgmentResolution } from "./judgment-sets.ts";
+import { evaluateManualMappingReview, MANUAL_MAPPING_REVIEW_REQUIRED, type ValidationResultRow } from "./manual-mapping-review.ts";
 
 export type ReadinessBlockerCategory = "MISSING_EVIDENCE" | "JUDGMENT_REQUIRED" | "METHODOLOGY_DECISION_REQUIRED" | "SYSTEM_ERROR";
 
@@ -70,6 +71,12 @@ export interface CalculationReadinessInput {
    * de `analyses` + `resolvedAssumptions`, comportamiento previo).
    */
   judgment?: { mode: "legacy" } | { mode: "judgment_set"; resolution: JudgmentResolution } | null;
+  /**
+   * validation_results del análisis + el evidence run activo (regla canónica
+   * de manual-mapping-review.ts; solo cuenta el run activo). Ausente = no
+   * evaluado → SYSTEM_ERROR (fail-closed).
+   */
+  manualMappingReview?: { activeEvidenceRunId: string | null; validationResults: readonly ValidationResultRow[] } | null;
 }
 
 export interface CalculationReadinessResult {
@@ -145,6 +152,14 @@ export function evaluateCalculationReadiness(input: CalculationReadinessInput): 
       treatment: "al menos un tratamiento humano de una ambigüedad (expedient_answers)",
     };
     for (const m of cp.missing) push("JUDGMENT_REQUIRED", "MINIMUM_EXPEDIENTE_MISSING", `minimum_expediente.${m}`, `Falta ${labels[m] ?? m}.`, "human_review");
+  }
+
+  // ── Revisión humana: correcciones manuales de mapping con conflicto (MAP_008 / MAP_009 del run activo) ──
+  if (!input.manualMappingReview) {
+    push("SYSTEM_ERROR", "MANUAL_MAPPING_REVIEW_NOT_EVALUATED", "validation_results", "No se evaluaron las validaciones del evidence run activo; no se asume que no haya conflictos de mapping.", "human_review");
+  } else {
+    const review = evaluateManualMappingReview(input.manualMappingReview.activeEvidenceRunId, input.manualMappingReview.validationResults);
+    if (review.required) push("JUDGMENT_REQUIRED", MANUAL_MAPPING_REVIEW_REQUIRED, "account_homologations", review.message!, "human_review");
   }
 
   // ── Judgment del caso ──

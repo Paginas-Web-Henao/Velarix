@@ -14,6 +14,7 @@ import { evaluateMinimumExpedienteCheckpoint } from "../_shared/minimum-expedien
 import { evaluateCalculationPreflight } from "../_shared/calculation-preflight.ts";
 import type { ResolvedCalculationAssumptions } from "../_shared/resolved-calculation-assumptions.ts";
 import { checkInputJudgmentFreshness } from "../_shared/judgment-sets.ts";
+import { evaluateManualMappingReview, MANUAL_MAPPING_REVIEW_REQUIRED, MANUAL_MAPPING_REVIEW_RULES } from "../_shared/manual-mapping-review.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,6 +99,26 @@ serve(async (req) => {
     }
 
     if (!analysis) throw new Error("Analysis not found");
+
+    // Regla canónica (manual-mapping-review.ts): una corrección manual con
+    // MAP_008/MAP_009 FAILED en el evidence run ACTIVO impide Calculation hasta
+    // una nueva corrección. No se des-promueve ni se ajusta nada.
+    const activeEvidenceRunId: string | null = analysis.active_evidence_run_id ?? null;
+    if (activeEvidenceRunId) {
+      const { data: reviewRows, error: reviewError } = await supabase.from("validation_results")
+        .select("evidence_run_id, rule_code, status, detail")
+        .eq("analysis_id", analysis_id).eq("evidence_run_id", activeEvidenceRunId).in("rule_code", [...MANUAL_MAPPING_REVIEW_RULES]);
+      if (reviewError) throw new Error(`Error consultando validation_results: ${reviewError.message}`);
+      const review = evaluateManualMappingReview(activeEvidenceRunId, reviewRows ?? []);
+      if (review.required) {
+        await supabase.from("audit_events").insert({
+          analysis_id, user_id: actor?.userId || null, event_type: "manual_mapping_review_required",
+          event_detail: review.message, component: "ejecutar-calculo", metadata: { evidence_run_id: activeEvidenceRunId, findings: review.findings.map((f) => f.rule_code) },
+        });
+        return new Response(JSON.stringify({ success: false, error: { code: MANUAL_MAPPING_REVIEW_REQUIRED, message: review.message, findings: review.findings } }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
 
     // Hallazgo B: `structured_inputs.input_payload` es la fuente canónica
     // del input estructurado (ver `_shared/structured-input-resolution.ts`

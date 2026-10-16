@@ -150,12 +150,12 @@ describe("readiness con judgment set activo", () => {
   const emptyCase = { moneda_analisis: "USD", validation_status: "aprobado" };
   it("set válido: el Judgment sale SOLO del set (las columnas vacías de analyses no bloquean)", () => {
     const resolution = resolveActiveJudgmentSet({ analysis: analysis(), set: set("js-A"), entries: fullEntries("js-A") });
-    const r = evaluateCalculationReadiness({ analysis: emptyCase, activeAccounts: ev, basePeriod: "2024", resolvedAssumptions: null, minimumExpediente: exp, judgment: { mode: "judgment_set", resolution } });
+    const r = evaluateCalculationReadiness({ analysis: emptyCase, activeAccounts: ev, basePeriod: "2024", resolvedAssumptions: null, minimumExpediente: exp, manualMappingReview: { activeEvidenceRunId: "run-1", validationResults: [] }, judgment: { mode: "judgment_set", resolution } });
     expect(r).toMatchObject({ readiness: "READY", blockers: [] });
   });
   it("set obsoleto o incompleto → bloqueos con su categoría; sin fallback a columnas ni a resolvedAssumptions", () => {
     const resolution = resolveActiveJudgmentSet({ analysis: analysis({ active_evidence_run_id: "run-2" }), set: set("js-A"), entries: fullEntries("js-A").slice(1) });
-    const r = evaluateCalculationReadiness({ analysis: { ...emptyCase, expected_growth: 5 }, activeAccounts: ev, basePeriod: "2024", resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS, minimumExpediente: exp, judgment: { mode: "judgment_set", resolution } });
+    const r = evaluateCalculationReadiness({ analysis: { ...emptyCase, expected_growth: 5 }, activeAccounts: ev, basePeriod: "2024", resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS, minimumExpediente: exp, manualMappingReview: { activeEvidenceRunId: "run-1", validationResults: [] }, judgment: { mode: "judgment_set", resolution } });
     expect(r.readiness).toBe("NOT_READY");
     expect(r.blockers.map((b) => b.code).sort()).toEqual(["JUDGMENT_KEY_MISSING", "JUDGMENT_STALE_FOR_EVIDENCE_RUN"]);
   });

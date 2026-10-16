@@ -9,7 +9,7 @@ const FULL_EVIDENCE = [row("revenue", 1000), row("cost_of_sales", 600), row("ope
 const FULL_CASE = { valuation_date: "2024-12-31", basis_of_value: "Market Value", valued_interest: "100% equity", calculation_architecture: "DCF", moneda_analisis: "USD", expected_growth: 5, validation_status: "aprobado" };
 const FULL_EXPEDIENTE = { companyName: "Acme", sector: "industrial", materialAccountsCount: 1, ambiguitiesCount: 1, treatedAmbiguitiesCount: 1 };
 const base = (over: Partial<CalculationReadinessInput> = {}): CalculationReadinessInput => ({
-  analysis: FULL_CASE, activeAccounts: FULL_EVIDENCE, basePeriod: "2024", resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS, minimumExpediente: FULL_EXPEDIENTE, ...over,
+  analysis: FULL_CASE, activeAccounts: FULL_EVIDENCE, basePeriod: "2024", resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS, minimumExpediente: FULL_EXPEDIENTE, manualMappingReview: { activeEvidenceRunId: "run-1", validationResults: [] }, ...over,
 });
 const cats = (r: ReturnType<typeof evaluateCalculationReadiness>) => r.blockers.map((b) => `${b.category}:${b.field}`);
 
@@ -64,6 +64,19 @@ describe("calculation readiness — Evidence validada no implica listo para calc
     const none = evaluateCalculationReadiness(base({ minimumExpediente: undefined }));
     expect(cats(none)).toEqual(["SYSTEM_ERROR:minimum_expediente"]);
     expect(none.readiness).toBe("NOT_READY");
+  });
+
+  it("MAP_008/MAP_009 FAILED en el run ACTIVO → NOT_READY con MANUAL_MAPPING_REVIEW_REQUIRED (human_review); históricos no bloquean", () => {
+    const v = (evidence_run_id: string, rule_code: string, status: string) => ({ evidence_run_id, rule_code, status, detail: "x" });
+    const blocked = evaluateCalculationReadiness(base({ manualMappingReview: { activeEvidenceRunId: "run-1", validationResults: [v("run-1", "MAP_009", "failed"), v("run-1", "MAP_001", "failed")] } }));
+    expect(blocked.readiness).toBe("NOT_READY");
+    expect(blocked.blockers).toEqual([expect.objectContaining({ code: "MANUAL_MAPPING_REVIEW_REQUIRED", area: "human_review", category: "JUDGMENT_REQUIRED" })]);
+    expect(blocked.blockers[0].message).toMatch(/corrección manual.*antes de Calculation/);
+    expect(evaluateCalculationReadiness(base({ manualMappingReview: { activeEvidenceRunId: "run-1", validationResults: [v("run-1", "MAP_008", "failed")] } })).readiness).toBe("NOT_READY");
+    // histórico (otro run) o passed → no bloquea
+    expect(evaluateCalculationReadiness(base({ manualMappingReview: { activeEvidenceRunId: "run-2", validationResults: [v("run-1", "MAP_009", "failed"), v("run-2", "MAP_009", "passed")] } })).readiness).toBe("READY");
+    // no evaluado → fail-closed
+    expect(cats(evaluateCalculationReadiness(base({ manualMappingReview: undefined })))).toEqual(["SYSTEM_ERROR:validation_results"]);
   });
 
   it("es pura: no calcula, no escribe, no muta su input", () => {

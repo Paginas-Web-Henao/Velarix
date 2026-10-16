@@ -119,10 +119,12 @@ BEGIN
     CASE WHEN h.id = p_homologation_id THEN 'Corrección manual de mapping (ver manual_correction_*) · ' || coalesce(h.mapping_notes, '') ELSE h.mapping_notes END,
     v_run,
     h.id,
-    CASE WHEN h.id = p_homologation_id THEN p_actor END,
-    CASE WHEN h.id = p_homologation_id THEN btrim(p_reason) END,
-    CASE WHEN h.id = p_homologation_id THEN now() END,
-    CASE WHEN h.id = p_homologation_id THEN h.canonical_account END
+    -- Las correcciones anteriores viajan con su fila: un mapping manual sigue
+    -- marcado como manual en los runs posteriores (MAP_008/MAP_009 lo ven).
+    CASE WHEN h.id = p_homologation_id THEN p_actor ELSE h.manual_correction_by END,
+    CASE WHEN h.id = p_homologation_id THEN btrim(p_reason) ELSE h.manual_correction_reason END,
+    CASE WHEN h.id = p_homologation_id THEN now() ELSE h.manual_corrected_at END,
+    CASE WHEN h.id = p_homologation_id THEN h.canonical_account ELSE h.previous_canonical_account END
   FROM public.account_homologations h
   WHERE h.analysis_id = p_analysis_id AND h.evidence_run_id = v_active;
   GET DIAGNOSTICS v_copied = ROW_COUNT;

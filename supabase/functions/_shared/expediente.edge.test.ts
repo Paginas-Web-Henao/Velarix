@@ -67,7 +67,7 @@ describe("Minimum Expediente — write path", () => {
     // Expediente PASS ≠ Calculation READY: sin Judgment sigue NOT_READY, ya sin bloqueos human_review.
     const r = evaluateCalculationReadiness({
       analysis: { moneda_analisis: "USD", validation_status: "aprobado" }, activeAccounts: [], basePeriod: null, resolvedAssumptions: null,
-      minimumExpediente: { companyName: "Acme", sector: "industrial", ...counts() }, judgment: { mode: "judgment_set", resolution: { ok: false, issues: [{ category: "JUDGMENT_REQUIRED", code: "NO_ACTIVE_JUDGMENT_SET", key: null, message: "x" }] } },
+      minimumExpediente: { companyName: "Acme", sector: "industrial", ...counts() }, manualMappingReview: { activeEvidenceRunId: "run-1", validationResults: [] }, judgment: { mode: "judgment_set", resolution: { ok: false, issues: [{ category: "JUDGMENT_REQUIRED", code: "NO_ACTIVE_JUDGMENT_SET", key: null, message: "x" }] } },
     });
     expect(r.readiness).toBe("NOT_READY");
     expect(r.blockers.filter((b) => b.area === "human_review")).toEqual([]);

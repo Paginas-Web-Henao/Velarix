@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMemoryDb, type MemoryDb, type Row } from "./test-support/memory-db";
 import { createManualMappingRunInMemory } from "./test-support/memory-rpcs";
 import { allowedCanonicalAccountsFor, evaluateCorrectionTarget } from "./manual-mapping-correction";
+import { evaluateCalculationReadiness } from "./calculation-readiness";
 
 const h = vi.hoisted(() => ({ handlers: [] as ((req: Request) => Promise<Response>)[], db: null as unknown }));
 vi.mock("https://deno.land/std@0.168.0/http/server.ts", () => ({ serve: (fn: (req: Request) => Promise<Response>) => { h.handlers.push(fn); } }));
@@ -21,7 +22,8 @@ vi.mock("./anthropic-client.ts", () => ({ callAnthropic: async () => null }));
 };
 await import("../create-manual-mapping-run/index");
 await import("../validate-analysis/index");
-const [correctHandler, validateHandler] = h.handlers;
+await import("../ejecutar-calculo/index");
+const [correctHandler, validateHandler, ejecutarHandler] = h.handlers;
 
 let n = 0;
 const hom = (original_label: string, canonical_account: string, category: string, value: number, evidence_run_id: string | null, period = "2024") =>
@@ -185,3 +187,57 @@ describe("reglas puras", () => {
     expect(evaluateCorrectionTarget({ canonical_account: "unclassified", category: "balance_sheet" }, "cash")).toEqual({ ok: true });
   });
 });
+
+describe("Gap A: un conflicto MAP_008/MAP_009 en la Evidence ACTIVA bloquea Calculation (sin des-promover)", () => {
+  const review = () => ({ activeEvidenceRunId: pointer() as string, validationResults: m.tables.validation_results as never[] });
+  const readiness = () => evaluateCalculationReadiness({
+    analysis: { moneda_analisis: "USD", validation_status: "aprobado" }, activeAccounts: [], basePeriod: null, resolvedAssumptions: null,
+    minimumExpediente: { companyName: "Acme", sector: "x", materialAccountsCount: 1, ambiguitiesCount: 1, treatedAmbiguitiesCount: 1 },
+    manualMappingReview: review(),
+  });
+  const reviewBlocker = () => readiness().blockers.filter((b) => b.code === "MANUAL_MAPPING_REVIEW_REQUIRED");
+  const ejecutar = () => call(ejecutarHandler, { analysis_id: "a1" });
+  async function correctAndValidate(homologationId: string, to: string, expected: string) {
+    const r = await call(correctHandler, { analysis_id: "a1", expected_active_evidence_run_id: expected, homologation_id: homologationId, new_canonical_account: to, reason: "TEST-ONLY: corrección sintética de prueba" });
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    const run = r.body.data.evidence_run_id as string;
+    expect((await call(validateHandler, { analysis_id: "a1", evidence_run_id: run })).status).toBe(200);
+    return run;
+  }
+
+  it("B con MAP_009 failed SÍ se promueve, pero readiness NOT_READY y ejecutar-calculo 409; C elimina el conflicto → el bloqueo desaparece", async () => {
+    // Antes: A sin conflicto → sin bloqueo de revisión de mapping.
+    expect(reviewBlocker()).toEqual([]);
+    const B = await correctAndValidate(target().id, "revenue", "run-A");
+    expect(pointer()).toBe(B); // ADR-009 intacto: el run validado se promueve aunque tenga hallazgos
+    expect(m.tables.validation_results.find((v) => v.evidence_run_id === B && v.rule_code === "MAP_009")).toMatchObject({ status: "failed" });
+    expect(readiness().readiness).toBe("NOT_READY");
+    expect(reviewBlocker()).toHaveLength(1);
+    const blocked = await ejecutar();
+    expect(blocked).toMatchObject({ status: 409, body: { error: { code: "MANUAL_MAPPING_REVIEW_REQUIRED" } } });
+    expect(m.tables.analyses[0].calculation_result).toBeNull();
+    expect(pointer()).toBe(B); // no se des-promueve ni se vuelve a A
+    // C: nueva corrección que des-mapea la fila conflictiva.
+    const conflicted = rowsOf(B).find((x) => x.original_label === "Other income")!;
+    const C = await correctAndValidate(conflicted.id as string, "unclassified", B);
+    expect(pointer()).toBe(C);
+    expect(reviewBlocker()).toEqual([]);
+    // El MAP_009 failed de B sigue en la historia, pero no bloquea: solo cuenta el run activo.
+    expect(m.tables.validation_results.some((v) => v.evidence_run_id === B && v.rule_code === "MAP_009" && v.status === "failed")).toBe(true);
+    const after = await ejecutar();
+    expect(after.body?.error?.code).not.toBe("MANUAL_MAPPING_REVIEW_REQUIRED"); // sigue bloqueado por otras razones (sin input), no por este gate
+  });
+
+  it("una corrección D no relacionada NO oculta el conflicto de B (la lineage de la corrección viaja con la fila)", async () => {
+    const B = await correctAndValidate(target().id, "revenue", "run-A");
+    const unrelated = rowsOf(B).find((x) => x.original_label === "Cash and cash equivalents")!;
+    const D = await correctAndValidate(unrelated.id as string, "unclassified", B);
+    expect(pointer()).toBe(D);
+    const carried = rowsOf(D).find((x) => x.original_label === "Other income")!;
+    expect(carried).toMatchObject({ canonical_account: "revenue", manual_correction_by: "owner-1", previous_canonical_account: "unclassified" });
+    expect(m.tables.validation_results.find((v) => v.evidence_run_id === D && v.rule_code === "MAP_009")).toMatchObject({ status: "failed" });
+    expect(reviewBlocker()).toHaveLength(1);
+    expect((await ejecutar()).body.error.code).toBe("MANUAL_MAPPING_REVIEW_REQUIRED");
+  });
+});
+
