@@ -56,10 +56,11 @@ erDiagram
 
 ### Análisis y pipeline
 - **analyses** — `id, user_id, company_name, sector, expected_growth, status, validation_status, moneda_analisis, snapshot_id, input_payload, calculation_result, deleted_at, completed_at`, más el metadata del caso (`valuation_date, base_period, basis_of_value, valued_interest, calculation_architecture, business_profile`; NULL en casos legacy).
-- **documents** — `analysis_id, original_filename, storage_path, mime_type, doc_type_declared, checksum, processing_status`.
+- **documents** — `analysis_id, original_filename, storage_path, mime_type, doc_type_declared, doc_type_effective, doc_type_origin, checksum, processing_status`. `doc_type_declared` = lo declarado en la carga (inmutable); `doc_type_effective` + `doc_type_origin` = tipo resuelto por parse-document. Operacional: `effective ?? declared`.
 - **documents_parsed** — `document_id, parsed_structure, periods_detected, parsing_metadata`.
-- **account_homologations** — `analysis_id, document_id, original_label, canonical_account, category, value, period, confidence_score, ambiguity_flag, mapping_notes`.
-- **validation_results** — `analysis_id, rule_code, severity, status, blocking_flag, detail`.
+- **account_homologations** — `analysis_id, document_id, evidence_run_id, original_label, canonical_account, category, value, period, confidence_score, ambiguity_flag, mapping_notes`.
+- **validation_results** — `analysis_id, evidence_run_id, rule_code, severity, status, blocking_flag, detail`.
+- **evidence_runs** — `analysis_id, status (mapping/mapped/validating/completed/failed), failed_stage, error_code, error_detail, source_parsed_document_ids, previous_active_run_id, started_at…promoted_at`. Historial de homologación + validación; el set activo lo marca `analyses.active_evidence_run_id` (NULL = filas legacy). Ver [[ADR-009-evidence-runs-versionado]].
 - **structured_inputs** — `analysis_id, input_payload, version_input`.
 - **calculation_results** — `analysis_id, engine_version, input_payload, output_payload`.
 - **report_narratives** — `analysis_id, executive_summary, sections_payload, audit_passed, audit_notes, generation_version`.

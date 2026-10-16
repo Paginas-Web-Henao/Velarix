@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveBasePeriod } from "../_shared/period-resolution.ts";
+import { applyActiveRunFilter, selectActiveRows } from "../_shared/evidence-runs.ts";
 import { normalizeCurrencyCode } from "../_shared/currency.ts";
 import {
   buildCanonicalStructuredInput,
@@ -131,10 +132,13 @@ serve(async (req) => {
     }
 
     // 2. Get corrected homologations
-    const { data: cuentas } = await supabase
-      .from("account_homologations")
-      .select("*")
-      .eq("analysis_id", analysis_id);
+    // Solo el set operacional ACTIVO (puntero del análisis; legacy si es null).
+    const activeRunId = (analysis as { active_evidence_run_id?: string | null }).active_evidence_run_id ?? null;
+    const { data: cuentasTodosRuns } = await applyActiveRunFilter(
+      supabase.from("account_homologations").select("*").eq("analysis_id", analysis_id),
+      activeRunId,
+    );
+    const cuentas = selectActiveRows(cuentasTodosRuns || [], activeRunId);
 
     if (!cuentas || cuentas.length === 0) {
       await supabase.from("analyses").update({ status: "validacion_bloqueada" }).eq("id", analysis_id);

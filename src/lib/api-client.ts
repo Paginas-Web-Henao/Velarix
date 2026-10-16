@@ -1,4 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
+import { selectActiveRows } from "../../supabase/functions/_shared/evidence-runs";
+
+/** Puntero del set activo de Evidence (null = filas legacy). */
+async function activeEvidenceRunId(analysisId: string): Promise<string | null> {
+  const { data } = await supabase.from("analyses").select("*").eq("id", analysisId).maybeSingle();
+  return (data as { active_evidence_run_id?: string | null } | null)?.active_evidence_run_id ?? null;
+}
 
 const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -214,7 +221,7 @@ export async function getValidationResults(analysisId: string) {
     .eq("analysis_id", analysisId);
 
   if (error) throw new Error(`Error al obtener validaciones: ${error.message}`);
-  return data;
+  return selectActiveRows(data ?? [], await activeEvidenceRunId(analysisId));
 }
 
 // ─── Homologated Accounts ───
@@ -227,7 +234,7 @@ export async function getMappedAccounts(analysisId: string) {
     .order("created_at", { ascending: true });
 
   if (error) throw new Error(`Error al obtener homologaciones: ${error.message}`);
-  return data;
+  return selectActiveRows(data ?? [], await activeEvidenceRunId(analysisId));
 }
 
 // ─── Reports ───

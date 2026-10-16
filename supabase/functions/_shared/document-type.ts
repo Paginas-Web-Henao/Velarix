@@ -34,3 +34,12 @@ export function resolveEffectiveDocType(input: DocTypeInput): { docType: string;
   }
   return { docType, origin };
 }
+
+/**
+ * Tipo operacional de un documento persistido: el efectivo resuelto por el
+ * parser y, si aún no existe (documento sin parsear o legacy), el declarado
+ * en la carga. El declarado nunca se sobrescribe.
+ */
+export function effectiveDocType(doc: { doc_type_effective?: string | null; doc_type_declared?: string | null } | null | undefined): string | null {
+  return doc?.doc_type_effective ?? doc?.doc_type_declared ?? null;
+}

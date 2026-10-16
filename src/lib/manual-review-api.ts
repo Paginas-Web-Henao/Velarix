@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { selectActiveRows } from "../../supabase/functions/_shared/evidence-runs";
 
 const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -140,6 +141,8 @@ export async function obtenerDetalleRevision(revisionId: string) {
 
   const analysisId = revision.analysis_id;
 
+  const { data: analysisRow } = await supabase.from("analyses").select("*").eq("id", analysisId).maybeSingle();
+  const activeRunId = (analysisRow as { active_evidence_run_id?: string | null } | null)?.active_evidence_run_id ?? null;
   const [homologaciones, validaciones] = await Promise.all([
     supabase
       .from("account_homologations")
@@ -155,8 +158,9 @@ export async function obtenerDetalleRevision(revisionId: string) {
 
   return {
     revision,
-    cuentas_homologadas: homologaciones.data || [],
-    validaciones_fallidas: validaciones.data || [],
+    // Solo el set activo de Evidence (el historial de runs no se mezcla).
+    cuentas_homologadas: selectActiveRows(homologaciones.data || [], activeRunId),
+    validaciones_fallidas: selectActiveRows(validaciones.data || [], activeRunId),
   };
 }
 

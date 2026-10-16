@@ -79,7 +79,7 @@ describe("evaluate — BAL_002 (total activos mayor a cero)", () => {
     expect(map005).toBeDefined();
     expect(map005?.passed).toBe(false);
     expect(map005?.severity).toBe("informativa");
-    expect(map005?.detail).toBe("No se identificó total activos. Se calculará por suma de componentes.");
+    expect(map005?.detail).toBe("No se identificó una cuenta de total activos homologada. Requiere revisión; no se deriva por suma de componentes.");
   });
 });
 
@@ -146,7 +146,7 @@ describe("evaluate — BAL_005 (caja no negativa, valor OBSERVADO — hallazgo B
     expect(map002).toBeDefined();
     expect(map002?.passed).toBe(false);
     expect(map002?.severity).toBe("media");
-    expect(map002?.detail).toBe("No se identificó caja. Se usará valor cero.");
+    expect(map002?.detail).toBe("No se identificó una cuenta de caja homologada. Requiere revisión antes del cálculo; la ausencia no se interpreta como cero.");
   });
 });
 

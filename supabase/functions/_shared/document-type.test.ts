@@ -36,3 +36,22 @@ describe("resolveEffectiveDocType — la clasificación determinística del libr
     expect(resolveEffectiveDocType({ workbookStatements: ["balance_sheet", "equity"], aiType: "balance_general", declared: null, content: none }).docType).toBe("balance_general");
   });
 });
+
+describe("tipo operacional persistido: effective ?? declared", async () => {
+  const { effectiveDocType } = await import("./document-type");
+  const { evaluate } = await import("./validation-rules");
+
+  it("L. legacy de un solo estado sin tipo efectivo: cae al declarado", () => {
+    expect(effectiveDocType({ doc_type_declared: "estado_resultados", doc_type_effective: null })).toBe("estado_resultados");
+    expect(effectiveDocType({ doc_type_declared: "balance_general" })).toBe("balance_general");
+    expect(effectiveDocType({ doc_type_declared: "estado_resultados", doc_type_effective: "estados_financieros" })).toBe("estados_financieros");
+    expect(effectiveDocType(null)).toBeNull();
+  });
+
+  it("M. la validación usa effective ?? declared (un 'balance_general' declarado con efectivo multi-estado cuenta como resultados)", () => {
+    const doc = (declared: string, effective: string | null) => [{ original_filename: "x.xlsx", file_size_bytes: 1, processing_status: "completado", doc_type_declared: declared, doc_type_effective: effective }];
+    const map001 = (d: ReturnType<typeof doc>) => evaluate([], d, ["2024"], "2024").find((r) => r.code === "MAP_001")!;
+    expect(map001(doc("balance_general", "estados_financieros")).severity).toBe("media");
+    expect(map001(doc("balance_general", null)).severity).toBe("informativa");
+  });
+});

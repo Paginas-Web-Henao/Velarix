@@ -15,10 +15,14 @@
 // (ver docs/velarix/bloque-1a/BL-26-tabla-comparativa-motores.md,
 // R-01/BL-02).
 
+import { assertSingleEvidenceRun } from "./evidence-runs.ts";
+
 export interface HomologatedAccountRow {
   canonical_account: string;
   value: number | string | null;
   period?: string | null;
+  /** Run de Evidence que produjo la fila (null = legacy). Nunca se mezclan runs. */
+  evidence_run_id?: string | null;
 }
 
 /**
@@ -67,6 +71,9 @@ function sumMatchedRows(
   canonical: string,
   period?: string | null,
 ): number | null {
+  // Fail-closed: una suma nunca combina filas de dos evidence runs (el lector
+  // debe pasar solo el set activo).
+  assertSingleEvidenceRun(rows);
   const targetPeriod = normalizePeriod(period);
 
   const matchedValues: number[] = [];

@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       account_homologations: {
         Row: {
+          evidence_run_id: string | null
           ambiguity_flag: boolean | null
           analysis_id: string
           canonical_account: string
@@ -30,6 +31,7 @@ export type Database = {
           value: number | null
         }
         Insert: {
+          evidence_run_id?: string | null
           ambiguity_flag?: boolean | null
           analysis_id: string
           canonical_account: string
@@ -44,6 +46,7 @@ export type Database = {
           value?: number | null
         }
         Update: {
+          evidence_run_id?: string | null
           ambiguity_flag?: boolean | null
           analysis_id?: string
           canonical_account?: string
@@ -111,6 +114,7 @@ export type Database = {
       }
       analyses: {
         Row: {
+          active_evidence_run_id: string | null
           calculation_result: Json | null
           company_name: string
           completed_at: string | null
@@ -134,6 +138,7 @@ export type Database = {
           valued_interest: string | null
         }
         Insert: {
+          active_evidence_run_id?: string | null
           calculation_result?: Json | null
           company_name?: string
           completed_at?: string | null
@@ -157,6 +162,7 @@ export type Database = {
           valued_interest?: string | null
         }
         Update: {
+          active_evidence_run_id?: string | null
           calculation_result?: Json | null
           company_name?: string
           completed_at?: string | null
@@ -345,6 +351,8 @@ export type Database = {
       }
       documents: {
         Row: {
+          doc_type_effective: string | null
+          doc_type_origin: string | null
           analysis_id: string
           checksum: string | null
           doc_type_declared: string | null
@@ -357,6 +365,8 @@ export type Database = {
           uploaded_at: string
         }
         Insert: {
+          doc_type_effective?: string | null
+          doc_type_origin?: string | null
           analysis_id: string
           checksum?: string | null
           doc_type_declared?: string | null
@@ -369,6 +379,8 @@ export type Database = {
           uploaded_at?: string
         }
         Update: {
+          doc_type_effective?: string | null
+          doc_type_origin?: string | null
           analysis_id?: string
           checksum?: string | null
           doc_type_declared?: string | null
@@ -421,6 +433,72 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evidence_runs: {
+        Row: {
+          analysis_id: string
+          completed_at: string | null
+          created_by: string | null
+          error_code: string | null
+          error_detail: string | null
+          failed_stage: string | null
+          id: string
+          mapped_at: string | null
+          previous_active_run_id: string | null
+          promoted_at: string | null
+          source_parsed_document_ids: string[]
+          started_at: string
+          status: string
+          validated_at: string | null
+        }
+        Insert: {
+          analysis_id: string
+          completed_at?: string | null
+          created_by?: string | null
+          error_code?: string | null
+          error_detail?: string | null
+          failed_stage?: string | null
+          id?: string
+          mapped_at?: string | null
+          previous_active_run_id?: string | null
+          promoted_at?: string | null
+          source_parsed_document_ids?: string[]
+          started_at?: string
+          status: string
+          validated_at?: string | null
+        }
+        Update: {
+          analysis_id?: string
+          completed_at?: string | null
+          created_by?: string | null
+          error_code?: string | null
+          error_detail?: string | null
+          failed_stage?: string | null
+          id?: string
+          mapped_at?: string | null
+          previous_active_run_id?: string | null
+          promoted_at?: string | null
+          source_parsed_document_ids?: string[]
+          started_at?: string
+          status?: string
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_runs_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_runs_previous_active_run_id_fkey"
+            columns: ["previous_active_run_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -840,6 +918,7 @@ export type Database = {
       }
       validation_results: {
         Row: {
+          evidence_run_id: string | null
           analysis_id: string
           blocking_flag: boolean | null
           created_at: string
@@ -850,6 +929,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          evidence_run_id?: string | null
           analysis_id: string
           blocking_flag?: boolean | null
           created_at?: string
@@ -860,6 +940,7 @@ export type Database = {
           status: string
         }
         Update: {
+          evidence_run_id?: string | null
           analysis_id?: string
           blocking_flag?: boolean | null
           created_at?: string

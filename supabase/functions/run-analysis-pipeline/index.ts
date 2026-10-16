@@ -141,6 +141,8 @@ serve(async (req) => {
     await updateJob("homologacion", 45, "Homologando cuentas contables con IA...");
     await supabase.from("analyses").update({ status: "homologacion_en_curso" }).eq("id", analysis_id);
 
+    // Evidence run que produjo esta homologación: validate-analysis valida ESE run.
+    let evidenceRunId: string | null = null;
     try {
       const mapResp = await fetch(`${supabaseUrl}/functions/v1/map-accounts`, {
         method: "POST",
@@ -168,6 +170,7 @@ serve(async (req) => {
           data: { steps },
         }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      evidenceRunId = mapResult.data?.evidence_run_id ?? null;
       await updateJob("homologacion", 100, "Homologación completada.", "completado");
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : "Error técnico durante la homologación.";
@@ -189,7 +192,7 @@ serve(async (req) => {
       const valResp = await fetch(`${supabaseUrl}/functions/v1/validate-analysis`, {
         method: "POST",
         headers: { Authorization: authHeader, "Content-Type": "application/json" },
-        body: JSON.stringify({ analysis_id }),
+        body: JSON.stringify({ analysis_id, evidence_run_id: evidenceRunId }),
       });
       const valResult = await valResp.json();
       steps.push({ step: "validate", success: valResult.success, detail: `Estado: ${valResult.data?.validation_status}`, semaphore: valResult.data?.semaphore });

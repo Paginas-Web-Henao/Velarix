@@ -4,6 +4,7 @@ import { CheckCircle2, AlertTriangle, Loader2, Info } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { EVIDENCE_PHASES } from "@/lib/evidence-pipeline";
+import { selectActiveRows } from "../../../supabase/functions/_shared/evidence-runs";
 
 const FASES = EVIDENCE_PHASES;
 
@@ -82,11 +83,15 @@ const ProgressPanel = ({ analysisId, onCompletado, onError }: Props) => {
   useEffect(() => {
     if (!error && progreso?.validacion !== "bloqueado") return;
     const fetchRules = async () => {
-      const { data } = await supabase
-        .from("validation_results").select("rule_code, severity, detail")
-        .eq("analysis_id", analysisId).eq("status", "failed")
-        .order("blocking_flag", { ascending: false });
-      if (data && data.length > 0) setFailedRules(data as FailedRule[]);
+      // Solo las validaciones del set activo (no las de runs anteriores).
+      const [{ data: analysis }, { data: rows }] = await Promise.all([
+        supabase.from("analyses").select("*").eq("id", analysisId).maybeSingle(),
+        supabase.from("validation_results").select("*")
+          .eq("analysis_id", analysisId).eq("status", "failed")
+          .order("blocking_flag", { ascending: false }),
+      ]);
+      const data = selectActiveRows(rows ?? [], (analysis as { active_evidence_run_id?: string | null } | null)?.active_evidence_run_id ?? null);
+      if (data.length > 0) setFailedRules(data.map((r) => ({ rule_code: r.rule_code, severity: r.severity, detail: r.detail })) as FailedRule[]);
     };
     fetchRules();
   }, [analysisId, error, progreso?.validacion]);

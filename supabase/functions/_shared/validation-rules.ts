@@ -11,6 +11,7 @@
 // resuelto.
 
 import { sumAccountValue, sumObservedAccountValue, hasAccountValue, type HomologatedAccountRow } from "./financial-accounts.ts";
+import { effectiveDocType } from "./document-type.ts";
 
 export interface ValidationResult {
   code: string;
@@ -26,6 +27,8 @@ export interface DocumentInput {
   file_size_bytes?: number | null;
   processing_status?: string | null;
   doc_type_declared?: string | null;
+  /** Tipo resuelto por parse-document; el operacional es effective ?? declared. */
+  doc_type_effective?: string | null;
 }
 
 // BL-02: reemplaza el `.find()` que tomaba solo la primera subcuenta
@@ -106,7 +109,7 @@ export function evaluate(
   }
 
   // ── MAP rules ──
-  const hasIncomeStatement = documents.some((d) => d.doc_type_declared === "estado_resultados" || d.doc_type_declared === "mixto" || d.doc_type_declared === "estados_financieros");
+  const hasIncomeStatement = documents.some((d) => ["estado_resultados", "mixto", "estados_financieros"].includes(effectiveDocType(d) ?? ""));
   const revenueFound = hasAccount(accounts, "revenue", basePeriod);
 
   // MAP_001: Revenue — WARNING if no income statement loaded
@@ -117,7 +120,7 @@ export function evaluate(
   }
 
   // MAP_002: Cash — WARNING, not critical
-  r.push({ code: "MAP_002", severity: "media", description: "Caja identificada", passed: hasAccount(accounts, "cash", basePeriod), detail: !hasAccount(accounts, "cash", basePeriod) ? "No se identificó caja. Se usará valor cero." : null, blocking: false });
+  r.push({ code: "MAP_002", severity: "media", description: "Caja identificada", passed: hasAccount(accounts, "cash", basePeriod), detail: !hasAccount(accounts, "cash", basePeriod) ? "No se identificó una cuenta de caja homologada. Requiere revisión antes del cálculo; la ausencia no se interpreta como cero." : null, blocking: false });
 
   // MAP_003: Debt — informative
   const hasDebt = hasAccount(accounts, "current_financial_debt", basePeriod) || hasAccount(accounts, "long_term_financial_debt", basePeriod);
@@ -127,7 +130,7 @@ export function evaluate(
   r.push({ code: "MAP_004", severity: "media", description: "Patrimonio identificado", passed: hasAccount(accounts, "equity", basePeriod), detail: !hasAccount(accounts, "equity", basePeriod) ? "No se identificó patrimonio." : null, blocking: false });
 
   // MAP_005: Total assets — WARNING
-  r.push({ code: "MAP_005", severity: "informativa", description: "Total activos identificado", passed: hasAccount(accounts, "total_assets", basePeriod), detail: !hasAccount(accounts, "total_assets", basePeriod) ? "No se identificó total activos. Se calculará por suma de componentes." : null, blocking: false });
+  r.push({ code: "MAP_005", severity: "informativa", description: "Total activos identificado", passed: hasAccount(accounts, "total_assets", basePeriod), detail: !hasAccount(accounts, "total_assets", basePeriod) ? "No se identificó una cuenta de total activos homologada. Requiere revisión; no se deriva por suma de componentes." : null, blocking: false });
 
   // MAP_006: Total liabilities — WARNING
   r.push({ code: "MAP_006", severity: "media", description: "Total pasivos identificado", passed: hasAccount(accounts, "total_liabilities", basePeriod), detail: !hasAccount(accounts, "total_liabilities", basePeriod) ? "No se identificó total pasivos." : null, blocking: false });
@@ -190,7 +193,7 @@ export function evaluate(
 
   // ── PER rules — NEVER BLOCKING ──
   r.push({ code: "PER_001", severity: "media", description: "Al menos un período completo", passed: periods.length >= 1, detail: periods.length === 0 ? "No hay períodos contables." : null, blocking: false });
-  r.push({ code: "PER_002", severity: "informativa", description: "Múltiples períodos", passed: periods.length >= 2, detail: periods.length === 1 ? "Solo un período. Proyecciones basadas en un solo año." : null, blocking: false });
+  r.push({ code: "PER_002", severity: "informativa", description: "Múltiples períodos", passed: periods.length >= 2, detail: periods.length === 1 ? "Solo se identificó un período contable; la suficiencia para proyección no se evalúa en esta etapa." : null, blocking: false });
 
   return r;
 }

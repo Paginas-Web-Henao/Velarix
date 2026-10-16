@@ -740,7 +740,9 @@ serve(async (req) => {
       },
     });
 
-    await supabase.from("documents").update({ processing_status: "completado", doc_type_declared: docType }).eq("id", document_id);
+    // doc_type_declared es lo que declaró la carga y NO se sobrescribe; el tipo
+    // operacional resuelto y su origen van en columnas propias.
+    await supabase.from("documents").update({ processing_status: "completado", doc_type_effective: docType, doc_type_origin: docTypeOrigin }).eq("id", document_id);
     await supabase.from("analyses").update({ status: "parsing_completado" }).eq("id", analysis_id);
 
     await supabase.from("audit_events").insert({

@@ -84,9 +84,15 @@ export function EvidenceSection({ data, reload }: SectionProps) {
           </Empty>
         ) : (
           <DataTable
-            head={["Archivo", "Tipo declarado", "Estado", "Cargado"]}
+            head={["Archivo", "Tipo declarado (carga)", "Tipo efectivo (parser)", "Estado", "Cargado"]}
             numericFrom={9}
-            rows={data.documents.map((d) => [d.original_filename, d.doc_type_declared ?? "—", d.processing_status, date(d.uploaded_at)])}
+            rows={data.documents.map((d) => [
+              d.original_filename,
+              d.doc_type_declared ?? "—",
+              d.doc_type_effective ? `${d.doc_type_effective} · ${d.doc_type_origin ?? "origen —"}` : "— (sin resolver)",
+              d.processing_status,
+              date(d.uploaded_at),
+            ])}
           />
         )}
       </Panel>
@@ -97,6 +103,7 @@ export function EvidenceSection({ data, reload }: SectionProps) {
           <ProvenanceRow label="Document provenance" state={states.documents} />
           <ProvenanceRow label="Account homologation lineage" state={states.accountLineage} />
         </div>
+        <KV rows={[{ k: "Evidence run activo (homologación + validación)", v: activeEvidenceRunLabel(data) }]} />
         {!prov ? <Empty>Sin envelope de provenance: no hay cálculo canónico persistido.</Empty> : (
           <div className="space-y-2">
             <KV rows={[
@@ -669,4 +676,13 @@ export function AuditSection({ data }: SectionProps) {
       </Panel>
     </div>
   );
+}
+
+/** Run de Evidence que alimenta homologaciones/validaciones mostradas (el historial no se suma). */
+function activeEvidenceRunLabel(data: Pick<CaseData, "analysis" | "evidenceRuns">): string {
+  const activeId = (data.analysis as { active_evidence_run_id?: string | null } | null)?.active_evidence_run_id ?? null;
+  const history = data.evidenceRuns.length;
+  if (!activeId) return history ? `Legacy (sin run promovido) · ${history} run(s) en historial` : "Legacy (filas anteriores al versionado)";
+  const run = data.evidenceRuns.find((r) => r.id === activeId);
+  return `${activeId.slice(0, 8)} · ${run?.status ?? "—"}${run?.completed_at ? ` · ${date(run.completed_at)}` : ""} · ${history} run(s) en historial`;
 }

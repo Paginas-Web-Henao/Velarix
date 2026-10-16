@@ -47,3 +47,24 @@ describe("K. IS_006 no promete un default ni un fallback", () => {
     expect(evaluate([], docs, ["2024"], "2024").find((r) => r.code === "MAP_001")).toMatchObject({ severity: "media" });
   });
 });
+
+describe("N/O/P. mensajes de Evidence sin promesas de cálculo", () => {
+  const docs = [{ original_filename: "x.xlsx", file_size_bytes: 10, processing_status: "completado", doc_type_declared: "estados_financieros" }];
+  const byCode = (code: string) => evaluate([], docs, ["2024"], "2024").find((r) => r.code === code)!;
+
+  it("N. MAP_002 no promete cero", () => {
+    expect(byCode("MAP_002").detail).not.toMatch(/valor cero|se usará/i);
+    expect(byCode("MAP_002").detail).toMatch(/revisión/);
+  });
+  it("O. MAP_005 no afirma una suma de componentes inexistente", () => {
+    expect(byCode("MAP_005").detail).not.toMatch(/se calculará/i);
+    expect(byCode("MAP_005").detail).toMatch(/no se deriva por suma/);
+  });
+  it("P. PER_002 no promete cómo se proyectará", () => {
+    expect(byCode("PER_002").detail).not.toMatch(/Proyecciones basadas/);
+    expect(byCode("PER_002").detail).toMatch(/no se evalúa en esta etapa/);
+  });
+  it("severidades y bloqueo no cambian", () => {
+    expect([byCode("MAP_002"), byCode("MAP_005"), byCode("PER_002")].map((r) => [r.severity, r.blocking])).toEqual([["media", false], ["informativa", false], ["informativa", false]]);
+  });
+});

@@ -148,7 +148,10 @@ describe("parse-document — libro SEC con varios estados y escala declarada", (
   it("tipo documental: libro multi-estado → estados_financieros aunque la IA diga otra cosa (origen determinístico)", async () => {
     h.wb = workbook(SEC_LIKE); // la IA de este test responde tipo_documento "mixto"
     await call();
-    expect(writesTo(state, "documents", "update").at(-1)!.payload).toMatchObject({ processing_status: "completado", doc_type_declared: "estados_financieros" });
+    const last = writesTo(state, "documents", "update").at(-1)!.payload as Record<string, unknown>;
+    expect(last).toMatchObject({ processing_status: "completado", doc_type_effective: "estados_financieros", doc_type_origin: "DETERMINISTIC_WORKBOOK" });
+    // I. el tipo declarado en la carga no se modifica: ninguna escritura de parse lo toca.
+    expect(writesTo(state, "documents", "update").some((w) => "doc_type_declared" in (w.payload as object))).toBe(false);
     expect(parsedInsert().parsing_metadata).toMatchObject({ doc_type_efectivo: "estados_financieros", doc_type_origen: "DETERMINISTIC_WORKBOOK" });
     expect(auditMeta()).toMatchObject({ doc_type: "estados_financieros", doc_type_origen: "DETERMINISTIC_WORKBOOK" });
   });

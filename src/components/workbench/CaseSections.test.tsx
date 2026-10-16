@@ -72,7 +72,7 @@ function caseData(over: Partial<CaseData> = {}, analysisOver: Record<string, unk
       ...ALPINA_CASE_COLUMNS, business_profile: ALPINA_BUSINESS_PROFILE, ...analysisOver,
     } as unknown as CaseData["analysis"],
     calculation: calculation() as unknown as CaseData["calculation"],
-    documents: [], homologations: [], validations: [], valuationFile: { id: "vf" } as CaseData["valuationFile"],
+    documents: [], homologations: [], validations: [], evidenceRuns: [], valuationFile: { id: "vf" } as CaseData["valuationFile"],
     accountNotes: [{ id: "n1", valuation_file_id: "vf", canonical_account: "financial_debt_total", interpretation_text: "x".repeat(50) + " TEXTO-COMPLETO-FINAL", created_by: "o", created_at: CALC_AT }],
     questions: questions(), reviews: [], narrative: null,
     auditEvents: [VERIFIED, MATERIALIZED, ev("expedient_question_reclassified", { question_id: RECLASSIFIED_ID, reclassified_as: "CALCULATION_VALIDATION", reason: RECLASSIFIED_QUESTIONS[0].reason }), ev("terminal_reinvestment_check", { input_fingerprint: FP, calculated_at: CALC_AT, status: "PASS" })] as CaseData["auditEvents"],

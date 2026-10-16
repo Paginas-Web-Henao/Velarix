@@ -27,6 +27,7 @@ Volver a [[00-home]] · Anterior: [[13-testing]] · Siguiente: [[10-roadmap]] ·
 | [[ADR-006-retirar-landing-comercial]] | Se elimina la landing B2B (la parte "Estimador público" quedó superada por ADR-007) | 2026-10-15 |
 | [[ADR-007-personal-valuation-workbench]] | Velarix = Personal Valuation & Projection Workbench; app privada, sin demo pública | 2026-10-15 |
 | [[ADR-008-single-owner-private-mode]] | Single-owner private mode: sin login en el flujo normal; Auth + RLS se conservan (LOCAL_PRIVATE / DEPLOYED_PRIVATE) | 2026-10-15 |
+| [[ADR-009-evidence-runs-versionado]] | Evidence runs: homologación + validación versionadas, build then promote, lectores solo del set activo | 2026-10-16 |
 
 ## Principios metodológicos cerrados (P-01 … P-14)
 

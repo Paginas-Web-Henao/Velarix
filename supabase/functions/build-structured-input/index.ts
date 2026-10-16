@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveBasePeriod } from "../_shared/period-resolution.ts";
+import { applyActiveRunFilter, selectActiveRows } from "../_shared/evidence-runs.ts";
 import { normalizeCurrencyCode } from "../_shared/currency.ts";
 import {
   buildCanonicalStructuredInput,
@@ -51,7 +52,11 @@ serve(async (req) => {
       console.log("[build-structured-input] Estado actual:", analysis.status, "— continuando de todas formas");
     }
 
-    const { data: accounts } = await supabase.from("account_homologations").select("*").eq("analysis_id", analysis_id);
+    // Solo el set operacional ACTIVO (puntero del análisis; legacy si es null):
+    // nunca filas de varios evidence runs.
+    const activeRunId = (analysis as { active_evidence_run_id?: string | null }).active_evidence_run_id ?? null;
+    const { data: allRunRows } = await applyActiveRunFilter(supabase.from("account_homologations").select("*").eq("analysis_id", analysis_id), activeRunId);
+    const accounts = selectActiveRows(allRunRows || [], activeRunId);
     if (!accounts || accounts.length === 0) {
       throw new BadRequestError("NO_ACCOUNTS", "No hay cuentas homologadas.");
     }

@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
 import { normalizeLabel } from "../_shared/account-taxonomy.ts";
 import { buildRuleMappings, evaluateAiProposalForContextRows } from "../_shared/statement-aware-mapping.ts";
+import { createEvidenceRun, failEvidenceRun, markEvidenceRun } from "../_shared/evidence-runs.ts";
+import { effectiveDocType } from "../_shared/document-type.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent } from "../_shared/evidence-pipeline-guards.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
@@ -115,6 +117,11 @@ Recibes una cuenta ambigua con contexto. Devuelve JSON:
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Evidence run de esta homologación (si se llegó a crear): un fallo lo marca
+  // failed y el set activo anterior sigue intacto.
+  let evidenceRunId: string | null = null;
+  let mappingFailureCode = "MAPPING_ERROR";
+  let db: Parameters<typeof failEvidenceRun>[0] | null = null;
   try {
     const authHeader = req.headers.get("Authorization");
 
@@ -122,6 +129,7 @@ serve(async (req) => {
     const secretKey = resolveAdminSecretKey();
     const anonKey = resolvePublishableKey();
     const supabase = createClient(supabaseUrl, secretKey);
+    db = supabase;
     const anonClient = createClient(supabaseUrl, anonKey);
     const user = await requireAuthenticatedUser(authHeader, async (token) => {
       const { data, error } = await anonClient.auth.getUser(token);
@@ -131,7 +139,7 @@ serve(async (req) => {
     const { analysis_id } = await req.json();
     if (!analysis_id) throw new Error("analysis_id required");
 
-    const { data: analysis, error: analysisError } = await supabase.from("analyses").select("id, user_id, status, calculation_result").eq("id", analysis_id).single();
+    const { data: analysis, error: analysisError } = await supabase.from("analyses").select("id, user_id, status, calculation_result, active_evidence_run_id").eq("id", analysis_id).single();
     const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
     if (lookup === "not_found") throw new NotFoundError();
     if (lookup === "technical_error") throw analysisError;
@@ -151,7 +159,7 @@ serve(async (req) => {
     await supabase.from("analyses").update({ status: "homologacion_en_curso" }).eq("id", analysis_id);
 
     // Get parsed documents
-    const { data: documents } = await supabase.from("documents").select("id, doc_type_declared").eq("analysis_id", analysis_id);
+    const { data: documents } = await supabase.from("documents").select("id, doc_type_declared, doc_type_effective").eq("analysis_id", analysis_id);
     const { data: parsedDocsAllVersions } = await supabase.from("documents_parsed").select("*").in("document_id", (documents || []).map(d => d.id));
 
     if (!parsedDocsAllVersions || parsedDocsAllVersions.length === 0) {
@@ -176,8 +184,16 @@ serve(async (req) => {
       throw e;
     }
 
-    // Clear previous mappings
-    await supabase.from("account_homologations").delete().eq("analysis_id", analysis_id);
+    // Versionado no destructivo: NO se borran las homologaciones anteriores.
+    // Este run produce un set nuevo; el set activo solo cambia cuando
+    // validate-analysis complete y promueva el run (ver ../_shared/evidence-runs.ts).
+    const userId = user.id;
+    evidenceRunId = await createEvidenceRun(supabase, {
+      analysisId: analysis_id, userId,
+      previousActiveRunId: (analysis as { active_evidence_run_id?: string | null }).active_evidence_run_id ?? null,
+      sourceParsedDocumentIds: parsedDocs.map(p => p.id),
+    });
+    const runId = evidenceRunId;
 
     // ──── Build full document text for AI context ────
     const allRows: any[] = [];
@@ -187,7 +203,7 @@ serve(async (req) => {
       const structure = parsed.parsed_structure as any;
       const rows = structure?.rows || structure?.data || [];
       const documentId = parsed.document_id;
-      const docType = (documents || []).find(d => d.id === documentId)?.doc_type_declared || "unknown";
+      const docType = effectiveDocType((documents || []).find(d => d.id === documentId)) || "unknown";
       docTypeMap[documentId] = docType;
 
       for (const row of rows) {
@@ -208,6 +224,8 @@ serve(async (req) => {
     // compatibilidad estado/sección/unidad y sin duplicados operacionales —
     // ver ../_shared/statement-aware-mapping.ts.
     const drafts = buildRuleMappings(analysis_id, allRows);
+    // Cada fila queda ligada al run que la produjo.
+    for (const d of drafts) (d.record as typeof d.record & { evidence_run_id: string }).evidence_run_id = runId;
     const mappings: any[] = drafts.map(d => d.record);
     const foundAccounts = new Set<string>(mappings.filter(m => m.canonical_account !== "unclassified").map(m => m.canonical_account));
     const contextual = drafts.some(d => d.contextual);
@@ -215,7 +233,10 @@ serve(async (req) => {
     // Insert pass 1
     if (mappings.length > 0) {
       const { error: insertError } = await supabase.from("account_homologations").insert(mappings);
-      if (insertError) throw new Error(`Error al guardar homologaciones: ${insertError.message}`);
+      if (insertError) {
+        mappingFailureCode = "INSERT_FAILED";
+        throw new Error(`Error al guardar homologaciones: ${insertError.message}`);
+      }
     }
 
     // ──── PASS 2: AI Consolidation-based mapping ────
@@ -307,6 +328,7 @@ serve(async (req) => {
                       mapping_notes: `IA (clasificación, valor de la fila fuente): ${aiMap.nota || aiMap.canonical_account} · ${t.mapping_notes}`,
                     })
                     .eq("analysis_id", analysis_id)
+                    .eq("evidence_run_id", runId)
                     .eq("original_label", t.original_label)
                     .eq("category", t.category)
                     .eq("period", period);
@@ -323,6 +345,7 @@ serve(async (req) => {
                       mapping_notes: `IA (consolidación): ${aiMap.nota || aiMap.canonical_account}`,
                     })
                     .eq("analysis_id", analysis_id)
+                    .eq("evidence_run_id", runId)
                     .eq("original_label", matchingUnclassified[0].original_label)
                     .eq("period", period);
                   ai.classifications_applied++;
@@ -335,6 +358,7 @@ serve(async (req) => {
                     // Insert new consolidated mapping
                     await supabase.from("account_homologations").insert({
                       analysis_id,
+                      evidence_run_id: runId,
                       document_id: allRows[0]?.documentId || null,
                       original_label: sourceLabels.join(" + "),
                       canonical_account: aiMap.canonical_account,
@@ -358,6 +382,10 @@ serve(async (req) => {
       }
     }
 
+    // Etapa de homologación terminada: el run queda "mapped" (aún NO activo;
+    // se promueve solo cuando validate-analysis lo complete).
+    await markEvidenceRun(supabase, runId, { status: "mapped", mapped_at: new Date().toISOString() });
+
     // Audit event
     const stillMissing = ["revenue", "cash", "total_assets", "total_liabilities", "equity"].filter(c => !foundAccounts.has(c));
 
@@ -366,6 +394,7 @@ serve(async (req) => {
       event_detail: `Homologación: ${mappings.length} filas (${unclassifiedCount} sin clasificar por reglas), ${stillMissing.length} críticas faltantes · IA: ${ai.candidates} candidatas, ${ai.requests} solicitud(es), respuesta ${ai.response}, ${ai.proposals_received} propuestas, ${ai.classifications_applied} aplicadas, ${aiRejected.length} rechazadas`,
       component: "map-accounts", user_id: user.id,
       metadata: {
+        evidence_run_id: runId,
         total_mapped: mappings.length, unclassified_by_rules: unclassifiedCount, missing_critical: stillMissing, found_accounts: Array.from(foundAccounts),
         ai_candidates: ai.candidates, ai_requests: ai.requests, ai_response: ai.response,
         ai_proposals_received: ai.proposals_received, ai_proposals_skipped: ai.proposals_skipped,
@@ -380,13 +409,18 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      data: { total_mapped: mappings.length, found_accounts: Array.from(foundAccounts), missing_critical: stillMissing, has_blocking_issues: false },
+      data: { evidence_run_id: runId, evidence_run_status: "mapped", total_mapped: mappings.length, found_accounts: Array.from(foundAccounts), missing_critical: stillMissing, has_blocking_issues: false },
       meta: { analysis_id, timestamp: new Date().toISOString() },
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (error) {
     console.error("map-accounts error:", error);
+    if (evidenceRunId && db) {
+      await failEvidenceRun(db, evidenceRunId, "mapping", mappingFailureCode, error instanceof Error ? error.message : String(error)).catch(() => {});
+    }
     const mapped = mapErrorToResponse(error, { code: "MAPPING_ERROR", message: "Error en la homologación contable." });
-    return new Response(JSON.stringify(mapped.body), { status: mapped.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // El run fallido queda trazable (status failed); el set activo no cambió.
+    const body = evidenceRunId ? { ...mapped.body, data: { evidence_run_id: evidenceRunId, evidence_run_status: "failed" } } : mapped.body;
+    return new Response(JSON.stringify(body), { status: mapped.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
