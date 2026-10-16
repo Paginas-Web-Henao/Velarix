@@ -85,10 +85,8 @@ serve(async (req) => {
       if (!canonical.ok) return fail(400, "CANONICAL_ACCOUNT_REQUIRED", `canonical_account ${canonical.reason}.`);
       if (!text.ok) return fail(400, "INTERPRETATION_TEXT_REQUIRED", `interpretation_text ${text.reason}.`);
       // La nota debe referirse a una cuenta del set ACTIVO de Evidence (legacy si el puntero es NULL).
-      const { data: rows, error: rowsError } = await applyActiveRunFilter(
-        supabase.from("account_homologations").select("canonical_account").eq("analysis_id", analysis_id).eq("canonical_account", canonical.value),
-        analysis.active_evidence_run_id ?? null,
-      );
+      const accountQuery = supabase.from("account_homologations").select("canonical_account").eq("analysis_id", analysis_id).eq("canonical_account", canonical.value);
+      const { data: rows, error: rowsError } = await applyActiveRunFilter<typeof accountQuery>(accountQuery, analysis.active_evidence_run_id ?? null);
       if (rowsError) throw rowsError;
       if (!rows?.length) return fail(400, "CANONICAL_ACCOUNT_NOT_IN_ACTIVE_EVIDENCE", `"${canonical.value}" no está en el set activo de Evidence de este caso.`);
       const vf = await ensureValuationFile();

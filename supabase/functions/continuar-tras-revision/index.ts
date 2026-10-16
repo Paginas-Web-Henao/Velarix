@@ -325,7 +325,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error en continuar-tras-revision:", error);
     return new Response(
-      JSON.stringify({ success: false, error: { message: error.message } }),
+      JSON.stringify({ success: false, error: { message: (error as { message?: string }).message } }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

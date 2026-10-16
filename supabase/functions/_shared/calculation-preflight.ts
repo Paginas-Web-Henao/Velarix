@@ -292,14 +292,14 @@ function findResolvedAssumptionBlockers(
   // Horizonte efectivo para verificar longitud de paths: el resuelto si está presente, si no el único que el motor soporta.
   const effectiveHorizon = horizonValue?.years ?? MOTOR_SUPPORTED_PROJECTION_HORIZON_YEARS;
 
-  const workingCapitalValue = (ra?.workingCapitalDriver as { value?: { explicitDeltaNwcByYear?: number[] } } | undefined)?.value;
+  const workingCapitalValue = (ra?.workingCapitalDriver as { value?: { explicitDeltaNwcByYear: number[] } } | undefined)?.value;
   if (workingCapitalValue && workingCapitalValue.explicitDeltaNwcByYear.length !== effectiveHorizon) {
     blockers.push(
       `RESOLVED_ASSUMPTION_INVALID_WORKINGCAPITALDRIVER: explicitDeltaNwcByYear tiene ${workingCapitalValue.explicitDeltaNwcByYear.length} valores, se esperaban ${effectiveHorizon}.`,
     );
   }
 
-  const taxValue = (ra?.taxTreatment as { value?: { explicitFcffTaxRatePctByYear?: number[] } } | undefined)?.value;
+  const taxValue = (ra?.taxTreatment as { value?: { explicitFcffTaxRatePctByYear: number[] } } | undefined)?.value;
   if (taxValue && taxValue.explicitFcffTaxRatePctByYear.length !== effectiveHorizon) {
     blockers.push(
       `RESOLVED_ASSUMPTION_INVALID_TAXTREATMENT: explicitFcffTaxRatePctByYear tiene ${taxValue.explicitFcffTaxRatePctByYear.length} valores, se esperaban ${effectiveHorizon}.`,
