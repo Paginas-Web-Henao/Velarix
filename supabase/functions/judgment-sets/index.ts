@@ -4,7 +4,7 @@ import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-k
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { hasPersistedCalculation } from "../_shared/evidence-pipeline-guards.ts";
 import {
-  canTransition, effectiveEntries, isKnownJudgmentKey, materializeJudgmentSet,
+  canTransition, classifyEntryWriteError, effectiveEntries, isKnownJudgmentKey, materializeJudgmentSet,
   type JudgmentEntryRow, type JudgmentSetRow,
 } from "../_shared/judgment-sets.ts";
 
@@ -14,6 +14,16 @@ import {
 //
 // Acciones: create_draft · add_entry · complete · fail · promote.
 // Build then promote: un draft incompleto o fallido nunca mueve el puntero.
+//
+// Concurrencia (garantías en PostgreSQL, migración 20261016140000):
+// - add_entry: el trigger de judgment_entries bloquea el set, exige draft y
+//   que la supersession apunte a la cabeza vigente, e incrementa `revision`;
+//   índices únicos impiden dos raíces o dos sucesoras. El pre-chequeo de aquí
+//   solo da un mensaje claro; un conflicto real lo rechaza la base (→ 409).
+// - complete: valida en TypeScript la revisión R leída y completa con CAS
+//   (status = draft AND revision = R); si entró algo después → 409.
+// - promote: CAS del puntero (puntero previo + evidence run activo). Idempotente:
+//   si el set ya es el activo, solo reconcilia `promoted_at` si faltara.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +31,7 @@ const corsHeaders = {
 };
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const fail = (status: number, code: string, message: string, extra: Record<string, unknown> = {}) => json(status, { success: false, error: { code, message, ...extra } });
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -73,7 +84,7 @@ serve(async (req) => {
         reused = { set: src, entries: effectiveEntries(src.id, await loadEntries(src.id)).entries };
       }
       const { error } = await supabase.from("judgment_sets").insert({
-        id, analysis_id, evidence_run_id: evidenceRunId, status: "draft", created_by: user.id,
+        id, analysis_id, evidence_run_id: evidenceRunId, status: "draft", revision: 0, created_by: user.id,
         previous_active_judgment_set_id: analysis.active_judgment_set_id ?? null,
         reused_from_judgment_set_id: reused?.set.id ?? null,
       });
@@ -110,7 +121,12 @@ serve(async (req) => {
         judgment_set_id: set.id, key, value, unit: unit ?? null, source, rationale, status,
         effective_date: effective_date ?? null, references: references ?? null, supersedes_entry_id: supersedes_entry_id ?? null, created_by: user.id,
       });
-      if (error) return fail(400, "JUDGMENT_ENTRY_REJECTED", error.message);
+      if (error) {
+        const c = classifyEntryWriteError(error);
+        return fail(c.status, c.code, c.code === "JUDGMENT_ENTRY_CONFLICT"
+          ? `"${key}" cambió en paralelo; vuelve a leer la entrada vigente y supérala explícitamente.`
+          : error.message ?? "Entrada rechazada.");
+      }
       await audit("judgment_entry_added", `Judgment ${key}${supersedes_entry_id ? " (supersede)" : ""}`, { judgment_set_id: set.id, key, supersedes_entry_id: supersedes_entry_id ?? null });
       return json(200, { success: true, data: { judgment_set_id: set.id, key } });
     }
@@ -131,16 +147,38 @@ serve(async (req) => {
       if (set.evidence_run_id !== (analysis.active_evidence_run_id ?? null)) {
         return fail(409, "EVIDENCE_RUN_CHANGED", "El evidence run activo cambió desde que se creó este draft; formula el Judgment sobre el run vigente (reutilización explícita).");
       }
+      // `set` (con su revision R) se leyó ANTES que las entradas: toda entrada
+      // posterior incrementa la revisión y hace fallar el CAS de abajo.
+      const revision = Number(set.revision ?? 0);
       const m = materializeJudgmentSet(set, await loadEntries(set.id));
       if (!m.ok) return fail(409, "JUDGMENT_SET_INCOMPLETE", "El set no está completo o tiene valores inválidos.", { issues: m.issues });
-      const { data: updated } = await supabase.from("judgment_sets").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", set.id).eq("status", "draft").select("id");
-      if (!Array.isArray(updated) || updated.length !== 1) return fail(409, "JUDGMENT_SET_NOT_DRAFT", "El set ya no estaba en draft.");
-      await audit("judgment_set_completed", "Judgment set completo y validado", { judgment_set_id: set.id, evidence_run_id: set.evidence_run_id });
+      const { data: updated, error: completeError } = await supabase.from("judgment_sets")
+        .update({ status: "completed", completed_at: new Date().toISOString() })
+        .eq("id", set.id).eq("status", "draft").eq("revision", revision).select("id");
+      if (completeError) throw completeError;
+      if (!Array.isArray(updated) || updated.length !== 1) {
+        const now = await loadSet(set.id);
+        return now.status === "draft"
+          ? fail(409, "JUDGMENT_SET_CHANGED", `El set cambió durante la validación (revisión ${revision} → ${now.revision}); no se completó. Vuelve a validarlo.`)
+          : fail(409, "JUDGMENT_SET_NOT_DRAFT", `El set ya no estaba en draft (estado "${now.status}").`);
+      }
+      await audit("judgment_set_completed", "Judgment set completo y validado", { judgment_set_id: set.id, evidence_run_id: set.evidence_run_id, revision });
       return json(200, { success: true, data: { judgment_set_id: set.id, status: "completed" } });
     }
 
     // ── promote: CAS del puntero + proyección del Judgment del caso en la MISMA fila ──
     if (action === "promote") {
+      // Reconciliación idempotente: el puntero define qué set está activo y
+      // `promoted_at` es bitácora. Si un intento previo movió el puntero pero
+      // no llegó a registrar promoted_at, se completa aquí sin tocar Judgment.
+      const reconcile = async () => {
+        const { data: stamped } = await supabase.from("judgment_sets").update({ promoted_at: new Date().toISOString() })
+          .eq("id", set.id).eq("status", "completed").is("promoted_at", null).select("id");
+        const reconciled = Array.isArray(stamped) && stamped.length === 1;
+        if (reconciled) await audit("judgment_set_promotion_reconciled", "Judgment set ya activo: se registró promoted_at faltante", { judgment_set_id: set.id, evidence_run_id: set.evidence_run_id });
+        return json(200, { success: true, data: { judgment_set_id: set.id, active: true, already_active: true, reconciled } });
+      };
+      if ((analysis.active_judgment_set_id ?? null) === set.id) return await reconcile();
       const t = canTransition(set, "promote");
       if (!t.allowed) return fail(409, "JUDGMENT_SET_NOT_PROMOTABLE", t.reason);
       if (set.evidence_run_id !== (analysis.active_evidence_run_id ?? null)) {
@@ -159,9 +197,12 @@ serve(async (req) => {
       const cas = prev ? base.eq("active_judgment_set_id", prev) : base.is("active_judgment_set_id", null);
       const { data: moved, error } = await cas.select("id");
       if (error || !Array.isArray(moved) || moved.length !== 1) {
+        // Otra llamada pudo promover ESTE mismo set en paralelo: entonces es éxito idempotente.
+        const { data: current } = await supabase.from("analyses").select("active_judgment_set_id").eq("id", analysis_id).maybeSingle();
+        if (current?.active_judgment_set_id === set.id) return await reconcile();
         return fail(409, "JUDGMENT_PROMOTION_CONFLICT", "El Judgment activo o el evidence run activo cambiaron; el set no se promovió.");
       }
-      await supabase.from("judgment_sets").update({ promoted_at: new Date().toISOString() }).eq("id", set.id).eq("status", "completed");
+      await supabase.from("judgment_sets").update({ promoted_at: new Date().toISOString() }).eq("id", set.id).eq("status", "completed").is("promoted_at", null);
       await audit("judgment_set_promoted", "Judgment set promovido como activo", { judgment_set_id: set.id, previous_active_judgment_set_id: prev, evidence_run_id: set.evidence_run_id });
       return json(200, { success: true, data: { judgment_set_id: set.id, active: true, previous_active_judgment_set_id: prev } });
     }

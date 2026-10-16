@@ -30,6 +30,8 @@ export interface JudgmentSetRow {
   completed_at?: string | null;
   promoted_at?: string | null;
   created_by?: string | null;
+  /** Contador de escrituras del draft (trigger de entradas); CAS de complete. */
+  revision?: number;
 }
 
 export interface JudgmentEntryRow {
@@ -218,6 +220,14 @@ export function resolveActiveJudgmentSet(params: {
 }
 
 // ── Transiciones (las aplica el servidor; la base las refuerza con triggers) ──
+
+/** Traduce el rechazo de la base al escribir una entrada (los mensajes del trigger empiezan con el código). */
+export function classifyEntryWriteError(error: { code?: string; message?: string }): { status: number; code: string } {
+  const msg = error.message ?? "";
+  if (msg.startsWith("JUDGMENT_SET_NOT_DRAFT")) return { status: 409, code: "JUDGMENT_SET_NOT_DRAFT" };
+  if (msg.startsWith("JUDGMENT_ENTRY_HEAD_CONFLICT") || error.code === "23505" || error.code === "40001") return { status: 409, code: "JUDGMENT_ENTRY_CONFLICT" };
+  return { status: 400, code: "JUDGMENT_ENTRY_REJECTED" };
+}
 
 export type JudgmentTransition = "add_entry" | "complete" | "fail" | "promote";
 

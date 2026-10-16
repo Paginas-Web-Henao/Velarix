@@ -15,6 +15,17 @@
 -- - analyses.active_judgment_set_id: el ÚNICO set que alimenta Calculation.
 --   NULL en todos los casos existentes (Alpina, Tecnoglass): sin cambios.
 -- Las Edge Functions escriben con la clave de servidor; el cliente solo lee.
+--
+-- Concurrencia (garantías de PostgreSQL, no de la secuencia de llamadas REST):
+-- - Cada INSERT de judgment_entries bloquea la fila del set (FOR UPDATE),
+--   exige que el set siga en draft y que la supersession apunte a la cabeza
+--   VIGENTE de la key, e incrementa judgment_sets.revision en la MISMA
+--   transacción. Dos escrituras sobre un set se serializan.
+-- - Índices únicos parciales: una sola raíz por (set, key) y cada entrada
+--   superada a lo sumo una vez ⇒ la historia de cada key es una cadena lineal
+--   con exactamente una cabeza, aunque alguien escribiera sin pasar por el lock.
+-- - Completar = UPDATE condicionado a status = 'draft' AND revision = R (CAS):
+--   si entró una entrada después de que se validó la revisión R, no completa.
 
 -- ── 1. judgment_sets ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.judgment_sets (
@@ -31,7 +42,9 @@ CREATE TABLE IF NOT EXISTS public.judgment_sets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   completed_at TIMESTAMPTZ,
   failed_at TIMESTAMPTZ,
-  promoted_at TIMESTAMPTZ
+  promoted_at TIMESTAMPTZ,
+  -- Contador de escrituras del draft (lo incrementa el trigger de entradas). CAS de complete.
+  revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0)
 );
 
 COMMENT ON TABLE public.judgment_sets IS 'Conjunto versionado de Judgment sobre un evidence run (ADR-010). draft → completed | failed; el activo lo indica analyses.active_judgment_set_id.';
@@ -58,6 +71,9 @@ COMMENT ON TABLE public.judgment_entries IS 'Decisiones de un judgment set. Appe
 
 CREATE INDEX IF NOT EXISTS idx_judgment_sets_analysis_created ON public.judgment_sets(analysis_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_judgment_entries_set_key ON public.judgment_entries(judgment_set_id, key);
+-- Cadena lineal por key: una raíz por (set, key) y una sola sucesora por entrada.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_judgment_entries_root_per_key ON public.judgment_entries(judgment_set_id, key) WHERE supersedes_entry_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_judgment_entries_single_successor ON public.judgment_entries(supersedes_entry_id) WHERE supersedes_entry_id IS NOT NULL;
 
 -- ── 3. puntero activo ────────────────────────────────────────────
 ALTER TABLE public.analyses
@@ -83,7 +99,7 @@ CREATE POLICY "Users can view own judgment entries"
 
 -- ── 5. Invariantes en la base (aplican también a la clave de servidor) ──
 
--- 5.1 Entradas inmutables y solo en sets draft.
+-- 5.1 Entradas inmutables, solo en sets draft, escritura serializada por set.
 CREATE OR REPLACE FUNCTION public.guard_judgment_entries()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -91,19 +107,32 @@ SET search_path = ''
 AS $$
 DECLARE
   set_status TEXT;
+  head_id UUID;
 BEGIN
   IF TG_OP <> 'INSERT' THEN
-    RAISE EXCEPTION 'judgment_entries es append-only (ADR-010)' USING ERRCODE = '42501';
+    RAISE EXCEPTION 'JUDGMENT_ENTRY_APPEND_ONLY: judgment_entries es append-only (ADR-010)' USING ERRCODE = '42501';
   END IF;
-  SELECT status INTO set_status FROM public.judgment_sets WHERE id = NEW.judgment_set_id;
+  -- Lock de la fila del set: serializa las escrituras concurrentes sobre el
+  -- mismo set y bloquea un complete/fail concurrente hasta el commit.
+  SELECT status INTO set_status FROM public.judgment_sets WHERE id = NEW.judgment_set_id FOR UPDATE;
   IF set_status IS DISTINCT FROM 'draft' THEN
-    RAISE EXCEPTION 'solo se agregan entradas a un judgment set draft (estado: %)', coalesce(set_status, 'inexistente') USING ERRCODE = '42501';
+    RAISE EXCEPTION 'JUDGMENT_SET_NOT_DRAFT: solo se agregan entradas a un judgment set draft (estado: %)', coalesce(set_status, 'inexistente') USING ERRCODE = '42501';
   END IF;
   IF NEW.supersedes_entry_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM public.judgment_entries e WHERE e.id = NEW.supersedes_entry_id AND e.judgment_set_id = NEW.judgment_set_id AND e.key = NEW.key
   ) THEN
-    RAISE EXCEPTION 'supersedes_entry_id debe apuntar a una entrada del mismo set y la misma key' USING ERRCODE = '23514';
+    RAISE EXCEPTION 'JUDGMENT_ENTRY_SUPERSEDES_INVALID: supersedes_entry_id debe apuntar a una entrada del mismo set y la misma key' USING ERRCODE = '23514';
   END IF;
+  -- Cabeza vigente de la key (entrada no superada). Con el lock tomado, la
+  -- lectura ve todas las escrituras confirmadas del set.
+  SELECT e.id INTO head_id FROM public.judgment_entries e
+   WHERE e.judgment_set_id = NEW.judgment_set_id AND e.key = NEW.key
+     AND NOT EXISTS (SELECT 1 FROM public.judgment_entries s WHERE s.supersedes_entry_id = e.id)
+   LIMIT 1;
+  IF NEW.supersedes_entry_id IS DISTINCT FROM head_id THEN
+    RAISE EXCEPTION 'JUDGMENT_ENTRY_HEAD_CONFLICT: la key % ya cambió; supersedes_entry_id debe ser la entrada vigente (%)', NEW.key, coalesce(head_id::text, 'ninguna') USING ERRCODE = '40001';
+  END IF;
+  UPDATE public.judgment_sets SET revision = revision + 1 WHERE id = NEW.judgment_set_id;
   RETURN NEW;
 END;
 $$;
@@ -131,10 +160,18 @@ BEGIN
      OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
     RAISE EXCEPTION 'la identidad de un judgment set es inmutable' USING ERRCODE = '42501';
   END IF;
-  IF OLD.status = 'draft' AND NEW.status IN ('draft', 'completed', 'failed') AND OLD.promoted_at IS NULL AND NEW.promoted_at IS NULL THEN
+  -- draft → draft: solo el incremento de revision (lo hace el trigger de entradas).
+  IF OLD.status = 'draft' AND NEW.status = 'draft' AND OLD.promoted_at IS NULL AND NEW.promoted_at IS NULL
+     AND NEW.revision IN (OLD.revision, OLD.revision + 1) THEN
+    RETURN NEW;
+  END IF;
+  -- draft → completed | failed: con la revisión que se validó (CAS en el UPDATE).
+  IF OLD.status = 'draft' AND NEW.status IN ('completed', 'failed') AND OLD.promoted_at IS NULL AND NEW.promoted_at IS NULL
+     AND NEW.revision = OLD.revision THEN
     RETURN NEW;
   END IF;
   IF OLD.status = 'completed' AND NEW.status = 'completed' AND OLD.promoted_at IS NULL AND NEW.promoted_at IS NOT NULL
+     AND NEW.revision = OLD.revision
      AND NEW.completed_at IS NOT DISTINCT FROM OLD.completed_at AND NEW.failed_at IS NOT DISTINCT FROM OLD.failed_at
      AND NEW.error_code IS NOT DISTINCT FROM OLD.error_code AND NEW.error_detail IS NOT DISTINCT FROM OLD.error_detail THEN
     RETURN NEW;

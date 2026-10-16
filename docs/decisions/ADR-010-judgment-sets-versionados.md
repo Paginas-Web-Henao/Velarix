@@ -25,6 +25,12 @@ No había camino de producto que llevara Judgment estructurado al motor (LIM-10)
 - **Write path único:** Edge Function `judgment-sets` (`create_draft`, `add_entry`, `complete`, `fail`, `promote`), con auditoría. El cliente solo lee (RLS SELECT del dueño); la base refuerza append-only, transiciones y el puntero con triggers.
 - **Readiness** (`calculation-readiness.ts`) incluye el Minimum Expediente (mismo checkpoint que `ejecutar-calculo`; incompleto = JUDGMENT_REQUIRED, área `human_review`; no evaluado = SYSTEM_ERROR) y el set activo.
 
+## Concurrencia (endurecimiento P8)
+- **add_entry:** el trigger `guard_judgment_entries` toma `SELECT … FOR UPDATE` sobre la fila del set, exige `draft`, exige que `supersedes_entry_id` sea la cabeza vigente de la key (`JUDGMENT_ENTRY_HEAD_CONFLICT`, SQLSTATE 40001) e incrementa `judgment_sets.revision` en la misma transacción. Índices únicos parciales (`uq_judgment_entries_root_per_key`, `uq_judgment_entries_single_successor`) garantizan una cadena lineal por key aunque se escribiera sin el lock. El handler traduce el rechazo a 409 `JUDGMENT_ENTRY_CONFLICT`.
+- **complete:** valida en TypeScript la revisión R leída **antes** que las entradas y completa con `UPDATE … WHERE status = 'draft' AND revision = R`. Si entró algo después, 0 filas → 409 `JUDGMENT_SET_CHANGED`; un insert en vuelo bloquea el UPDATE hasta su commit y Postgres re-evalúa la condición. Si el complete confirma primero, el insert concurrente ve `completed` y se rechaza.
+- **promote:** CAS del puntero (puntero previo + evidence run activo) en un solo `UPDATE`. `promoted_at` es bitácora: si el puntero se movió y el registro falló, reintentar `promote` sobre el set activo es idempotente (registra `promoted_at` una sola vez, audita `judgment_set_promotion_reconciled`, no toca Judgment). Si el CAS pierde contra una promoción del mismo set, también es éxito idempotente.
+- Verificado con Postgres 17.5 real y conexiones concurrentes (13/13) y con tests del handler.
+
 ## Consecuencias
 - Migración aditiva `20261016140000_judgment_sets.sql` (2 tablas, 1 columna nullable, triggers; sin DROP/DELETE/UPDATE de datos). Dry-run en PGlite: datos previos idénticos, punteros NULL.
 - Desplegar `judgment-sets`, `build-structured-input`, `continuar-tras-revision` y `ejecutar-calculo` **después** de aplicar la migración (leen `active_judgment_set_id`).

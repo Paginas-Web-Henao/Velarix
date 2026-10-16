@@ -33,7 +33,8 @@ let m: MemoryDb;
 function setup(analysis: Row = {}) {
   m = createMemoryDb({
     analyses: [{ id: "a1", user_id: "owner-1", status: "validacion_aprobada", sector: "industrial", moneda_analisis: "USD", calculation_result: null, active_evidence_run_id: "run-1", active_judgment_set_id: null, expected_growth: null, ...analysis }],
-    evidence_runs: [{ id: "run-1", analysis_id: "a1", status: "completed" }, { id: "run-2", analysis_id: "a1", status: "completed" }],
+    evidence_runs: [{ id: "run-1", analysis_id: "a1", status: "completed", source_parsed_document_ids: ["p-1"] }, { id: "run-2", analysis_id: "a1", status: "completed", source_parsed_document_ids: ["p-1"] }],
+    documents_parsed: [{ id: "p-1", document_id: "d1", parsing_metadata: { moneda_documento: "USD", factor_escala: 1 } }],
     // Filas de otros runs: nunca deben llegar al input.
     account_homologations: [...RUN1, hom("revenue", 999_999, "run-0"), hom("revenue", 888_888, null)],
     judgment_sets: [], judgment_entries: [], structured_inputs: [], audit_events: [], external_snapshots: [],
@@ -221,5 +222,69 @@ describe("J–M: el input del cálculo sale del Evidence activo + Judgment activ
   it("M. caso con cálculo persistido → el Judgment no se modifica", async () => {
     setup({ calculation_result: { valuation: {} }, status: "calculo_completo" });
     expect(await J({ action: "create_draft" })).toMatchObject({ status: 409, body: { error: { code: "CASE_ALREADY_CALCULATED" } } });
+  });
+});
+
+describe("N–R: concurrencia en el handler (la garantía real la da Postgres; aquí, el manejo del handler)", () => {
+  it("N. complete: entra una entrada entre la validación y el CAS → 409 JUDGMENT_SET_CHANGED; sigue draft", async () => {
+    const id = await draft();
+    await fill(id);
+    m.hooks.before = (table, op) => {
+      if (table === "judgment_sets" && op === "update") { setRow(id).revision = Number(setRow(id).revision) + 1; m.hooks.before = undefined; }
+    };
+    const r = await J({ action: "complete", judgment_set_id: id });
+    expect(r).toMatchObject({ status: 409, body: { error: { code: "JUDGMENT_SET_CHANGED" } } });
+    expect(setRow(id).status).toBe("draft");
+    expect((await J({ action: "complete", judgment_set_id: id })).status).toBe(200); // re-validado con la revisión nueva
+  });
+
+  it("O. add_entry: la base rechaza por conflicto de cabeza (o índice único) → 409 JUDGMENT_ENTRY_CONFLICT, sin fila", async () => {
+    const id = await draft();
+    const before = m.tables.judgment_entries.length;
+    m.insertErrorOnce.set("judgment_entries", { code: "40001", message: "JUDGMENT_ENTRY_HEAD_CONFLICT: la key case.expected_growth ya cambió" });
+    const r = await J({ action: "add_entry", judgment_set_id: id, key: "case.expected_growth", value: 1, source: SYN, rationale: "t", status: "resolved" });
+    expect(r).toMatchObject({ status: 409, body: { error: { code: "JUDGMENT_ENTRY_CONFLICT" } } });
+    m.insertErrorOnce.set("judgment_entries", { code: "23505", message: "duplicate key value violates unique constraint" });
+    expect((await J({ action: "add_entry", judgment_set_id: id, key: "case.expected_growth", value: 1, source: SYN, rationale: "t", status: "resolved" })).body.error.code).toBe("JUDGMENT_ENTRY_CONFLICT");
+    m.insertErrorOnce.set("judgment_entries", { code: "42501", message: "JUDGMENT_SET_NOT_DRAFT: solo se agregan entradas a un judgment set draft" });
+    expect((await J({ action: "add_entry", judgment_set_id: id, key: "case.expected_growth", value: 1, source: SYN, rationale: "t", status: "resolved" })).body.error.code).toBe("JUDGMENT_SET_NOT_DRAFT");
+    expect(m.tables.judgment_entries.length).toBe(before);
+  });
+
+  it("P. promote retry: puntero ya movido pero promoted_at ausente → 200 idempotente, reconcilia una sola vez", async () => {
+    const A = await completedAndPromoted(5);
+    setRow(A).promoted_at = null; // simula: el CAS movió el puntero pero falló el registro de promoted_at
+    const projection = { ...m.tables.analyses[0] };
+    const r1 = await J({ action: "promote", judgment_set_id: A });
+    expect(r1).toMatchObject({ status: 200, body: { data: { already_active: true, reconciled: true } } });
+    expect(setRow(A).promoted_at).toBeTruthy();
+    const r2 = await J({ action: "promote", judgment_set_id: A });
+    expect(r2).toMatchObject({ status: 200, body: { data: { already_active: true, reconciled: false } } });
+    expect(m.tables.audit_events.filter((e) => e.event_type === "judgment_set_promotion_reconciled")).toHaveLength(1);
+    expect(m.tables.audit_events.filter((e) => e.event_type === "judgment_set_promoted")).toHaveLength(1);
+    expect(m.tables.analyses[0]).toEqual(projection); // Judgment y puntero intactos
+  });
+
+  it("Q. promote concurrente del MISMO set: el CAS pierde pero el set quedó activo → éxito idempotente", async () => {
+    const id = await draft();
+    await fill(id);
+    await J({ action: "complete", judgment_set_id: id });
+    m.hooks.before = (table, op) => {
+      if (table === "analyses" && op === "update") { m.hooks.before = undefined; m.tables.analyses[0].active_judgment_set_id = id; }
+    };
+    const r = await J({ action: "promote", judgment_set_id: id });
+    expect(r).toMatchObject({ status: 200, body: { data: { judgment_set_id: id, already_active: true } } });
+    expect(pointer()).toBe(id);
+  });
+
+  it("R. promote concurrente de OTRO set: el CAS pierde → 409; el puntero queda en el ganador", async () => {
+    const B = await draft(); await fill(B); await J({ action: "complete", judgment_set_id: B });
+    const C = await draft(); await fill(C); await J({ action: "complete", judgment_set_id: C });
+    m.hooks.before = (table, op) => {
+      if (table === "analyses" && op === "update") { m.hooks.before = undefined; m.tables.analyses[0].active_judgment_set_id = B; }
+    };
+    expect(await J({ action: "promote", judgment_set_id: C })).toMatchObject({ status: 409, body: { error: { code: "JUDGMENT_PROMOTION_CONFLICT" } } });
+    expect(pointer()).toBe(B);
+    expect(setRow(C).promoted_at ?? null).toBeNull();
   });
 });
