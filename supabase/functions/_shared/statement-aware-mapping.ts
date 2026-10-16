@@ -16,7 +16,7 @@
 // account-taxonomy.ts (todas monetarias; balance_sheet e income_statement;
 // ninguna de flujo de caja ni de impuesto diferido).
 
-import { TAXONOMY, matchAccount, normalizeLabel } from "./account-taxonomy.ts";
+import { TAXONOMY, matchAccount, normalizeLabel, exactCanonicalIn } from "./account-taxonomy.ts";
 
 export interface SourceRow {
   label: string;
@@ -93,13 +93,8 @@ function taxonomyCategoryOf(statement: string): TaxonomyCategory | null {
   return statement === "balance_sheet" || statement === "income_statement" ? statement : null;
 }
 
-function exactIn(label: string, category: TaxonomyCategory): string | null {
-  const n = normalizeLabel(label);
-  for (const [canonical, synonyms] of Object.entries(TAXONOMY[category])) {
-    if (synonyms.some((s) => normalizeLabel(s) === n)) return canonical;
-  }
-  return null;
-}
+// Exacto incluye EXACT_ONLY_SYNONYMS (sinónimos que nunca cuentan por substring).
+const exactIn = (label: string, category: TaxonomyCategory): string | null => exactCanonicalIn(label, category);
 
 function substringIn(label: string, category: TaxonomyCategory): string[] {
   const n = normalizeLabel(label);

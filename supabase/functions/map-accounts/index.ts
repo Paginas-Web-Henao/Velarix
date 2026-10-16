@@ -221,8 +221,21 @@ serve(async (req) => {
     // ──── PASS 2: AI Consolidation-based mapping ────
     const unclassifiedCount = mappings.filter(m => m.canonical_account === "unclassified").length;
     const aiRejected: { canonical_account: string; period: string; reason: string }[] = [];
+    // Métricas de IA medidas, no supuestas: candidatas (filas abiertas que la IA
+    // podría clasificar; con contexto, sin conflicto determinístico), solicitudes,
+    // estado de la respuesta, propuestas recibidas/omitidas/aplicadas/rechazadas.
+    const ai = {
+      candidates: contextual
+        ? drafts.filter(d => d.record.canonical_account === "unclassified" && (!d.rejection || d.rejection === "NO_MATCH")).length
+        : unclassifiedCount,
+      requests: 0,
+      response: "not_requested" as "not_requested" | "no_response" | "rate_limited" | "unparseable" | "received",
+      proposals_received: 0,
+      proposals_skipped: 0,
+      classifications_applied: 0,
+    };
 
-    if (unclassifiedCount > 0) {
+    if (ai.candidates > 0) {
       // Send FULL document to AI for structural understanding
       const docSummary = allRows.map(r => {
         const vals = Object.entries(r.values).map(([k, v]) => `${k}:${v}`).join(", ");
@@ -231,16 +244,21 @@ serve(async (req) => {
 
       const aiResult = await callAnthropic(SYSTEM_ACCOUNT_MAPPER,
         `Analiza este documento financiero COMPLETO y mapea las cuentas a la taxonomía canónica.\nConsolida cuentas que representan lo mismo.\n\nDocumento:\n${docSummary.substring(0, 8000)}`, 6000);
+      ai.requests = 1;
+      ai.response = aiResult === null ? "no_response" : aiResult === "__RATE_LIMITED__" ? "rate_limited" : "unparseable";
 
-      if (aiResult) {
+      if (aiResult && aiResult !== "__RATE_LIMITED__") {
         try {
           const jsonMatch = aiResult.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const aiData = JSON.parse(jsonMatch[0]);
             const aiMappings = aiData.mappings || aiData.accounts || [];
+            ai.response = "received";
 
             for (const aiMap of aiMappings) {
-              if (!aiMap.canonical_account || aiMap.confidence < 0.5) continue;
+              const numericPeriods = Object.values(aiMap?.values || {}).filter(v => typeof v === "number").length;
+              ai.proposals_received += numericPeriods;
+              if (!aiMap.canonical_account || aiMap.confidence < 0.5) { ai.proposals_skipped += numericPeriods; continue; }
 
               // Find matching unclassified rows by source labels
               const sourceLabels = aiMap.source_labels || [aiMap.nota || ""];
@@ -255,7 +273,7 @@ serve(async (req) => {
                   m.period === period &&
                   m.confidence_score === "alta"
                 );
-                if (existing) continue;
+                if (existing) { ai.proposals_skipped++; continue; }
 
                 // Update or create mapping
                 const matchingUnclassified = mappings.filter(m =>
@@ -293,6 +311,7 @@ serve(async (req) => {
                     .eq("category", t.category)
                     .eq("period", period);
                   t.canonical_account = aiMap.canonical_account;
+                  ai.classifications_applied++;
                 } else if (matchingUnclassified.length > 0) {
                   // Update the first match
                   await supabase.from("account_homologations")
@@ -306,6 +325,7 @@ serve(async (req) => {
                     .eq("analysis_id", analysis_id)
                     .eq("original_label", matchingUnclassified[0].original_label)
                     .eq("period", period);
+                  ai.classifications_applied++;
                 } else {
                   // Check if we already have this account from rule-based
                   const existingRule = mappings.find(m =>
@@ -325,6 +345,9 @@ serve(async (req) => {
                       ambiguity_flag: false,
                       mapping_notes: `IA (consolidación): ${aiMap.nota || "Mapeado por contexto"}`,
                     });
+                    ai.classifications_applied++;
+                  } else {
+                    ai.proposals_skipped++;
                   }
                 }
                 foundAccounts.add(aiMap.canonical_account);
@@ -340,10 +363,13 @@ serve(async (req) => {
 
     await supabase.from("audit_events").insert({
       analysis_id, event_type: "mapping_end",
-      event_detail: `Homologación: ${mappings.length} filas, ${unclassifiedCount} revisadas por IA, ${stillMissing.length} críticas faltantes`,
+      event_detail: `Homologación: ${mappings.length} filas (${unclassifiedCount} sin clasificar por reglas), ${stillMissing.length} críticas faltantes · IA: ${ai.candidates} candidatas, ${ai.requests} solicitud(es), respuesta ${ai.response}, ${ai.proposals_received} propuestas, ${ai.classifications_applied} aplicadas, ${aiRejected.length} rechazadas`,
       component: "map-accounts", user_id: user.id,
       metadata: {
-        total_mapped: mappings.length, ai_reviewed: unclassifiedCount, missing_critical: stillMissing, found_accounts: Array.from(foundAccounts),
+        total_mapped: mappings.length, unclassified_by_rules: unclassifiedCount, missing_critical: stillMissing, found_accounts: Array.from(foundAccounts),
+        ai_candidates: ai.candidates, ai_requests: ai.requests, ai_response: ai.response,
+        ai_proposals_received: ai.proposals_received, ai_proposals_skipped: ai.proposals_skipped,
+        ai_classifications_applied: ai.classifications_applied, ai_proposals_rejected: aiRejected.length,
         ...(contextual ? {
           statement_context: true,
           rejected_by_rule: drafts.reduce((acc, d) => (d.rejection && d.rejection !== "NO_MATCH" ? { ...acc, [d.rejection]: (acc[d.rejection] ?? 0) + 1 } : acc), {} as Record<string, number>),

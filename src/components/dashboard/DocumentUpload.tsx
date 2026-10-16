@@ -22,7 +22,8 @@ const ALLOWED_TYPES = [
 ];
 const MAX_SIZE = 10 * 1024 * 1024;
 
-type DocType = "estado_resultados" | "balance_general";
+// `estados_financieros`: un archivo con varios estados (p. ej. balance + resultados + flujo de caja).
+type DocType = "estado_resultados" | "balance_general" | "estados_financieros";
 
 interface UploadedDoc {
   id: string;
@@ -129,8 +130,9 @@ const DocumentUpload = ({ analysisId, onStarted, onFinished, calculated = false 
     if (file) uploadFile(file, docType);
   };
 
-  const hasER = uploads.some((u) => u.docType === "estado_resultados") || contentDetection?.tieneEstadoResultados;
-  const hasBG = uploads.some((u) => u.docType === "balance_general") || contentDetection?.tieneBalanceGeneral;
+  const hasCombined = uploads.some((u) => u.docType === "estados_financieros");
+  const hasER = uploads.some((u) => u.docType === "estado_resultados") || hasCombined || contentDetection?.tieneEstadoResultados;
+  const hasBG = uploads.some((u) => u.docType === "balance_general") || hasCombined || contentDetection?.tieneBalanceGeneral;
   const hasAmbos = contentDetection?.tieneAmbos;
   const canRunPipeline = (hasER && hasBG) || hasAmbos || uploads.length > 0;
 
@@ -253,11 +255,13 @@ const DocumentUpload = ({ analysisId, onStarted, onFinished, calculated = false 
         </div>
       )}
 
+      {dropZone("estados_financieros", "Estados financieros / archivo combinado", hasCombined)}
+
       <div className="grid grid-cols-2 gap-4">
         {dropZone("estado_resultados", "Estado de resultados",
-          !!(hasER), hasAmbos && !uploads.some(u => u.docType === "estado_resultados"))}
+          !!(hasER), (hasAmbos || hasCombined) && !uploads.some(u => u.docType === "estado_resultados"))}
         {dropZone("balance_general", "Balance general / Estado de situación financiera",
-          !!(hasBG), hasAmbos && !uploads.some(u => u.docType === "balance_general"))}
+          !!(hasBG), (hasAmbos || hasCombined) && !uploads.some(u => u.docType === "balance_general"))}
       </div>
 
       {uploading && (

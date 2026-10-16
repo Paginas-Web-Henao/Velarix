@@ -91,7 +91,7 @@ export async function deleteAnalysis(analysisId: string) {
 
 // ─── Document Upload ───
 
-export async function uploadDocument(analysisId: string, file: File, docType: "estado_resultados" | "balance_general") {
+export async function uploadDocument(analysisId: string, file: File, docType: "estado_resultados" | "balance_general" | "estados_financieros") {
   const headers = await getAuthHeaders();
   delete (headers as any)["Content-Type"]; // Let browser set multipart boundary
 

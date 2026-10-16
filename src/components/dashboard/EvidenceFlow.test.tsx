@@ -112,11 +112,33 @@ describe("DocumentUpload — Procesar Evidence", () => {
         : new Response(JSON.stringify({ success: false, error: { code: "CASE_ALREADY_CALCULATED", message: "ya calculado" } }), { status: 409 }));
     vi.stubGlobal("fetch", fetchMock);
     const view = render(<DocumentUpload analysisId="a1" {...props} />);
-    const input = view.container.querySelector('input[type="file"]') as HTMLInputElement;
+    // Zonas: [0] combinado · [1] estado de resultados · [2] balance general.
+    const input = view.container.querySelectorAll('input[type="file"]')[1] as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File(["x"], "er.pdf", { type: "application/pdf" })] } });
     await screen.findByText(/Estado de resultados detectado/);
     return fetchMock;
   };
+
+  it("ofrece «Estados financieros / archivo combinado» (doc_type estados_financieros) sin quitar las zonas legacy", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ success: true, data: { document_id: "d1" } })));
+    vi.stubGlobal("fetch", fetchMock);
+    const view = render(<DocumentUpload analysisId="a1" />);
+    expect(screen.getByText("Estados financieros / archivo combinado")).toBeTruthy();
+    expect(screen.getByText("Estado de resultados")).toBeTruthy();
+    expect(screen.getByText("Balance general / Estado de situación financiera")).toBeTruthy();
+    const xlsx = new File(["x"], "Financial_Report.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    fireEvent.change(view.container.querySelectorAll('input[type="file"]')[0], { target: { files: [xlsx] } });
+    await screen.findByText(/Estados financieros \/ archivo combinado detectado/);
+    const body = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as FormData;
+    expect(body.get("doc_type")).toBe("estados_financieros");
+    expect(screen.getAllByText("Detectado en archivo combinado")).toHaveLength(2); // ER y BG cubiertos por el combinado
+  });
+
+  it("la etiqueta de estado dice «Evidence validada», no «Validado»/«Listo»", async () => {
+    const { CASE_STATUS } = await import("@/components/workbench/case-status");
+    expect(CASE_STATUS.validacion_aprobada.label).toBe("Evidence validada");
+    expect(CASE_STATUS.validacion_con_advertencias.label).toBe("Evidence validada con advertencias");
+  });
 
   it("el botón dice «Procesar Evidence» y el copy no promete ejecutar el motor", () => {
     render(<DocumentUpload analysisId="a1" />);

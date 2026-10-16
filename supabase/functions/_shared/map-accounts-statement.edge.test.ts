@@ -130,6 +130,43 @@ describe("map-accounts con contexto de estado", () => {
   });
 });
 
+describe("L. métricas de IA en mapping_end: medidas, no supuestas", () => {
+  const meta = () => (writesTo(state, "audit_events", "insert").at(-1)!.payload as { metadata: Record<string, unknown>; event_detail: string });
+
+  it("sin respuesta de la IA (null) ≠ respondió con cero propuestas", async () => {
+    setup(SEC_ROWS);
+    h.ai = null;
+    await call();
+    expect(meta().metadata).toMatchObject({ ai_requests: 1, ai_response: "no_response", ai_proposals_received: 0, ai_classifications_applied: 0, ai_proposals_rejected: 0 });
+    expect(meta().metadata).not.toHaveProperty("ai_reviewed");
+    expect(meta().event_detail).not.toMatch(/revisadas por IA/);
+
+    setup(SEC_ROWS);
+    h.ai = JSON.stringify({ mappings: [] });
+    await call();
+    expect(meta().metadata).toMatchObject({ ai_requests: 1, ai_response: "received", ai_proposals_received: 0 });
+  });
+
+  it("candidatas excluyen conflictos determinísticos; propuestas aplicadas y rechazadas se cuentan por separado", async () => {
+    setup(SEC_ROWS);
+    h.ai = JSON.stringify({ mappings: [
+      { canonical_account: "cash", values: { "2024": 50 }, confidence: 0.95, source_labels: ["Short-term deposits"] },
+      { canonical_account: "taxes", values: { "2024": 285 }, confidence: 0.95, source_labels: ["Deferred income taxes"] },
+      { canonical_account: "opex", values: { "2024": 1 }, confidence: 0.3, source_labels: ["x"] },
+    ] });
+    await call();
+    // Abiertas sin conflicto determinístico: Short-term deposits + 2×Deferred income taxes (NO_MATCH).
+    expect(meta().metadata).toMatchObject({ ai_candidates: 3, ai_requests: 1, ai_response: "received", ai_proposals_received: 3, ai_proposals_skipped: 1, ai_classifications_applied: 1, ai_proposals_rejected: 1 });
+  });
+
+  it("sin candidatas no se llama a la IA", async () => {
+    setup([ctx("Net income", { "2024": 600 }, "cash_flow", null)]); // solo un conflicto determinístico
+    h.ai = JSON.stringify({ mappings: [] });
+    await call();
+    expect(meta().metadata).toMatchObject({ ai_candidates: 0, ai_requests: 0, ai_response: "not_requested" });
+  });
+});
+
 describe("map-accounts legacy (sin contexto) y casos protegidos", () => {
   it("filas legacy: mismo resultado que la regla previa, incluida la consolidación de la IA", async () => {
     setup([{ original_label: "Ventas netas", values: { "2024": 100 } }, { original_label: "Bancos", values: { "2024": 10 } }, { original_label: "Gastos raros", values: { "2024": 7 } }]);

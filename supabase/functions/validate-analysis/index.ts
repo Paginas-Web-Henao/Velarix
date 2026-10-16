@@ -4,7 +4,7 @@ import { resolveBasePeriod } from "../_shared/period-resolution.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent } from "../_shared/evidence-pipeline-guards.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
-import { evaluate } from "../_shared/validation-rules.ts";
+import { evaluate, summarizeEvidenceValidation } from "../_shared/validation-rules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,13 +82,10 @@ serve(async (req) => {
 
     const results = evaluate(accounts, documents || [], periods, basePeriod);
 
-    // Count issues — only DOC rules can block now
-    let hasCritical = false;
-    let warningCount = 0;
-    for (const r of results) {
-      if (!r.passed && r.blocking) hasCritical = true;
-      if (!r.passed && (r.severity === "media" || r.severity === "critica")) warningCount++;
-    }
+    // Count issues — only DOC rules can block now. Validación de EVIDENCE: no
+    // evalúa si el caso está listo para calcular (eso exige Judgment).
+    const summary = summarizeEvidenceValidation(results);
+    const hasCritical = summary.criticalCount > 0;
 
     // Store results
     await supabase.from("validation_results").delete().eq("analysis_id", analysis_id);
@@ -103,34 +100,27 @@ serve(async (req) => {
       }))
     );
 
-    // Semaphore — much more tolerant
-    let semaphore: string, validationStatus: string, analysisStatus: string;
-    if (hasCritical) {
-      semaphore = "rojo"; validationStatus = "bloqueado"; analysisStatus = "validacion_bloqueada";
-    } else if (warningCount >= 3) {
-      semaphore = "amarillo"; validationStatus = "aprobado_con_advertencias"; analysisStatus = "validacion_con_advertencias";
-    } else if (warningCount > 0) {
-      semaphore = "amarillo"; validationStatus = "aprobado_con_advertencias"; analysisStatus = "validacion_con_advertencias";
-    } else {
-      semaphore = "verde"; validationStatus = "aprobado"; analysisStatus = "validacion_aprobada";
-    }
+    // Semaphore — much more tolerant (see summarizeEvidenceValidation)
+    const { semaphore, validationStatus, analysisStatus, warningCount } = summary;
 
     await supabase.from("analyses").update({ status: analysisStatus, validation_status: validationStatus }).eq("id", analysis_id);
 
     await supabase.from("audit_events").insert({
       analysis_id, event_type: "validation_complete",
-      event_detail: `Validación: ${validationStatus} — semáforo: ${semaphore}`,
+      event_detail: `Validación de Evidence: ${validationStatus} — semáforo: ${semaphore}. No evalúa la preparación para el cálculo (requiere Judgment).`,
       component: "validate-analysis", user_id: user.id,
-      metadata: { validation_status: validationStatus, semaphore, critical_failures: results.filter(r => !r.passed && r.blocking).length, warnings: warningCount },
+      metadata: { validation_status: validationStatus, semaphore, critical_failures: summary.criticalCount, warnings: warningCount, scope: summary.scope, calculation_readiness: summary.calculationReadiness },
     });
 
     return new Response(JSON.stringify({
       success: true,
       data: {
         validation_status: validationStatus,
-        semaphore: { color: semaphore, label: semaphore === "rojo" ? "✗ Bloqueado" : semaphore === "amarillo" ? "⚠ Listo con advertencias" : "✓ Listo", can_proceed: !hasCritical, critical_count: results.filter(r => !r.passed && r.blocking).length, warning_count: warningCount },
+        semaphore: { color: semaphore, label: summary.label, can_proceed: !hasCritical, critical_count: summary.criticalCount, warning_count: warningCount },
         results: results.map(r => ({ rule_code: r.code, severity: r.severity, status: r.passed ? "passed" : "failed", detail: r.detail, blocking: !r.passed && r.blocking })),
         can_proceed: !hasCritical,
+        scope: summary.scope,
+        calculation_readiness: summary.calculationReadiness,
       },
       meta: { analysis_id, status: analysisStatus, timestamp: new Date().toISOString() },
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });

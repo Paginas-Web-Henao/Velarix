@@ -145,6 +145,14 @@ describe("parse-document — libro SEC con varios estados y escala declarada", (
     expect(p.periods_detected).not.toContain("2019");
   });
 
+  it("tipo documental: libro multi-estado → estados_financieros aunque la IA diga otra cosa (origen determinístico)", async () => {
+    h.wb = workbook(SEC_LIKE); // la IA de este test responde tipo_documento "mixto"
+    await call();
+    expect(writesTo(state, "documents", "update").at(-1)!.payload).toMatchObject({ processing_status: "completado", doc_type_declared: "estados_financieros" });
+    expect(parsedInsert().parsing_metadata).toMatchObject({ doc_type_efectivo: "estados_financieros", doc_type_origen: "DETERMINISTIC_WORKBOOK" });
+    expect(auditMeta()).toMatchObject({ doc_type: "estados_financieros", doc_type_origen: "DETERMINISTIC_WORKBOOK" });
+  });
+
   it("extracción determinística: sin fallback de IA", async () => {
     h.wb = workbook(SEC_LIKE);
     const body = await (await call()).json();

@@ -51,6 +51,33 @@ function getObservedVal(accounts: HomologatedAccountRow[], canonical: string, ba
 }
 
 // ═══════════════════════════════════════════════════════════════
+// Resumen de la validación de EVIDENCE (no de preparación para el cálculo)
+// ═══════════════════════════════════════════════════════════════
+// Evidence validation responde "¿la Evidence se procesó de forma íntegra y
+// coherente?". NO responde "¿se puede calcular?": eso requiere además
+// Judgment y supuestos explícitos (calculation preflight). Por eso las
+// etiquetas hablan de Evidence y `calculation_readiness` queda NOT_EVALUATED.
+export interface EvidenceValidationSummary {
+  semaphore: "verde" | "amarillo" | "rojo";
+  validationStatus: "aprobado" | "aprobado_con_advertencias" | "bloqueado";
+  analysisStatus: "validacion_aprobada" | "validacion_con_advertencias" | "validacion_bloqueada";
+  label: string;
+  criticalCount: number;
+  warningCount: number;
+  scope: "evidence_validation";
+  calculationReadiness: "NOT_EVALUATED";
+}
+
+export function summarizeEvidenceValidation(results: readonly ValidationResult[]): EvidenceValidationSummary {
+  const criticalCount = results.filter((r) => !r.passed && r.blocking).length;
+  const warningCount = results.filter((r) => !r.passed && (r.severity === "media" || r.severity === "critica")).length;
+  const base = { criticalCount, warningCount, scope: "evidence_validation" as const, calculationReadiness: "NOT_EVALUATED" as const };
+  if (criticalCount > 0) return { ...base, semaphore: "rojo", validationStatus: "bloqueado", analysisStatus: "validacion_bloqueada", label: "✗ Evidence bloqueada" };
+  if (warningCount > 0) return { ...base, semaphore: "amarillo", validationStatus: "aprobado_con_advertencias", analysisStatus: "validacion_con_advertencias", label: "⚠ Evidence validada con advertencias" };
+  return { ...base, semaphore: "verde", validationStatus: "aprobado", analysisStatus: "validacion_aprobada", label: "✓ Evidence validada" };
+}
+
+// ═══════════════════════════════════════════════════════════════
 // Motor de validaciones — NUNCA bloquea por BAL_001 ni PER_002
 // Tolerancia colombiana: documentos de trabajo, redondeos NIIF
 // ═══════════════════════════════════════════════════════════════
@@ -79,7 +106,7 @@ export function evaluate(
   }
 
   // ── MAP rules ──
-  const hasIncomeStatement = documents.some((d) => d.doc_type_declared === "estado_resultados" || d.doc_type_declared === "mixto");
+  const hasIncomeStatement = documents.some((d) => d.doc_type_declared === "estado_resultados" || d.doc_type_declared === "mixto" || d.doc_type_declared === "estados_financieros");
   const revenueFound = hasAccount(accounts, "revenue", basePeriod);
 
   // MAP_001: Revenue — WARNING if no income statement loaded
@@ -159,7 +186,7 @@ export function evaluate(
 
   r.push({ code: "IS_005", severity: "informativa", description: "Gastos financieros identificados", passed: getVal(accounts, "interest_expense", basePeriod) != null, detail: getVal(accounts, "interest_expense", basePeriod) == null ? "No se identificaron gastos financieros." : null, blocking: false });
 
-  r.push({ code: "IS_006", severity: "informativa", description: "Impuestos identificados", passed: getVal(accounts, "taxes", basePeriod) != null, detail: getVal(accounts, "taxes", basePeriod) == null ? "Impuestos no identificados. Se usará tasa corporativa de referencia." : null, blocking: false });
+  r.push({ code: "IS_006", severity: "informativa", description: "Impuestos identificados", passed: getVal(accounts, "taxes", basePeriod) != null, detail: getVal(accounts, "taxes", basePeriod) == null ? "No se identificó una cuenta de impuestos homologada. Requiere revisión antes del cálculo: no se asumirá una tasa sin Judgment explícito." : null, blocking: false });
 
   // ── PER rules — NEVER BLOCKING ──
   r.push({ code: "PER_001", severity: "media", description: "Al menos un período completo", passed: periods.length >= 1, detail: periods.length === 0 ? "No hay períodos contables." : null, blocking: false });

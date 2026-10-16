@@ -4,6 +4,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent } from "../_shared/evidence-pipeline-guards.ts";
 import { evaluateAiFallbackText } from "../_shared/document-text-gate.ts";
+import { resolveEffectiveDocType } from "../_shared/document-type.ts";
 import { extractFinancialStatementsWorkbook, detectDeclaredScale, DeclaredScaleConflictError } from "../_shared/xlsx-workbook-extractor.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { SYSTEM_CLASSIFIER, SYSTEM_PERIOD_DETECTOR, SYSTEM_PARSER_FALLBACK } from "../_shared/parse-document-prompts.ts";
@@ -659,12 +660,15 @@ serve(async (req) => {
     const sampleText = filas.slice(0, 30).map(f => `${f.texto}: ${f.valor_raw || "(encabezado)"}`).join("\n");
     const classifyResult = await callParseAiWith(parseAiConfig, SYSTEM_CLASSIFIER, `Clasifica este documento financiero.\n\nFilas extraídas:\n${sampleText}`, 500);
     const classification = classifyResult ? extractJSON(classifyResult) : null;
-    let docType = classification?.tipo_documento || document.doc_type_declared || "no_reconocible";
-
-    // Override doc type based on content detection if AI says "no_reconocible"
-    if (docType === "no_reconocible" && contenido.tieneAmbos) docType = "mixto";
-    else if (docType === "no_reconocible" && contenido.tieneEstadoResultados) docType = "estado_resultados";
-    else if (docType === "no_reconocible" && contenido.tieneBalanceGeneral) docType = "balance_general";
+    // Tipo efectivo: un libro con ≥ 2 estados principales es `estados_financieros`
+    // aunque la IA (que solo ve una muestra) diga otra cosa; si no, regla previa
+    // IA → declarado → detección de contenido. Ver ../_shared/document-type.ts.
+    const { docType, origin: docTypeOrigin } = resolveEffectiveDocType({
+      workbookStatements: Array.isArray(metadatos.hojas_seleccionadas) ? metadatos.hojas_seleccionadas.map((h: { category: string }) => h.category) : null,
+      aiType: classification?.tipo_documento ?? null,
+      declared: document.doc_type_declared,
+      content: contenido,
+    });
 
     // AI Period Detection
     const periodResult = await callParseAiWith(parseAiConfig, SYSTEM_PERIOD_DETECTOR, `Detecta los períodos.\n\n${sampleText}`, 500);
@@ -709,6 +713,8 @@ serve(async (req) => {
       periods_detected: periodsDetected.length > 0 ? periodsDetected : null,
       parsing_metadata: {
         classification: classification || { tipo_documento: docType },
+        doc_type_efectivo: docType,
+        doc_type_origen: docTypeOrigin,
         periods_info: periods,
         rows_extracted: filas.length,
         rows_with_values: filas.filter(f => f.valor !== null).length,
@@ -742,7 +748,7 @@ serve(async (req) => {
       event_detail: `Parsing completado: ${filas.length} filas (${filas.filter(f => f.valor !== null).length} con valor), tipo: ${docType}, contenido: ER=${contenido.tieneEstadoResultados} ESF=${contenido.tieneBalanceGeneral}`,
       component: "parse-document", user_id: user.id,
       metadata: {
-        doc_type: docType, formato: formato.tipo, rows: filas.length,
+        doc_type: docType, doc_type_origen: docTypeOrigin, formato: formato.tipo, rows: filas.length,
         contenido_detectado: contenido,
         nota_conversion: metadatos.nota_conversion || metadatos.nota_moneda || null,
         ai_fallback: usedAIFallback, tiempo_ms: tiempoMs,

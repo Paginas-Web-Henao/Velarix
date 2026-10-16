@@ -29,6 +29,40 @@ export const TAXONOMY: Record<string, Record<string, string[]>> = {
   },
 };
 
+/**
+ * Sinónimos que solo cuentan por match EXACTO (nunca por substring), para
+ * cuentas canónicas YA existentes. Son etiquetas inglesas de estados
+ * financieros (US GAAP / SEC) con equivalencia directa a un sinónimo español
+ * ya presente. Exacto-only porque el substring sería inseguro:
+ * "operating income" está contenido en "Non-operating income, net" y
+ * "long-term debt" en "Current portion of long-term debt".
+ * No amplía la taxonomía: no hay cuentas nuevas.
+ */
+export const EXACT_ONLY_SYNONYMS: Record<string, Record<string, string[]>> = {
+  income_statement: {
+    ebit: ["operating income"], // = "utilidad operativa / utilidad operacional"
+    taxes: ["income tax provision"], // = "provision de impuestos / impuesto de renta"
+  },
+  balance_sheet: {
+    accounts_receivable: ["trade accounts receivable, net"], // = "deudores comerciales / cartera"
+    inventory: ["inventories"], // plural de "inventory" (ya sinónimo)
+    ppe: ["property, plant and equipment, net"], // = "propiedad planta y equipo" NETO
+    current_financial_debt: ["short-term debt and current portion of long-term debt"], // = "obligaciones financieras corrientes"
+    long_term_financial_debt: ["long-term debt"], // = "deuda de largo plazo"
+  },
+};
+
+/** Cuenta canónica por match exacto (TAXONOMY + EXACT_ONLY_SYNONYMS) dentro de una categoría, o null. */
+export function exactCanonicalIn(label: string, category: string): string | null {
+  const n = normalizeLabel(label);
+  for (const source of [TAXONOMY, EXACT_ONLY_SYNONYMS]) {
+    for (const [canonical, synonyms] of Object.entries(source[category] ?? {})) {
+      if (synonyms.some((s) => normalizeLabel(s) === n)) return canonical;
+    }
+  }
+  return null;
+}
+
 export function normalizeLabel(label: string): string {
   let s = label.toLowerCase().trim();
   s = s.replace(/^\d{4,6}[\s\-\.]+/, "").trim();
@@ -54,14 +88,9 @@ export function normalizeLabel(label: string): string {
 export function matchAccount(label: string): { canonical: string | null; category: string; score: number } {
   const normalized = normalizeLabel(label);
 
-  for (const [category, accounts] of Object.entries(TAXONOMY)) {
-    for (const [canonical, synonyms] of Object.entries(accounts)) {
-      for (const synonym of synonyms) {
-        if (normalized === normalizeLabel(synonym)) {
-          return { canonical, category, score: 0.95 };
-        }
-      }
-    }
+  for (const category of Object.keys(TAXONOMY)) {
+    const canonical = exactCanonicalIn(label, category);
+    if (canonical) return { canonical, category, score: 0.95 };
   }
 
   for (const [category, accounts] of Object.entries(TAXONOMY)) {

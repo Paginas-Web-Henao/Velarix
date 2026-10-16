@@ -5,9 +5,10 @@ export const CASE_STATUS: Record<string, { label: string; color: string }> = {
   parsing_en_curso: { label: "Extrayendo…", color: "text-sky-300" },
   parsing_completado: { label: "Extracción completa", color: "text-sky-300" },
   homologacion_en_curso: { label: "Homologando…", color: "text-sky-300" },
-  validacion_aprobada: { label: "Validado", color: "text-emerald-300" },
-  validacion_con_advertencias: { label: "Validado con advertencias", color: "text-amber-300" },
-  validacion_bloqueada: { label: "Validación bloqueada", color: "text-destructive" },
+  // Validación de EVIDENCE: no significa "listo para calcular" (eso requiere Judgment).
+  validacion_aprobada: { label: "Evidence validada", color: "text-emerald-300" },
+  validacion_con_advertencias: { label: "Evidence validada con advertencias", color: "text-amber-300" },
+  validacion_bloqueada: { label: "Evidence bloqueada", color: "text-destructive" },
   revision_manual_requerida: { label: "Revisión manual", color: "text-amber-300" },
   calculo_en_curso: { label: "Calculando…", color: "text-sky-300" },
   calculo_completo: { label: "Cálculo completo", color: "text-emerald-300" },
