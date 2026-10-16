@@ -19,6 +19,7 @@ El expediente del caso: documentos → entender empresa → cuentas → ambigüe
 - Lo consume `ejecutar-calculo` antes del preflight ([[supuestos-y-preflight]]) y del [[motor-canonico]]. Es uno de los dos gates que [[caso-alpina]] debe pasar por el flujo oficial.
 
 ## No implementado
+- **Write path de producto** del Minimum Expediente (LIM-11 en [[12-bugs]]): la RLS lo permite al dueño, pero no hay UI ni endpoint; solo el script de Alpina lo escribió. `calculation-readiness.ts` reporta lo que falta (área `human_review`).
 El resto de entidades de la spec (p. ej. `company_context`, `case_assumptions`). Decisión D-10: se refina con evidencia de casos reales antes de implementarse.
 
 ## Tests

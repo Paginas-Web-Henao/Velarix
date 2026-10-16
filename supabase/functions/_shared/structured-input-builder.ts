@@ -25,6 +25,8 @@
 // el resto de `_shared/`.
 
 import { deriveCoreFinancialFields } from "./structured-input-derivations.ts";
+import type { MaterializedJudgment } from "./judgment-sets.ts";
+import type { ResolvedCalculationAssumptions } from "./resolved-calculation-assumptions.ts";
 import { sumAccountValue, type HomologatedAccountRow } from "./financial-accounts.ts";
 import { computeTotalConversionFactor, type CurrencyCode } from "./currency.ts";
 import {
@@ -159,6 +161,12 @@ export interface BuildCanonicalStructuredInputParams {
   /** Id de la fila de `structured_inputs` que va a persistir este payload — para `provenance.structured_input_id`. */
   structuredInputId: string | null;
   createdAt: string;
+  /**
+   * Judgment set activo ya validado (ADR-010). Si se pasa, el payload es v5:
+   * `resolved_assumptions` sale EXCLUSIVAMENTE de este set y `expected_growth`
+   * es el del set (no `expectedGrowth`). Si no, payload legacy sin cambios.
+   */
+  judgment?: MaterializedJudgment | null;
 }
 
 export interface CanonicalIncomeStatement {
@@ -206,6 +214,18 @@ export interface CanonicalStructuredInput {
   version_input: typeof CANONICAL_STRUCTURED_INPUT_VERSION;
   created_at: string;
   provenance: CalculationProvenance;
+  /** Solo en payloads construidos desde un judgment set (v5). Su presencia activa la ruta v5 del motor. */
+  resolved_assumptions?: ResolvedCalculationAssumptions;
+  /** Procedencia del Judgment usado (v5): qué set, sobre qué evidence run, y el Judgment del caso congelado. */
+  judgment?: StructuredInputJudgmentProvenance;
+}
+
+export interface StructuredInputJudgmentProvenance {
+  judgment_set_id: string;
+  evidence_run_id: string;
+  assumptions_source: "judgment_set";
+  case: MaterializedJudgment["caseJudgment"];
+  decisions: MaterializedJudgment["decisions"];
 }
 
 /**
@@ -234,7 +254,10 @@ export function buildCanonicalStructuredInput(
     snapshot,
     structuredInputId,
     createdAt,
+    judgment,
   } = params;
+  // Una sola fuente del crecimiento: con judgment set, el del set; sin él, el legacy recibido.
+  const effectiveGrowth = judgment ? judgment.caseJudgment.expected_growth : expectedGrowth;
 
   const core = deriveCoreFinancialFields(accounts, basePeriod);
   const {
@@ -246,7 +269,7 @@ export function buildCanonicalStructuredInput(
   } = core;
 
   const qualityFlags: string[] = [];
-  if (expectedGrowth === null || !Number.isFinite(expectedGrowth)) qualityFlags.push("expected_growth_no_resuelto");
+  if (effectiveGrowth === null || !Number.isFinite(effectiveGrowth)) qualityFlags.push("expected_growth_no_resuelto");
   if (inventory == null) qualityFlags.push("sin_inventario_declarado");
   if (accountsReceivable == null) qualityFlags.push("sin_cartera_declarada");
   if (interestExpense == null) qualityFlags.push("sin_gastos_financieros");
@@ -299,7 +322,7 @@ export function buildCanonicalStructuredInput(
   return {
     analysis_id: analysisId,
     sector,
-    expected_growth: expectedGrowth,
+    expected_growth: effectiveGrowth,
     moneda_analisis: monedaAnalisis,
     moneda_documento: monedaDocumento,
     factor_conversion: factorTotal,
@@ -325,5 +348,17 @@ export function buildCanonicalStructuredInput(
     version_input: CANONICAL_STRUCTURED_INPUT_VERSION,
     created_at: createdAt,
     provenance,
+    ...(judgment
+      ? {
+          resolved_assumptions: judgment.resolvedAssumptions,
+          judgment: {
+            judgment_set_id: judgment.judgmentSetId,
+            evidence_run_id: judgment.evidenceRunId,
+            assumptions_source: "judgment_set" as const,
+            case: judgment.caseJudgment,
+            decisions: judgment.decisions,
+          },
+        }
+      : {}),
   };
 }

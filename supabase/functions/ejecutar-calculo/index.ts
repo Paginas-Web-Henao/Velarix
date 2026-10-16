@@ -13,6 +13,7 @@ import { buildResolvedAssumptionsSnapshot } from "../_shared/resolved-assumption
 import { evaluateMinimumExpedienteCheckpoint } from "../_shared/minimum-expediente-checkpoint.ts";
 import { evaluateCalculationPreflight } from "../_shared/calculation-preflight.ts";
 import type { ResolvedCalculationAssumptions } from "../_shared/resolved-calculation-assumptions.ts";
+import { checkInputJudgmentFreshness } from "../_shared/judgment-sets.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,6 +139,27 @@ serve(async (req) => {
       throw new Error("No hay input_payload con revenue. Ejecuta build-structured-input primero.");
     }
 
+    // ADR-010: con judgment set activo, el input debe haberse construido desde
+    // ESE set y ESE evidence run; si no, está obsoleto y no se calcula. En ese
+    // modo el crecimiento es el congelado en el input (materializado del set).
+    const judgmentCheck = checkInputJudgmentFreshness(analysis, input);
+    if (!judgmentCheck.ok) {
+      await supabase.from("audit_events").insert({
+        analysis_id,
+        user_id: actor?.userId || null,
+        event_type: "calculation_input_stale",
+        event_detail: `${judgmentCheck.code}: ${judgmentCheck.message}`,
+        component: "ejecutar-calculo",
+      });
+      return new Response(JSON.stringify({
+        success: false,
+        error: { code: judgmentCheck.code, message: judgmentCheck.message },
+      }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const expectedGrowth: number | null = judgmentCheck.mode === "judgment_set"
+      ? judgmentCheck.expectedGrowth
+      : (analysis.expected_growth ?? null);
+
     // Minimum Expediente Checkpoint (docs/velarix/plan/EXPEDIENTE-DE-VALORACION-V1.md
     // §0.1): gate obligatorio del flujo profesional normal, distinto del
     // Expediente completo (que sigue siendo paralelo/no bloqueante, §13/
@@ -226,7 +248,7 @@ serve(async (req) => {
       balanceSheet: input.balance_sheet,
       ...(isV5Input ? { resolvedAssumptions: inputResolvedAssumptions } : {}),
       // Judgment del caso: sin crecimiento resuelto no se calcula (nunca 25 por defecto).
-      expectedGrowth: analysis.expected_growth ?? null,
+      expectedGrowth,
     });
     if (!preflight.passed) {
       await supabase.from("audit_events").insert({
@@ -260,7 +282,7 @@ serve(async (req) => {
 
     // Run engine
     const typedInput = input as CanonicalStructuredInput;
-    const result = runCanonicalFinancialEngine(typedInput, analysis.sector, analysis.expected_growth);
+    const result = runCanonicalFinancialEngine(typedInput, analysis.sector, expectedGrowth);
 
     const elapsed = Date.now() - startTime;
     console.log(`[ejecutar-calculo] Completed in ${elapsed}ms. EV: ${result.valuation.enterpriseValue}`);
@@ -275,7 +297,7 @@ serve(async (req) => {
     // análisis calculado antes de este bloque, o invocado sin pasar por
     // ese paso), se declara explícitamente "missing" — nunca se simula
     // trazabilidad que no existe.
-    const inputFingerprint = computeInputFingerprint(typedInput, analysis.sector, analysis.expected_growth);
+    const inputFingerprint = computeInputFingerprint(typedInput, analysis.sector, expectedGrowth);
     const provenance: CalculationProvenance =
       (input as { provenance?: CalculationProvenance }).provenance ||
       buildMissingProvenance({
@@ -330,6 +352,11 @@ serve(async (req) => {
       provenance,
       source_input_snapshot: sourceInputSnapshot,
       resolved_assumptions_used: resolvedAssumptionsUsed,
+      // Judgment versionado congelado (set, evidence run, metadata del caso,
+      // decisiones). Solo en modo judgment_set; legacy no inventa Judgment.
+      ...(judgmentCheck.mode === "judgment_set"
+        ? { judgment_used: { ...judgmentCheck.provenance, structured_input_id: structuredInputRow?.id ?? null, version_input: structuredInputRow?.version_input ?? null } }
+        : {}),
     };
 
     // Store results

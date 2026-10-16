@@ -186,7 +186,11 @@ describe("ejecutar-calculo/index.ts usa realmente el contrato nuevo (verificaciÃ
   });
 
   it("13. invoca las funciones importadas y persiste version/provenance dentro de calculation_result", () => {
-    expect(source).toContain("computeInputFingerprint(typedInput, analysis.sector, analysis.expected_growth)");
+    // ADR-010: fingerprint, motor y preflight reciben el MISMO crecimiento â€”
+    // el del judgment set congelado en el input, o en legacy `analysis.expected_growth ?? null`.
+    expect(source).toContain("computeInputFingerprint(typedInput, analysis.sector, expectedGrowth)");
+    expect(source).toContain("runCanonicalFinancialEngine(typedInput, analysis.sector, expectedGrowth)");
+    expect(source).toContain(": (analysis.expected_growth ?? null);");
     expect(source).toContain("buildCalculationVersionInfo({");
     expect(source).toContain("source_input_snapshot: sourceInputSnapshot,");
     expect(source).toContain("calculation_result: enrichedResult,");

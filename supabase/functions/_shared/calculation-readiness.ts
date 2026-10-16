@@ -12,7 +12,13 @@
 //   aprobada. Solo se declara si quien llama lo indica explícitamente
 //   (`methodologyDecisionsPending`) — este módulo no infiere metodología;
 // - SYSTEM_ERROR: el input viola un invariante del sistema (p. ej. filas de
-//   varios evidence runs).
+//   varios evidence runs, judgment set malformado, Expediente no evaluado).
+// Cada bloqueo trae además `area` (evidence | human_review | judgment |
+// methodology | system): el Minimum Expediente incompleto es JUDGMENT_REQUIRED
+// del área human_review (revisión humana registrada, no un supuesto).
+// Con judgment set activo (ADR-010), la metadata del caso y los 13 supuestos
+// salen EXCLUSIVAMENTE del set materializado; las columnas de `analyses` y
+// `resolvedAssumptions` se ignoran en ese modo.
 // No calcula valoración, no rellena valores, no usa defaults, no escribe nada.
 
 import { deriveCoreFinancialFields } from "./structured-input-derivations.ts";
@@ -21,11 +27,16 @@ import { isResolvedGrowth } from "./canonical-input-normalization.ts";
 import { assertSingleEvidenceRun, MixedEvidenceRunsError } from "./evidence-runs.ts";
 import type { HomologatedAccountRow } from "./financial-accounts.ts";
 import type { ResolvedCalculationAssumptions } from "./resolved-calculation-assumptions.ts";
+import { evaluateMinimumExpedienteCheckpoint, type MinimumExpedienteCheckpointInput } from "./minimum-expediente-checkpoint.ts";
+import type { JudgmentResolution } from "./judgment-sets.ts";
 
 export type ReadinessBlockerCategory = "MISSING_EVIDENCE" | "JUDGMENT_REQUIRED" | "METHODOLOGY_DECISION_REQUIRED" | "SYSTEM_ERROR";
 
+export type ReadinessArea = "evidence" | "human_review" | "judgment" | "methodology" | "system";
+
 export interface ReadinessBlocker {
   category: ReadinessBlockerCategory;
+  area: ReadinessArea;
   code: string;
   field: string;
   message: string;
@@ -49,6 +60,16 @@ export interface CalculationReadinessInput {
   resolvedAssumptions: Partial<ResolvedCalculationAssumptions> | null | undefined;
   /** Decisiones metodológicas pendientes documentadas para el caso (campo → decisión). */
   methodologyDecisionsPending?: readonly { field: string; decision: string }[];
+  /**
+   * Conteos del Minimum Expediente (mismos que usa ejecutar-calculo). `null` /
+   * ausente = no evaluado → SYSTEM_ERROR (fail-closed: nunca se asume completo).
+   */
+  minimumExpediente?: MinimumExpedienteCheckpointInput | null;
+  /**
+   * Judgment activo. Ausente o `{mode:"legacy"}` = sin judgment set (columnas
+   * de `analyses` + `resolvedAssumptions`, comportamiento previo).
+   */
+  judgment?: { mode: "legacy" } | { mode: "judgment_set"; resolution: JudgmentResolution } | null;
 }
 
 export interface CalculationReadinessResult {
@@ -83,7 +104,9 @@ const empty = (v: unknown) => v === null || v === undefined || (typeof v === "st
 
 export function evaluateCalculationReadiness(input: CalculationReadinessInput): CalculationReadinessResult {
   const blockers: ReadinessBlocker[] = [];
-  const push = (category: ReadinessBlockerCategory, code: string, field: string, message: string) => blockers.push({ category, code, field, message });
+  const AREA: Record<ReadinessBlockerCategory, ReadinessArea> = { MISSING_EVIDENCE: "evidence", JUDGMENT_REQUIRED: "judgment", METHODOLOGY_DECISION_REQUIRED: "methodology", SYSTEM_ERROR: "system" };
+  const push = (category: ReadinessBlockerCategory, code: string, field: string, message: string, area: ReadinessArea = AREA[category]) =>
+    blockers.push({ category, area, code, field, message });
   const pending = new Map((input.methodologyDecisionsPending ?? []).map((d) => [d.field, d.decision]));
 
   // ── Evidence ──
@@ -110,20 +133,44 @@ export function evaluateCalculationReadiness(input: CalculationReadinessInput): 
     }
   }
 
-  // ── Judgment del caso ──
-  for (const { field, label } of REQUIRED_CASE_JUDGMENT) {
-    if (empty(input.analysis[field])) push("JUDGMENT_REQUIRED", "CASE_JUDGMENT_MISSING", String(field), `Falta ${label}.`);
-  }
-  if (!isResolvedGrowth(input.analysis.expected_growth)) {
-    push("JUDGMENT_REQUIRED", "CASE_JUDGMENT_MISSING", "expected_growth", "Falta el crecimiento de ingresos (expected_growth); no se usa ningún valor por defecto.");
+  // ── Revisión humana: Minimum Expediente (mismo checkpoint que ejecutar-calculo) ──
+  if (!input.minimumExpediente) {
+    push("SYSTEM_ERROR", "MINIMUM_EXPEDIENTE_NOT_EVALUATED", "minimum_expediente", "No se evaluó el Minimum Expediente; no se asume completo.", "human_review");
+  } else {
+    const cp = evaluateMinimumExpedienteCheckpoint(input.minimumExpediente);
+    const labels: Record<string, string> = {
+      context: "contexto del caso (empresa y sector)",
+      material_account: "al menos una cuenta material anotada (account_notes)",
+      ambiguity: "al menos una ambigüedad registrada (expedient_questions)",
+      treatment: "al menos un tratamiento humano de una ambigüedad (expedient_answers)",
+    };
+    for (const m of cp.missing) push("JUDGMENT_REQUIRED", "MINIMUM_EXPEDIENTE_MISSING", `minimum_expediente.${m}`, `Falta ${labels[m] ?? m}.`, "human_review");
   }
 
-  // ── Los 13 supuestos resueltos (mismas reglas que el preflight del motor) ──
-  const pf = evaluateCalculationPreflight({ incomeStatement: {}, balanceSheet: {}, resolvedAssumptions: input.resolvedAssumptions ?? null });
-  for (const b of pf.blockers.filter((x) => x.startsWith("RESOLVED_ASSUMPTION_"))) {
-    const code = b.slice(0, b.indexOf(":"));
-    const field = /"([A-Za-z]+)"/.exec(b)?.[1] ?? code.replace(/^RESOLVED_ASSUMPTION_[A-Z]+_/, "").toLowerCase();
-    push("JUDGMENT_REQUIRED", code, field, b.slice(b.indexOf(":") + 1).trim());
+  // ── Judgment del caso ──
+  if (empty(input.analysis.moneda_analisis)) push("JUDGMENT_REQUIRED", "CASE_JUDGMENT_MISSING", "moneda_analisis", "Falta moneda del análisis.");
+  const judgment = input.judgment ?? { mode: "legacy" as const };
+  if (judgment.mode === "judgment_set") {
+    // Fuente única: el set activo materializado. Sin fallback a columnas.
+    if (!judgment.resolution.ok) {
+      for (const i of judgment.resolution.issues) push(i.category, i.code, i.key ?? "judgment_set", i.message);
+    }
+  } else {
+    for (const { field, label } of REQUIRED_CASE_JUDGMENT) {
+      if (field === "moneda_analisis") continue;
+      if (empty(input.analysis[field])) push("JUDGMENT_REQUIRED", "CASE_JUDGMENT_MISSING", String(field), `Falta ${label}.`);
+    }
+    if (!isResolvedGrowth(input.analysis.expected_growth)) {
+      push("JUDGMENT_REQUIRED", "CASE_JUDGMENT_MISSING", "expected_growth", "Falta el crecimiento de ingresos (expected_growth); no se usa ningún valor por defecto.");
+    }
+
+    // ── Los 13 supuestos resueltos (mismas reglas que el preflight del motor) ──
+    const pf = evaluateCalculationPreflight({ incomeStatement: {}, balanceSheet: {}, resolvedAssumptions: input.resolvedAssumptions ?? null });
+    for (const b of pf.blockers.filter((x) => x.startsWith("RESOLVED_ASSUMPTION_"))) {
+      const code = b.slice(0, b.indexOf(":"));
+      const field = /"([A-Za-z]+)"/.exec(b)?.[1] ?? code.replace(/^RESOLVED_ASSUMPTION_[A-Z]+_/, "").toLowerCase();
+      push("JUDGMENT_REQUIRED", code, field, b.slice(b.indexOf(":") + 1).trim());
+    }
   }
 
   // ── Decisiones metodológicas pendientes no ligadas a un campo de Evidence ──

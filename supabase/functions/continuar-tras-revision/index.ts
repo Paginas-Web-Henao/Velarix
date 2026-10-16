@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveBasePeriod } from "../_shared/period-resolution.ts";
 import { applyActiveRunFilter, selectActiveRows } from "../_shared/evidence-runs.ts";
+import { loadActiveJudgment } from "../_shared/judgment-loader.ts";
 import { normalizeCurrencyCode } from "../_shared/currency.ts";
 import {
   buildCanonicalStructuredInput,
@@ -238,6 +239,16 @@ serve(async (req) => {
     // build-structured-input (ver _shared/structured-input-builder.ts).
     // Ya no se reconstruye el payload aquí (ver
     // structured-input-canonical-contract.regression.test.ts).
+    // Judgment versionado (ADR-010): mismo criterio que build-structured-input.
+    const activeJudgment = await loadActiveJudgment(supabase, analysis);
+    if (activeJudgment.mode === "judgment_set" && !activeJudgment.resolution.ok) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: { code: "JUDGMENT_SET_INVALID", message: "El judgment set activo no se puede materializar; no se construye el input.", issues: activeJudgment.resolution.issues },
+      }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const judgment = activeJudgment.mode === "judgment_set" && activeJudgment.resolution.ok ? activeJudgment.resolution.judgment : null;
+
     const structuredInput = buildCanonicalStructuredInput({
       analysisId: analysis_id,
       sector: analysis.sector,
@@ -258,6 +269,7 @@ serve(async (req) => {
       },
       structuredInputId,
       createdAt: builtAt,
+      judgment,
     });
 
     // 5. Upsert structured input

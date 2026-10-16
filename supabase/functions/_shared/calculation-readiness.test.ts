@@ -7,8 +7,9 @@ import { EXAMPLE_RESOLVED_ASSUMPTIONS } from "./resolved-calculation-assumptions
 const row = (canonical_account: string, value: number, evidence_run_id: string | null = "run-1") => ({ canonical_account, value, period: "2024", evidence_run_id });
 const FULL_EVIDENCE = [row("revenue", 1000), row("cost_of_sales", 600), row("opex", 200), row("da", 50), row("cash", 100), row("equity", 500), row("current_financial_debt", 30), row("long_term_financial_debt", 70)];
 const FULL_CASE = { valuation_date: "2024-12-31", basis_of_value: "Market Value", valued_interest: "100% equity", calculation_architecture: "DCF", moneda_analisis: "USD", expected_growth: 5, validation_status: "aprobado" };
+const FULL_EXPEDIENTE = { companyName: "Acme", sector: "industrial", materialAccountsCount: 1, ambiguitiesCount: 1, treatedAmbiguitiesCount: 1 };
 const base = (over: Partial<CalculationReadinessInput> = {}): CalculationReadinessInput => ({
-  analysis: FULL_CASE, activeAccounts: FULL_EVIDENCE, basePeriod: "2024", resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS, ...over,
+  analysis: FULL_CASE, activeAccounts: FULL_EVIDENCE, basePeriod: "2024", resolvedAssumptions: EXAMPLE_RESOLVED_ASSUMPTIONS, minimumExpediente: FULL_EXPEDIENTE, ...over,
 });
 const cats = (r: ReturnType<typeof evaluateCalculationReadiness>) => r.blockers.map((b) => `${b.category}:${b.field}`);
 
@@ -53,6 +54,16 @@ describe("calculation readiness — Evidence validada no implica listo para calc
   it("filas de dos evidence runs → SYSTEM_ERROR (no se suman)", () => {
     const r = evaluateCalculationReadiness(base({ activeAccounts: [...FULL_EVIDENCE, row("revenue", 999, null)] }));
     expect(cats(r)).toEqual(["SYSTEM_ERROR:account_homologations"]);
+  });
+
+  it("Minimum Expediente incompleto → JUDGMENT_REQUIRED (área human_review); no evaluado → SYSTEM_ERROR", () => {
+    const r = evaluateCalculationReadiness(base({ minimumExpediente: { ...FULL_EXPEDIENTE, ambiguitiesCount: 0, treatedAmbiguitiesCount: 0 } }));
+    expect(r.readiness).toBe("NOT_READY");
+    expect(cats(r)).toEqual(["JUDGMENT_REQUIRED:minimum_expediente.ambiguity", "JUDGMENT_REQUIRED:minimum_expediente.treatment"]);
+    expect(r.blockers.every((b) => b.area === "human_review")).toBe(true);
+    const none = evaluateCalculationReadiness(base({ minimumExpediente: undefined }));
+    expect(cats(none)).toEqual(["SYSTEM_ERROR:minimum_expediente"]);
+    expect(none.readiness).toBe("NOT_READY");
   });
 
   it("es pura: no calcula, no escribe, no muta su input", () => {

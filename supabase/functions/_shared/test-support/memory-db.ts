@@ -20,7 +20,7 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
   let seq = 0;
 
   const from = (table: string) => {
-    const q = { op: "select", returning: false, payload: undefined as unknown, eq: {} as Record<string, unknown>, is: {} as Record<string, null>, in: {} as Record<string, unknown[]> };
+    const q = { op: "select", returning: false, payload: undefined as unknown, onConflict: "id", eq: {} as Record<string, unknown>, is: {} as Record<string, null>, in: {} as Record<string, unknown[]> };
     const match = (r: Row) =>
       Object.entries(q.eq).every(([k, v]) => r[k] === v) &&
       Object.entries(q.is).every(([k]) => r[k] === null || r[k] === undefined) &&
@@ -30,6 +30,14 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
       if (q.op === "insert") {
         if (failInsertOnce.has(table)) { failInsertOnce.delete(table); return { data: null, error: { message: `simulated insert failure on ${table}` } }; }
         for (const p of ([] as Row[]).concat(q.payload as Row)) rows.push({ id: `${table}-${++seq}`, created_at: new Date(Date.now() + seq).toISOString(), ...p });
+        return { data: null, error: null };
+      }
+      if (q.op === "upsert") {
+        for (const p of ([] as Row[]).concat(q.payload as Row)) {
+          const hit = rows.find((r) => r[q.onConflict] === p[q.onConflict]);
+          if (hit) Object.assign(hit, p);
+          else rows.push({ id: `${table}-${++seq}`, created_at: new Date(Date.now() + seq).toISOString(), ...p });
+        }
         return { data: null, error: null };
       }
       if (q.op === "update") {
@@ -48,6 +56,7 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
       in: (k: string, vs: unknown[]) => { q.in[k] = vs; return chain; },
       insert: (p: unknown) => { q.op = "insert"; q.payload = p; return chain; },
       update: (p: unknown) => { q.op = "update"; q.payload = p; return chain; },
+      upsert: (p: unknown, o?: { onConflict?: string }) => { q.op = "upsert"; q.payload = p; q.onConflict = o?.onConflict ?? "id"; return chain; },
       delete: () => { q.op = "delete"; return chain; },
       single: () => Promise.resolve(run(true)), maybeSingle: () => Promise.resolve(run(true)),
       then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => Promise.resolve(run(false)).then(res, rej),
