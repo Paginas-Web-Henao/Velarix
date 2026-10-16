@@ -21,6 +21,7 @@ No hay servidor propio: la "API" son **Supabase Edge Functions** (`supabase/func
 | `validate-analysis` | Pipeline | JWT usuario | validation_results | [[pipeline-documental]] |
 | `build-structured-input` | `continuar-tras-revision` / llamada explícita (**no** el pipeline de Evidence) | JWT usuario | structured_inputs, external_snapshots | [[pipeline-documental]] |
 | `judgment-sets` | Explícito (`create_draft`, `add_entry`, `complete`, `fail`, `promote`) | JWT usuario (dueño) | judgment_sets, judgment_entries, analyses | [[supuestos-y-preflight]] |
+| `expediente` | Explícito (`ensure_valuation_file`, `add_account_note`, `add_question`, `add_answer`) | JWT usuario (dueño, rol analyst/admin) | valuation_files, account_notes, expedient_questions, expedient_answers | [[expediente]] |
 | `ejecutar-calculo` | Explícito (**no** el pipeline de Evidence) | JWT usuario o secret key interna | analyses, structured_inputs, valuation_files, account_notes, expedient_* | [[motor-canonico]] |
 | `continuar-tras-revision` | Frontend (admin) | JWT o secret key interna | manual_reviews, structured_inputs | [[revision-manual]] |
 | `generate-narrative` | `api-client.generateNarrative` | JWT usuario | report_narratives | [[narrativa-ia]] |
@@ -30,7 +31,7 @@ No hay servidor propio: la "API" son **Supabase Edge Functions** (`supabase/func
 
 Todas tienen `verify_jwt = false` en `supabase/config.toml` y verifican identidad en su propio código (ver [[07-autenticacion]]).
 
-Respuestas relevantes de `ejecutar-calculo`: **409** si falla el checkpoint del Expediente o el preflight (con el detalle en el body y un `audit_event`), o si el structured input no corresponde al judgment set / evidence run activos (`STRUCTURED_INPUT_STALE_FOR_JUDGMENT`). `build-structured-input` y `continuar-tras-revision` responden **409** `JUDGMENT_SET_INVALID` si el set activo no materializa.
+Respuestas relevantes de `ejecutar-calculo`: **409** si falla el checkpoint del Expediente o el preflight (con el detalle en el body y un `audit_event`), o si el structured input no corresponde al judgment set / evidence run activos (`STRUCTURED_INPUT_STALE_FOR_JUDGMENT`). `build-structured-input` y `continuar-tras-revision` responden **409** `JUDGMENT_SET_INVALID` si el set activo no materializa, y **409** `ACTIVE_EVIDENCE_*` si la metadata documental del evidence run activo falta o es incompatible. `judgment-sets` responde **409** `JUDGMENT_ENTRY_CONFLICT` / `JUDGMENT_SET_CHANGED` ante escrituras concurrentes.
 
 ## Cliente frontend
 

@@ -4,6 +4,7 @@ import { resolveBasePeriod } from "../_shared/period-resolution.ts";
 import { applyActiveRunFilter, selectActiveRows } from "../_shared/evidence-runs.ts";
 import { loadActiveJudgment } from "../_shared/judgment-loader.ts";
 import { normalizeCurrencyCode } from "../_shared/currency.ts";
+import { resolveActiveEvidenceDocumentMetadata } from "../_shared/evidence-document-metadata.ts";
 import {
   buildCanonicalStructuredInput,
   buildDefaultSnapshot,
@@ -25,12 +26,6 @@ const TRM = 4080;
 /** Subconjunto mínimo de `analyses` que necesita la resolución de moneda (BL-03). */
 interface AnalysisCurrencyFields {
   moneda_analisis?: string | null;
-}
-
-/** Metadata de `audit_events` (event_type "parse_complete") que necesita la resolución de moneda del documento fuente. */
-interface ParseMetadata {
-  moneda_documento?: string | null;
-  factor_escala?: number | string | null;
 }
 
 serve(async (req) => {
@@ -203,12 +198,18 @@ serve(async (req) => {
 
     // ── Currency conversion (BL-03) — misma resolución que build-structured-input ──
     const monedaAnalisis = normalizeCurrencyCode((analysis as AnalysisCurrencyFields).moneda_analisis) ?? "COP";
-    const { data: auditParse } = await supabase.from("audit_events")
-      .select("metadata").eq("analysis_id", analysis_id).eq("event_type", "parse_complete")
-      .order("created_at", { ascending: false }).limit(1);
-    const parseMeta = (auditParse?.[0]?.metadata as ParseMetadata | null) || {};
-    const monedaDoc = normalizeCurrencyCode(parseMeta.moneda_documento);
-    const factorEscala = Number(parseMeta.factor_escala) || 1;
+    // Metadata documental ligada al evidence run activo (mismo resolver que build-structured-input).
+    const docMeta = await resolveActiveEvidenceDocumentMetadata(supabase, analysis);
+    if (!docMeta.ok) {
+      await supabase.from("audit_events").insert({
+        analysis_id, event_type: "structured_input_metadata_blocked", event_detail: `${docMeta.code}: ${docMeta.message}`,
+        component: "continuar-tras-revision", user_id: actor?.userId ?? null, metadata: { code: docMeta.code, active_evidence_run_id: analysis.active_evidence_run_id ?? null },
+      });
+      return new Response(JSON.stringify({ success: false, error: { code: docMeta.code, message: docMeta.message } }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const monedaDoc = docMeta.monedaDocumento;
+    const factorEscala = docMeta.factorEscala;
 
     // Get snapshot — mismo fallback Damodaran que build-structured-input
     // cuando no hay fila en external_snapshots para el sector (antes de

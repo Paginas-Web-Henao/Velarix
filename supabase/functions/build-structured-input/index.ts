@@ -4,6 +4,7 @@ import { resolveBasePeriod } from "../_shared/period-resolution.ts";
 import { applyActiveRunFilter, selectActiveRows } from "../_shared/evidence-runs.ts";
 import { loadActiveJudgment } from "../_shared/judgment-loader.ts";
 import { normalizeCurrencyCode } from "../_shared/currency.ts";
+import { resolveActiveEvidenceDocumentMetadata } from "../_shared/evidence-document-metadata.ts";
 import {
   buildCanonicalStructuredInput,
   buildDefaultSnapshot,
@@ -87,18 +88,23 @@ serve(async (req) => {
     // monedaAnalisis: elección real del usuario (analyses.moneda_analisis,
     // default 'COP' — es un valor de producto, no una moneda "detectada").
     const monedaAnalisis = normalizeCurrencyCode((analysis as any).moneda_analisis) ?? "COP";
-    const { data: auditParse } = await supabase.from("audit_events")
-      .select("metadata").eq("analysis_id", analysis_id).eq("event_type", "parse_complete")
-      .order("created_at", { ascending: false }).limit(1);
-    const parseMeta = (auditParse?.[0]?.metadata as any) || {};
-    // monedaDoc: moneda REAL del documento fuente, detectada por
-    // parse-document. Antes de la corrección de BL-03, este campo nunca
-    // sobrevivía la persistencia (ver parse-document/index.ts) y siempre
-    // caía al valor por defecto — ahora, si sigue ausente, es porque
-    // genuinamente no se detectó ninguna evidencia, no por un bug de
-    // persistencia. No se asume "COP" en ese caso.
-    const monedaDoc = normalizeCurrencyCode(parseMeta.moneda_documento);
-    const factorEscala = Number(parseMeta.factor_escala) || 1;
+    // monedaDoc / factorEscala: metadata REAL del documento fuente, detectada
+    // por parse-document (BL-03; si la moneda falta, no se asume "COP").
+    // Ligada al set ACTIVO de Evidence: sale de los documents_parsed fuente
+    // del evidence run activo, nunca del último parse del análisis (un parse
+    // posterior cuyo run falló no cambia moneda/escala). Legacy: último
+    // parse_complete, como antes. Ver _shared/evidence-document-metadata.ts.
+    const docMeta = await resolveActiveEvidenceDocumentMetadata(supabase, analysis);
+    if (!docMeta.ok) {
+      await supabase.from("audit_events").insert({
+        analysis_id, event_type: "structured_input_metadata_blocked", event_detail: `${docMeta.code}: ${docMeta.message}`,
+        component: "build-structured-input", user_id: user.id, metadata: { code: docMeta.code, active_evidence_run_id: analysis.active_evidence_run_id ?? null },
+      });
+      return new Response(JSON.stringify({ success: false, error: { code: docMeta.code, message: docMeta.message } }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const monedaDoc = docMeta.monedaDocumento;
+    const factorEscala = docMeta.factorEscala;
 
     const { data: dbSnapshot } = await supabase
       .from("external_snapshots").select("*")
