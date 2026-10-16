@@ -20,7 +20,7 @@ await import("../build-structured-input/index");
 await import("../continuar-tras-revision/index");
 const [buildHandler, continuarHandler] = h.handlers;
 
-const meta = (moneda: string | null, factor: unknown) => ({ moneda_documento: moneda, factor_escala: factor });
+const meta = (moneda: string | null, factor: unknown, origen: unknown = "DECLARED") => ({ moneda_documento: moneda, factor_escala: factor, escala_origen: origen });
 
 describe("resolveMetadataFromParsedDocuments (pura, fail-closed)", () => {
   it("una fuente → su moneda y escala", () => {
@@ -39,8 +39,17 @@ describe("resolveMetadataFromParsedDocuments (pura, fail-closed)", () => {
     expect(resolveMetadataFromParsedDocuments("r", ["a", "b"], [{ id: "a", parsing_metadata: meta("USD", 1000) }, { id: "b", parsing_metadata: meta("USD", 1) }])).toMatchObject({ ok: false, code: "ACTIVE_EVIDENCE_METADATA_CONFLICT" });
     expect(resolveMetadataFromParsedDocuments("r", ["a", "b"], [{ id: "a", parsing_metadata: meta(null, 1000) }, { id: "b", parsing_metadata: meta("USD", 1000) }])).toMatchObject({ ok: false, code: "ACTIVE_EVIDENCE_METADATA_CONFLICT" });
   });
-  it("moneda no detectada de forma consistente → null (BL-03: nunca se asume COP)", () => {
-    expect(resolveMetadataFromParsedDocuments("r", ["a"], [{ id: "a", parsing_metadata: meta(null, 1) }])).toMatchObject({ ok: true, monedaDocumento: null, factorEscala: 1 });
+  it("moneda del documento no reconocida (null, EUR) → ACTIVE_EVIDENCE_CURRENCY_MISSING (no se asume ausencia de conversión)", () => {
+    for (const mon of [null, "EUR", "usd"]) {
+      expect(resolveMetadataFromParsedDocuments("r", ["a"], [{ id: "a", parsing_metadata: meta(mon, 1000) }])).toMatchObject({ ok: false, code: "ACTIVE_EVIDENCE_CURRENCY_MISSING" });
+    }
+  });
+  it("escala no declarada (factor 1 por default, NONE, INFERRED, null) → ACTIVE_EVIDENCE_SCALE_UNRESOLVED", () => {
+    expect(resolveMetadataFromParsedDocuments("r", ["a"], [{ id: "a", parsing_metadata: { moneda_documento: "USD", factor_escala: 1 } }])).toMatchObject({ ok: false, code: "ACTIVE_EVIDENCE_SCALE_UNRESOLVED" });
+    for (const [f, o] of [[1, null], [1, "NONE"], [1_000_000, "INFERRED"], [1000, "GUESSED"]] as const) {
+      expect(resolveMetadataFromParsedDocuments("r", ["a"], [{ id: "a", parsing_metadata: meta("USD", f, o) }])).toMatchObject({ ok: false, code: "ACTIVE_EVIDENCE_SCALE_UNRESOLVED" });
+    }
+    expect(resolveMetadataFromParsedDocuments("r", ["a"], [{ id: "a", parsing_metadata: meta("USD", 1, "DECLARED") }])).toMatchObject({ ok: true, factorEscala: 1, escalaOrigen: "DECLARED" });
   });
 });
 

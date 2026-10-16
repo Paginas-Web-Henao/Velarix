@@ -5,8 +5,12 @@
 // `documents_parsed` que alimentaron ese run (`evidence_runs.source_parsed_document_ids`),
 // nunca del último `parse_complete` del análisis: un parse posterior cuyo run
 // falló no puede cambiar la moneda/escala de las homologaciones activas.
-// Fail-closed: sin fuentes, fuente inexistente, escala ausente o fuentes
-// incompatibles → error (no se elige "la última").
+// Fail-closed: sin fuentes, fuente inexistente, moneda no reconocida, escala
+// ausente o no declarada, o fuentes incompatibles → error (no se elige "la última").
+// Escala: solo `escala_origen = "DECLARED"` cuenta como resuelta. parse-document
+// persiste `factor_escala ?? 1` y no distingue "unidad real 1" de "sin señal"
+// (`NONE`/null); `INFERRED` es una heurística por magnitud que además ya
+// multiplicó los valores de las filas. Ninguna de las dos prueba la escala.
 // Puntero NULL (legacy): comportamiento previo — último `parse_complete` del
 // análisis, `factor_escala` ausente → 1 (VALID_LEGACY_DEFAULT, documentado).
 // No cambia la conversión (BL-03): solo QUÉ metadata se usa.
@@ -16,17 +20,19 @@ import type { Db } from "./evidence-runs.ts";
 
 export interface ParsedDocumentMetadataRow {
   id: string;
-  parsing_metadata?: { moneda_documento?: unknown; factor_escala?: unknown } | null;
+  parsing_metadata?: { moneda_documento?: unknown; factor_escala?: unknown; escala_origen?: unknown } | null;
 }
 
 export type DocumentMetadataErrorCode =
   | "ACTIVE_EVIDENCE_SOURCE_MISSING"
   | "ACTIVE_EVIDENCE_SOURCE_NOT_FOUND"
   | "ACTIVE_EVIDENCE_SCALE_MISSING"
+  | "ACTIVE_EVIDENCE_SCALE_UNRESOLVED"
+  | "ACTIVE_EVIDENCE_CURRENCY_MISSING"
   | "ACTIVE_EVIDENCE_METADATA_CONFLICT";
 
 export type DocumentMetadataResolution =
-  | { ok: true; source: "active_evidence_run"; evidenceRunId: string; parsedDocumentIds: string[]; monedaDocumento: CurrencyCode | null; factorEscala: number }
+  | { ok: true; source: "active_evidence_run"; evidenceRunId: string; parsedDocumentIds: string[]; monedaDocumento: CurrencyCode; factorEscala: number; escalaOrigen: "DECLARED" }
   | { ok: true; source: "legacy_latest_parse_event"; monedaDocumento: CurrencyCode | null; factorEscala: number }
   | { ok: false; code: DocumentMetadataErrorCode; message: string };
 
@@ -46,12 +52,17 @@ export function resolveMetadataFromParsedDocuments(evidenceRunId: string, source
     if (meta.factor_escala === null || meta.factor_escala === undefined || !Number.isFinite(f) || f <= 0) {
       return { ok: false, code: "ACTIVE_EVIDENCE_SCALE_MISSING", message: `El documento parseado ${id} no declara factor_escala válido; no se asume 1.` };
     }
+    if (meta.escala_origen !== "DECLARED") {
+      return { ok: false, code: "ACTIVE_EVIDENCE_SCALE_UNRESOLVED", message: `La escala del documento parseado ${id} no está declarada (escala_origen=${JSON.stringify(meta.escala_origen ?? null)}, factor_escala=${f}); el parser no prueba si 1 es una unidad real o un default.` };
+    }
     factors.add(f);
   }
   if (currencies.size > 1 || factors.size > 1) {
     return { ok: false, code: "ACTIVE_EVIDENCE_METADATA_CONFLICT", message: `Los documentos fuente del run tienen moneda/escala incompatibles (monedas: ${[...currencies].map(String).join(", ")}; escalas: ${[...factors].join(", ")}).` };
   }
-  return { ok: true, source: "active_evidence_run", evidenceRunId, parsedDocumentIds: ids, monedaDocumento: [...currencies][0] ?? null, factorEscala: [...factors][0] };
+  const moneda = [...currencies][0] ?? null;
+  if (!moneda) return { ok: false, code: "ACTIVE_EVIDENCE_CURRENCY_MISSING", message: "Los documentos fuente del run activo no tienen una moneda reconocida (COP/USD); no se asume que no haya conversión." };
+  return { ok: true, source: "active_evidence_run", evidenceRunId, parsedDocumentIds: ids, monedaDocumento: moneda, factorEscala: [...factors][0], escalaOrigen: "DECLARED" };
 }
 
 /** I/O mínimo: lee el run activo y sus parsed documents fuente (o el evento legacy). */
@@ -62,6 +73,7 @@ export async function resolveActiveEvidenceDocumentMetadata(db: Db, analysis: { 
       .select("metadata").eq("analysis_id", analysis.id).eq("event_type", "parse_complete")
       .order("created_at", { ascending: false }).limit(1);
     const parseMeta = (auditParse?.[0]?.metadata as { moneda_documento?: string | null; factor_escala?: unknown } | null) || {};
+    // LEGACY_COMPATIBILITY_DEFAULT: factor_escala ausente → 1 (comportamiento histórico).
     return { ok: true, source: "legacy_latest_parse_event", monedaDocumento: normalizeCurrencyCode(parseMeta.moneda_documento), factorEscala: Number(parseMeta.factor_escala) || 1 };
   }
   const { data: run, error: runError } = await db.from("evidence_runs").select("id, source_parsed_document_ids").eq("id", runId).eq("analysis_id", analysis.id).maybeSingle();

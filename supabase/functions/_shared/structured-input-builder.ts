@@ -156,7 +156,11 @@ export interface BuildCanonicalStructuredInputParams {
   monedaAnalisis: CurrencyCode;
   monedaDocumento: CurrencyCode | null;
   scaleFactor: number;
-  exchangeRate: number;
+  /**
+   * COP por 1 USD. `null` = no hay tasa explícita (casos versionados): solo se
+   * admite si no hace falta conversión de moneda; nunca se sustituye por TRM fija.
+   */
+  exchangeRate: number | null;
   snapshot: CanonicalSnapshotInput;
   /** Id de la fila de `structured_inputs` que va a persistir este payload — para `provenance.structured_input_id`. */
   structuredInputId: string | null;
@@ -275,8 +279,14 @@ export function buildCanonicalStructuredInput(
   if (interestExpense == null) qualityFlags.push("sin_gastos_financieros");
   if (ebitda == null) qualityFlags.push("ebitda_no_derivable");
 
-  const { totalConversionFactor: factorTotal, currencyConversionApplied, currencyUndetected } =
-    computeTotalConversionFactor({
+  // Sin tasa explícita no hay conversión de moneda posible: se exige la
+  // misma moneda y solo se aplica la escala (misma rama que computeTotalConversionFactor).
+  if (exchangeRate === null && monedaDocumento !== monedaAnalisis) {
+    throw new Error(`EXCHANGE_RATE_REQUIRED: ${monedaDocumento ?? "moneda no detectada"} → ${monedaAnalisis} sin tasa de conversión explícita.`);
+  }
+  const { totalConversionFactor: factorTotal, currencyConversionApplied, currencyUndetected } = exchangeRate === null
+    ? computeTotalConversionFactor({ sourceCurrency: monedaDocumento, reportingCurrency: monedaAnalisis, scaleFactor, exchangeRate: 1 /* sin uso: misma moneda */ })
+    : computeTotalConversionFactor({
       sourceCurrency: monedaDocumento,
       reportingCurrency: monedaAnalisis,
       scaleFactor,

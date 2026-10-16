@@ -3,8 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveBasePeriod } from "../_shared/period-resolution.ts";
 import { applyActiveRunFilter, selectActiveRows } from "../_shared/evidence-runs.ts";
 import { loadActiveJudgment } from "../_shared/judgment-loader.ts";
-import { normalizeCurrencyCode } from "../_shared/currency.ts";
 import { resolveActiveEvidenceDocumentMetadata } from "../_shared/evidence-document-metadata.ts";
+import { LEGACY_EXCHANGE_RATE_COP_PER_USD, resolveStructuredInputCurrency } from "../_shared/structured-input-currency.ts";
 import {
   buildCanonicalStructuredInput,
   buildDefaultSnapshot,
@@ -21,12 +21,8 @@ const corsHeaders = {
 
 // TRM from macro data (single source of truth) — mismo valor real que
 // build-structured-input/index.ts (ver _shared/structured-input-builder.ts).
-const TRM = 4080;
+const TRM = LEGACY_EXCHANGE_RATE_COP_PER_USD; // LEGACY_COMPATIBILITY_DEFAULT (solo snapshot por defecto y casos legacy)
 
-/** Subconjunto mínimo de `analyses` que necesita la resolución de moneda (BL-03). */
-interface AnalysisCurrencyFields {
-  moneda_analisis?: string | null;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -197,7 +193,6 @@ serve(async (req) => {
     const periods = periodResolution.availablePeriods;
 
     // ── Currency conversion (BL-03) — misma resolución que build-structured-input ──
-    const monedaAnalisis = normalizeCurrencyCode((analysis as AnalysisCurrencyFields).moneda_analisis) ?? "COP";
     // Metadata documental ligada al evidence run activo (mismo resolver que build-structured-input).
     const docMeta = await resolveActiveEvidenceDocumentMetadata(supabase, analysis);
     if (!docMeta.ok) {
@@ -208,8 +203,20 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: false, error: { code: docMeta.code, message: docMeta.message } }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const monedaDoc = docMeta.monedaDocumento;
-    const factorEscala = docMeta.factorEscala;
+    // Moneda/escala/FX: en casos versionados nada implícito (ni COP, ni factor 1,
+    // ni TRM fija); legacy conserva LEGACY_COMPATIBILITY_DEFAULT. Ver _shared/structured-input-currency.ts.
+    const currency = resolveStructuredInputCurrency({ monedaAnalisisRaw: analysis.moneda_analisis, docMeta });
+    if (!currency.ok) {
+      await supabase.from("audit_events").insert({
+        analysis_id, event_type: "structured_input_metadata_blocked", event_detail: `${currency.code}: ${currency.message}`,
+        component: "continuar-tras-revision", user_id: actor?.userId ?? null, metadata: { code: currency.code, active_evidence_run_id: analysis.active_evidence_run_id ?? null },
+      });
+      return new Response(JSON.stringify({ success: false, error: { code: currency.code, message: currency.message } }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const monedaAnalisis = currency.monedaAnalisis;
+    const monedaDoc = currency.monedaDocumento;
+    const factorEscala = currency.factorEscala;
 
     // Get snapshot — mismo fallback Damodaran que build-structured-input
     // cuando no hay fila en external_snapshots para el sector (antes de
@@ -262,7 +269,7 @@ serve(async (req) => {
       monedaAnalisis,
       monedaDocumento: monedaDoc,
       scaleFactor: factorEscala,
-      exchangeRate: TRM,
+      exchangeRate: currency.exchangeRate,
       snapshot: {
         id: snapshotId,
         data_payload: snapshot.data_payload || snapshot,

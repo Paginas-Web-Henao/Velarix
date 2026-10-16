@@ -34,7 +34,7 @@ function setup(analysis: Row = {}) {
   m = createMemoryDb({
     analyses: [{ id: "a1", user_id: "owner-1", status: "validacion_aprobada", sector: "industrial", moneda_analisis: "USD", calculation_result: null, active_evidence_run_id: "run-1", active_judgment_set_id: null, expected_growth: null, ...analysis }],
     evidence_runs: [{ id: "run-1", analysis_id: "a1", status: "completed", source_parsed_document_ids: ["p-1"] }, { id: "run-2", analysis_id: "a1", status: "completed", source_parsed_document_ids: ["p-1"] }],
-    documents_parsed: [{ id: "p-1", document_id: "d1", parsing_metadata: { moneda_documento: "USD", factor_escala: 1 } }],
+    documents_parsed: [{ id: "p-1", document_id: "d1", parsing_metadata: { moneda_documento: "USD", factor_escala: 1, escala_origen: "DECLARED" } }],
     // Filas de otros runs: nunca deben llegar al input.
     account_homologations: [...RUN1, hom("revenue", 999_999, "run-0"), hom("revenue", 888_888, null)],
     judgment_sets: [], judgment_entries: [], structured_inputs: [], audit_events: [], external_snapshots: [],
