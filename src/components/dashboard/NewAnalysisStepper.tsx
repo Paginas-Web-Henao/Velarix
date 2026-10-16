@@ -3,10 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CheckCircle2, ChevronRight, Loader2, XCircle, RotateCcw } from "lucide-react";
 import DocumentUpload from "./DocumentUpload";
-import { SECTOR_BENCHMARKS, SECTOR_KEYS } from "@/lib/financial-engine";
+import { SECTOR_KEYS } from "@/lib/financial-engine";
 import { useAnalysisProgress } from "@/hooks/useAnalysisProgress";
 import ProgressPanel from "./ProgressPanel";
-import { buildNewCaseRow } from "@/lib/new-case";
+import { buildNewCaseRow, missingRequiredNewCaseFields } from "@/lib/new-case";
 import type { PipelineOutcome } from "@/lib/evidence-pipeline";
 
 const SECTORS = SECTOR_KEYS;
@@ -32,8 +32,9 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
 
   // Step 1 fields
   const [company, setCompany] = useState("");
-  const [sector, setSector] = useState(SECTORS[0]);
-  const [moneda, setMoneda] = useState("COP");
+  // Sin defaults silenciosos: sector y moneda exigen una selección explícita.
+  const [sector, setSector] = useState("");
+  const [moneda, setMoneda] = useState("");
   // Metadata opcional del caso: vacío = null (pendiente), nunca inventado.
   const [valuationDate, setValuationDate] = useState("");
   const [basePeriod, setBasePeriod] = useState("");
@@ -41,13 +42,10 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
   const [valuedInterest, setValuedInterest] = useState("");
   const [calcArchitecture, setCalcArchitecture] = useState("");
 
-  const sectorKey = Object.keys(SECTOR_BENCHMARKS).find(
-    k => SECTOR_BENCHMARKS[k].label === sector
-  );
-  const benchData = sectorKey ? SECTOR_BENCHMARKS[sectorKey] : null;
+  const missing = missingRequiredNewCaseFields({ company, sector, moneda });
 
   const handleStep1 = async () => {
-    if (!company.trim()) { toast.error("Ingresa el nombre de la empresa."); return; }
+    if (missing.length) { toast.error(`Completa: ${missing.join(", ")}.`); return; }
     setCreating(true);
     const { data, error } = await supabase
       .from("analyses")
@@ -127,36 +125,26 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
           <h2 className="font-display text-lg font-bold text-foreground mb-6">Datos de la empresa</h2>
           <div className="space-y-4">
             <div>
-              <label className="font-body text-xs text-muted-foreground block mb-1">Nombre de la empresa *</label>
-              <input type="text" value={company} onChange={e => setCompany(e.target.value)}
+              <label htmlFor="company" className="font-body text-xs text-muted-foreground block mb-1">Nombre de la empresa *</label>
+              <input id="company" type="text" value={company} onChange={e => setCompany(e.target.value)}
                 className="w-full bg-background metallic-border rounded px-3 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50"
                 placeholder="Nombre legal de la empresa" />
             </div>
             <div>
-              <label className="font-body text-xs text-muted-foreground block mb-1">Sector *</label>
-              <select value={sector} onChange={e => setSector(e.target.value)}
+              <label htmlFor="sector" className="font-body text-xs text-muted-foreground block mb-1">Sector *</label>
+              <select id="sector" value={sector} onChange={e => setSector(e.target.value)}
                 className="w-full bg-background metallic-border rounded px-3 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50">
+                <option value="" disabled>Seleccionar sector</option>
                 {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            {benchData && (
-              <div className="bg-background rounded p-3 metallic-border">
-                <p className="font-body text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Benchmarks de referencia — {sector}</p>
-                <div className="flex flex-wrap gap-4 font-body text-xs text-foreground">
-                  <span>Beta: <strong>{benchData.beta}</strong></span>
-                  <span>WACC ref: <strong>{benchData.waccRef}%</strong></span>
-                  <span>Margen EBITDA: <strong>{benchData.ebitdaMargin}%</strong></span>
-                  <span>EV/EBITDA: <strong>{benchData.evEbitda}x</strong></span>
-                </div>
-                <p className="font-body text-[9px] text-muted-foreground mt-1">Fuente: Damodaran · Dataset Velarix</p>
-              </div>
-            )}
             <div>
-              <label className="font-body text-xs text-muted-foreground block mb-1">Moneda del análisis *</label>
-              <select value={moneda} onChange={e => setMoneda(e.target.value)}
+              <label htmlFor="moneda" className="font-body text-xs text-muted-foreground block mb-1">Moneda del análisis *</label>
+              <select id="moneda" value={moneda} onChange={e => setMoneda(e.target.value)}
                 className="w-full bg-background metallic-border rounded px-3 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50">
-                <option value="COP">COP — Peso colombiano (mantener moneda original)</option>
-                <option value="USD">USD — Dólar estadounidense (convertir a USD)</option>
+                <option value="" disabled>Seleccionar moneda</option>
+                <option value="COP">COP — Peso colombiano</option>
+                <option value="USD">USD — Dólar estadounidense</option>
               </select>
             </div>
             <fieldset className="space-y-3 border-t border-border pt-4">
@@ -194,7 +182,7 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
                   className="w-full bg-background metallic-border rounded px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50" />
               </div>
             </fieldset>
-            <button onClick={handleStep1} disabled={creating}
+            <button onClick={handleStep1} disabled={creating || missing.length > 0}
               className="bg-primary text-primary-foreground font-body text-sm px-6 py-2.5 rounded hover:bg-primary/90 disabled:opacity-50 transition-colors active:scale-[0.97]">
               {creating ? <><Loader2 size={14} className="inline animate-spin mr-2" />Guardando...</> : "Continuar →"}
             </button>

@@ -18,7 +18,18 @@ export interface NewCaseForm {
 
 const orNull = (v: string) => (v.trim() === "" ? null : v.trim());
 
+/** Campos obligatorios sin selección explícita (sector y moneda no tienen default). */
+export function missingRequiredNewCaseFields(f: Pick<NewCaseForm, "company" | "sector" | "moneda">): string[] {
+  const missing: string[] = [];
+  if (!f.company.trim()) missing.push("nombre de la empresa");
+  if (!f.sector.trim()) missing.push("sector");
+  if (!f.moneda.trim()) missing.push("moneda");
+  return missing;
+}
+
 export function buildNewCaseRow(f: NewCaseForm): TablesInsert<"analyses"> {
+  const missing = missingRequiredNewCaseFields(f);
+  if (missing.length) throw new Error(`Faltan campos obligatorios: ${missing.join(", ")}.`);
   return {
     user_id: f.userId,
     company_name: f.company.trim(),

@@ -29,26 +29,76 @@ beforeEach(() => { sb.inserted = []; sb.status = "documentos_cargados"; sb.sessi
 afterEach(() => vi.unstubAllGlobals());
 
 describe("NewAnalysisStepper", () => {
-  it("no pide crecimiento, no trae placeholder de Alpina y crea el caso con expected_growth null y metadata null", async () => {
+  const fill = (over: { company?: string; sector?: string; moneda?: string } = {}) => {
+    const { company = "Empresa X", sector = "Manufactura", moneda = "USD" } = over;
+    if (company) fireEvent.change(screen.getByLabelText("Nombre de la empresa *"), { target: { value: company } });
+    if (sector) fireEvent.change(screen.getByLabelText("Sector *"), { target: { value: sector } });
+    if (moneda) fireEvent.change(screen.getByLabelText("Moneda del análisis *"), { target: { value: moneda } });
+  };
+  const continuar = () => screen.getByText("Continuar →").closest("button") as HTMLButtonElement;
+
+  it("sector y moneda arrancan vacíos, con opción «Seleccionar …» (sin defaults silenciosos)", () => {
     render(<NewAnalysisStepper userId="u1" onComplete={() => {}} />);
-    expect(screen.queryByText(/Crecimiento esperado de ingresos/i)).toBeNull(); // ya no hay campo
-    expect(document.querySelector('input[type="number"]')).toBeNull();
-    expect(document.body.innerHTML).not.toMatch(/Alpina/);
-    fireEvent.change(screen.getByPlaceholderText("Nombre legal de la empresa"), { target: { value: "Empresa X" } });
-    fireEvent.click(screen.getByText("Continuar →"));
+    expect((screen.getByLabelText("Sector *") as HTMLSelectElement).value).toBe("");
+    expect((screen.getByLabelText("Moneda del análisis *") as HTMLSelectElement).value).toBe("");
+    expect(screen.getByText("Seleccionar sector")).toBeTruthy();
+    expect(screen.getByText("Seleccionar moneda")).toBeTruthy();
+    expect(continuar().disabled).toBe(true);
+  });
+
+  it("las opciones de moneda de análisis son neutrales: sin conversión ni «moneda original»", () => {
+    render(<NewAnalysisStepper userId="u1" onComplete={() => {}} />);
+    const options = Array.from((screen.getByLabelText("Moneda del análisis *") as HTMLSelectElement).options);
+    expect(options.map((o) => [o.value, o.textContent])).toEqual([
+      ["", "Seleccionar moneda"],
+      ["COP", "COP — Peso colombiano"],
+      ["USD", "USD — Dólar estadounidense"],
+    ]);
+    for (const o of options) expect(o.textContent).not.toMatch(/convertir|mantener moneda original/i);
+  });
+
+  it.each([
+    ["sin sector", { sector: "" }],
+    ["sin moneda", { moneda: "" }],
+    ["sin nombre", { company: "" }],
+  ])("no se puede crear el caso %s", async (_l, over) => {
+    render(<NewAnalysisStepper userId="u1" onComplete={() => {}} />);
+    fill(over);
+    expect(continuar().disabled).toBe(true);
+    fireEvent.click(continuar());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(sb.inserted).toHaveLength(0);
+  });
+
+  it("con nombre + sector + moneda explícitos sí crea el caso: expected_growth null y metadata null", async () => {
+    render(<NewAnalysisStepper userId="u1" onComplete={() => {}} />);
+    fill();
+    expect(continuar().disabled).toBe(false);
+    fireEvent.click(continuar());
     await waitFor(() => expect(sb.inserted).toHaveLength(1));
     const row = sb.inserted[0] as Record<string, unknown>;
+    expect(row).toMatchObject({ company_name: "Empresa X", sector: "Manufactura", moneda_analisis: "USD" });
     expect(row.expected_growth).toBeNull();
     expect(Object.values(row)).not.toContain(25);
     expect(row).toMatchObject({ valuation_date: null, base_period: null, basis_of_value: null, valued_interest: null, calculation_architecture: null });
   });
 
+  it("no muestra benchmarks (beta, WACC, margen EBITDA, EV/EBITDA), ni crecimiento, ni Alpina — tampoco tras elegir sector", () => {
+    render(<NewAnalysisStepper userId="u1" onComplete={() => {}} />);
+    fill();
+    const t = document.body.textContent ?? "";
+    expect(t).not.toMatch(/Beta|WACC|Margen EBITDA|EV\/EBITDA|Benchmarks de referencia|Damodaran/i);
+    expect(screen.queryByText(/Crecimiento esperado de ingresos/i)).toBeNull();
+    expect(document.querySelector('input[type="number"]')).toBeNull();
+    expect(document.body.innerHTML).not.toMatch(/Alpina/);
+  });
+
   it("guarda la metadata escrita en el formulario", async () => {
     render(<NewAnalysisStepper userId="u1" onComplete={() => {}} />);
-    fireEvent.change(screen.getByPlaceholderText("Nombre legal de la empresa"), { target: { value: "Empresa X" } });
+    fill();
     fireEvent.change(screen.getByLabelText("Fecha de valoración"), { target: { value: "2024-12-31" } });
     fireEvent.change(screen.getByLabelText("Período base"), { target: { value: "FY2024" } });
-    fireEvent.click(screen.getByText("Continuar →"));
+    fireEvent.click(continuar());
     await waitFor(() => expect(sb.inserted).toHaveLength(1));
     expect(sb.inserted[0]).toMatchObject({ valuation_date: "2024-12-31", base_period: "FY2024", basis_of_value: null });
   });

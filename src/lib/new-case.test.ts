@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildNewCaseRow } from "./new-case";
+import { buildNewCaseRow, missingRequiredNewCaseFields } from "./new-case";
 import { interpretPipelineResponse, isEvidenceComplete, EVIDENCE_PHASES } from "./evidence-pipeline";
 
 const base = { userId: "u", company: "  Empresa X  ", sector: "Manufactura", moneda: "USD", valuationDate: "", basePeriod: "", basisOfValue: "", valuedInterest: "", calculationArchitecture: "" };
@@ -19,6 +19,19 @@ describe("buildNewCaseRow", () => {
     expect(row.valuation_date).toBe("2024-12-31");
     expect(row.base_period).toBe("FY2024");
     expect(row.basis_of_value).toBeNull();
+  });
+});
+
+describe("campos obligatorios sin default", () => {
+  it("sector, moneda y nombre deben elegirse explícitamente", () => {
+    expect(missingRequiredNewCaseFields({ company: "X", sector: "", moneda: "" })).toEqual(["sector", "moneda"]);
+    expect(missingRequiredNewCaseFields({ company: " ", sector: "Manufactura", moneda: "USD" })).toEqual(["nombre de la empresa"]);
+    expect(missingRequiredNewCaseFields({ company: "X", sector: "Manufactura", moneda: "USD" })).toEqual([]);
+  });
+
+  it("buildNewCaseRow no construye una fila sin sector o sin moneda (nunca rellena un default)", () => {
+    expect(() => buildNewCaseRow({ ...base, sector: "" })).toThrow(/sector/);
+    expect(() => buildNewCaseRow({ ...base, moneda: "" })).toThrow(/moneda/);
   });
 });
 
