@@ -22,6 +22,7 @@ tags: [velarix, moc, system]
 ## Motor y trazabilidad
 - [[motor-canonico]] · [[supuestos-y-preflight]] · [[reproducibilidad]] · [[expediente]]
 - Auditoría del motor: [[05-financial-engine-audit]]
+- Versionado: Evidence [[ADR-009-evidence-runs-versionado]] · Judgment [[ADR-010-judgment-sets-versionados]] (el cálculo solo consume evidence run activo + judgment set activo)
 
 ## Pipeline e IA
 - [[pipeline-documental]] · [[narrativa-ia]] · [[informes-pdf]] · [[datos-de-mercado]] · [[notificaciones]]

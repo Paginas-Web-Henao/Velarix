@@ -115,6 +115,7 @@ export type Database = {
       analyses: {
         Row: {
           active_evidence_run_id: string | null
+          active_judgment_set_id: string | null
           calculation_result: Json | null
           company_name: string
           completed_at: string | null
@@ -139,6 +140,7 @@ export type Database = {
         }
         Insert: {
           active_evidence_run_id?: string | null
+          active_judgment_set_id?: string | null
           calculation_result?: Json | null
           company_name?: string
           completed_at?: string | null
@@ -163,6 +165,7 @@ export type Database = {
         }
         Update: {
           active_evidence_run_id?: string | null
+          active_judgment_set_id?: string | null
           calculation_result?: Json | null
           company_name?: string
           completed_at?: string | null
@@ -670,6 +673,149 @@ export type Database = {
           locked_by?: string | null
         }
         Relationships: []
+      }
+      judgment_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_date: string | null
+          id: string
+          judgment_set_id: string
+          key: string
+          rationale: string
+          references: Json | null
+          source: string
+          source_type: string
+          status: string
+          supersedes_entry_id: string | null
+          unit: string | null
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string | null
+          id?: string
+          judgment_set_id: string
+          key: string
+          rationale: string
+          references?: Json | null
+          source: string
+          source_type?: string
+          status: string
+          supersedes_entry_id?: string | null
+          unit?: string | null
+          value: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string | null
+          id?: string
+          judgment_set_id?: string
+          key?: string
+          rationale?: string
+          references?: Json | null
+          source?: string
+          source_type?: string
+          status?: string
+          supersedes_entry_id?: string | null
+          unit?: string | null
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "judgment_entries_judgment_set_id_fkey"
+            columns: ["judgment_set_id"]
+            isOneToOne: false
+            referencedRelation: "judgment_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "judgment_entries_supersedes_entry_id_fkey"
+            columns: ["supersedes_entry_id"]
+            isOneToOne: false
+            referencedRelation: "judgment_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      judgment_sets: {
+        Row: {
+          analysis_id: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_code: string | null
+          error_detail: string | null
+          evidence_run_id: string
+          failed_at: string | null
+          id: string
+          previous_active_judgment_set_id: string | null
+          promoted_at: string | null
+          reused_from_judgment_set_id: string | null
+          status: string
+        }
+        Insert: {
+          analysis_id: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_detail?: string | null
+          evidence_run_id: string
+          failed_at?: string | null
+          id?: string
+          previous_active_judgment_set_id?: string | null
+          promoted_at?: string | null
+          reused_from_judgment_set_id?: string | null
+          status?: string
+        }
+        Update: {
+          analysis_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_detail?: string | null
+          evidence_run_id?: string
+          failed_at?: string | null
+          id?: string
+          previous_active_judgment_set_id?: string | null
+          promoted_at?: string | null
+          reused_from_judgment_set_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "judgment_sets_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "judgment_sets_evidence_run_id_fkey"
+            columns: ["evidence_run_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "judgment_sets_previous_active_judgment_set_id_fkey"
+            columns: ["previous_active_judgment_set_id"]
+            isOneToOne: false
+            referencedRelation: "judgment_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "judgment_sets_reused_from_judgment_set_id_fkey"
+            columns: ["reused_from_judgment_set_id"]
+            isOneToOne: false
+            referencedRelation: "judgment_sets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       manual_reviews: {
         Row: {

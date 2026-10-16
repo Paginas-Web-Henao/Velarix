@@ -20,6 +20,7 @@ No hay servidor propio: la "API" son **Supabase Edge Functions** (`supabase/func
 | `map-accounts` | Pipeline | JWT usuario | account_homologations | [[pipeline-documental]] |
 | `validate-analysis` | Pipeline | JWT usuario | validation_results | [[pipeline-documental]] |
 | `build-structured-input` | `continuar-tras-revision` / llamada explícita (**no** el pipeline de Evidence) | JWT usuario | structured_inputs, external_snapshots | [[pipeline-documental]] |
+| `judgment-sets` | Explícito (`create_draft`, `add_entry`, `complete`, `fail`, `promote`) | JWT usuario (dueño) | judgment_sets, judgment_entries, analyses | [[supuestos-y-preflight]] |
 | `ejecutar-calculo` | Explícito (**no** el pipeline de Evidence) | JWT usuario o secret key interna | analyses, structured_inputs, valuation_files, account_notes, expedient_* | [[motor-canonico]] |
 | `continuar-tras-revision` | Frontend (admin) | JWT o secret key interna | manual_reviews, structured_inputs | [[revision-manual]] |
 | `generate-narrative` | `api-client.generateNarrative` | JWT usuario | report_narratives | [[narrativa-ia]] |
@@ -29,7 +30,7 @@ No hay servidor propio: la "API" son **Supabase Edge Functions** (`supabase/func
 
 Todas tienen `verify_jwt = false` en `supabase/config.toml` y verifican identidad en su propio código (ver [[07-autenticacion]]).
 
-Respuestas relevantes de `ejecutar-calculo`: **409** si falla el checkpoint del Expediente o el preflight (con el detalle en el body y un `audit_event`).
+Respuestas relevantes de `ejecutar-calculo`: **409** si falla el checkpoint del Expediente o el preflight (con el detalle en el body y un `audit_event`), o si el structured input no corresponde al judgment set / evidence run activos (`STRUCTURED_INPUT_STALE_FOR_JUDGMENT`). `build-structured-input` y `continuar-tras-revision` responden **409** `JUDGMENT_SET_INVALID` si el set activo no materializa.
 
 ## Cliente frontend
 

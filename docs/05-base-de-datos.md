@@ -61,7 +61,9 @@ erDiagram
 - **account_homologations** — `analysis_id, document_id, evidence_run_id, original_label, canonical_account, category, value, period, confidence_score, ambiguity_flag, mapping_notes`.
 - **validation_results** — `analysis_id, evidence_run_id, rule_code, severity, status, blocking_flag, detail`.
 - **evidence_runs** — `analysis_id, status (mapping/mapped/validating/completed/failed), failed_stage, error_code, error_detail, source_parsed_document_ids, previous_active_run_id, started_at…promoted_at`. Historial de homologación + validación; el set activo lo marca `analyses.active_evidence_run_id` (NULL = filas legacy). Ver [[ADR-009-evidence-runs-versionado]].
-- **structured_inputs** — `analysis_id, input_payload, version_input`.
+- **judgment_sets** — `analysis_id, evidence_run_id, status (draft/completed/failed), previous_active_judgment_set_id, reused_from_judgment_set_id, error_code, error_detail, created_by, created_at, completed_at, failed_at, promoted_at`. El activo lo marca `analyses.active_judgment_set_id` (NULL = legacy). Ver [[ADR-010-judgment-sets-versionados]].
+- **judgment_entries** — `judgment_set_id, key, value (JSONB), unit, source_type (JUDGMENT), source, rationale, status (resolved/proposed), effective_date, references, supersedes_entry_id, created_by`. Append-only; solo en sets draft.
+- **structured_inputs** — `analysis_id, input_payload, version_input`. Fila única por análisis; en modo judgment set el payload lleva `resolved_assumptions` y `judgment` (provenance).
 - **calculation_results** — `analysis_id, engine_version, input_payload, output_payload`.
 - **report_narratives** — `analysis_id, executive_summary, sections_payload, audit_passed, audit_notes, generation_version`.
 - **generated_reports** — `analysis_id, file_path, report_version`.
