@@ -92,6 +92,17 @@ export async function markEvidenceRun(db: Db, runId: string, patch: Record<strin
   await db.from("evidence_runs").update(patch).eq("id", runId);
 }
 
+/**
+ * Reclama un run "mapped" para validarlo: UPDATE condicionado al estado
+ * (mapped → validating) que devuelve las filas afectadas. Solo un llamador
+ * puede reclamarlo; un segundo validate concurrente del mismo run recibe
+ * false y no inserta validaciones duplicadas ni toca el puntero.
+ */
+export async function claimRunForValidation(db: Db, runId: string): Promise<boolean> {
+  const { data, error } = await db.from("evidence_runs").update({ status: "validating" }).eq("id", runId).eq("status", "mapped").select("id");
+  return !error && Array.isArray(data) && data.length === 1;
+}
+
 export async function failEvidenceRun(db: Db, runId: string, stage: EvidenceRunStage, code: string, detail: string): Promise<void> {
   await markEvidenceRun(db, runId, { status: "failed", failed_stage: stage, error_code: code, error_detail: detail.slice(0, 2000) });
 }
@@ -108,4 +119,28 @@ export async function promoteEvidenceRun(db: Db, params: { analysisId: string; r
   if (error) return false;
   const { data } = await db.from("analyses").select("active_evidence_run_id").eq("id", params.analysisId).single();
   return data?.active_evidence_run_id === params.runId;
+}
+
+// ── Corrección manual de homologaciones ─────────────────────────────
+
+export const VERSIONED_MANUAL_MAPPING_CORRECTION_PENDING = "VERSIONED_MANUAL_MAPPING_CORRECTION_PENDING";
+
+export type ManualCorrectionDecision =
+  | { allowed: true }
+  | { allowed: false; code: typeof VERSIONED_MANUAL_MAPPING_CORRECTION_PENDING; message: string };
+
+/**
+ * Las filas de un evidence run son inmutables. Una corrección manual solo se
+ * permite sobre el modelo legacy (caso sin run activo y fila sin run). En un
+ * caso versionado la corrección correcta es: clonar el set activo en un run
+ * nuevo (servidor) → aplicar la corrección con provenance → validar →
+ * promover. Ese flujo todavía no existe (VERSIONED_MANUAL_MAPPING_CORRECTION_PENDING).
+ */
+export function evaluateManualMappingCorrection(params: { activeRunId: string | null | undefined; rowRunId: string | null | undefined }): ManualCorrectionDecision {
+  if (!params.activeRunId && !params.rowRunId) return { allowed: true };
+  return {
+    allowed: false,
+    code: VERSIONED_MANUAL_MAPPING_CORRECTION_PENDING,
+    message: "Las homologaciones versionadas son inmutables. La corrección manual debe crear un nuevo Evidence run; ese flujo todavía no está implementado.",
+  };
 }

@@ -39,12 +39,12 @@ export type ReprocessingDecision =
 /**
  * Ningún endpoint de reprocesamiento de Evidence (run-analysis-pipeline,
  * parse-document, map-accounts, validate-analysis) modifica automáticamente un
- * caso que ya tiene `calculation_result`: homologaciones, validaciones y
- * estado cambiarían bajo un cálculo oficial ya persistido, y map/validate
- * BORRAN sus filas anteriores al reejecutarse. Reprocesar exigiría una
- * ejecución o un versionado explícitos que todavía no existen
- * (EVIDENCE_REPROCESSING_VERSIONING_PENDING). `upload-document` es la
- * excepción: adjunta el documento, fuera del cálculo oficial existente.
+ * caso que ya tiene `calculation_result`: el resultado oficial y su
+ * provenance (homologaciones, validaciones y estado con los que se calculó)
+ * se preservan. El versionado de Evidence (ADR-009) permite reprocesar casos
+ * NO calculados sin perder historia; los calculados siguen protegidos.
+ * `upload-document` es la excepción: adjunta el documento, fuera del cálculo
+ * oficial existente.
  */
 export function evaluateEvidenceReprocessing(analysis: CaseProbe | null | undefined): ReprocessingDecision {
   if (!hasPersistedCalculation(analysis)) return { allowed: true };
@@ -54,7 +54,7 @@ export function evaluateEvidenceReprocessing(analysis: CaseProbe | null | undefi
     code: "CASE_ALREADY_CALCULATED",
     message:
       "Este caso ya tiene un cálculo oficial persistido. El reprocesamiento de Evidence (pipeline, parse, map, validate) " +
-      "no modifica casos calculados: hacerlo requiere una ejecución o un versionado explícitos (EVIDENCE_REPROCESSING_VERSIONING_PENDING).",
+      "no modifica casos calculados, para preservar el resultado oficial y su provenance.",
   };
 }
 

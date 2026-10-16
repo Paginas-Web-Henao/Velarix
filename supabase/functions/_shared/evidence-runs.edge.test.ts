@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMemoryDb, type MemoryDb, type Row } from "./test-support/memory-db";
 import { selectActiveRows, MixedEvidenceRunsError, applyActiveRunFilter, canPromote, selectRunToValidate } from "./evidence-runs";
 import { deriveCoreFinancialFields } from "./structured-input-derivations";
+import { evaluateEvidenceReprocessing } from "./evidence-pipeline-guards";
 
 const h = vi.hoisted(() => ({ handlers: [] as ((req: Request) => Promise<Response>)[], db: null as unknown }));
 vi.mock("https://deno.land/std@0.168.0/http/server.ts", () => ({ serve: (fn: (req: Request) => Promise<Response>) => { h.handlers.push(fn); } }));
@@ -125,6 +126,9 @@ describe("C/E: un run fallido nunca se vuelve activo y no quita el último set b
     expect(pointer()).toBe(B.runId);
     expect({ homs: homsOf(B.runId).length, vals: valsOf(B.runId).length }).toEqual(before);
     expect(canPromote(runById(C.runId) as never)).toBe(false);
+    // Estado del último intento: no queda "en curso" tras el fallo directo; B no se marca fallido.
+    expect(m.tables.analyses[0].status).toBe("error_tecnico");
+    expect(runById(B.runId).status).toBe("completed");
   });
 
   it("E. validación falla → run failed; la validación activa anterior sigue activa", async () => {
@@ -136,6 +140,7 @@ describe("C/E: un run fallido nunca se vuelve activo y no quita el último set b
     expect(D.validate!.status).toBe(500);
     expect(runById(D.runId)).toMatchObject({ status: "failed", failed_stage: "validation" });
     expect(pointer()).toBe(B.runId);
+    expect(m.tables.analyses[0].status).toBe("error_tecnico");
     expect(selectActiveRows(m.tables.validation_results as never[], pointer() as string)).toHaveLength(activeVals);
     expect(homsOf(D.runId).length).toBeGreaterThan(0); // D queda auditable, pero no activo
   });
@@ -159,6 +164,23 @@ describe("C/E: un run fallido nunca se vuelve activo y no quita el último set b
     expect(resp.status).toBe(400);
     expect((await resp.json()).error.code).toBe("NO_MAPPED_EVIDENCE_RUN");
     expect(pointer()).toBe(B.runId);
+  });
+});
+
+describe("validación BLOQUEADA técnicamente completada → se promueve (decisión confirmada)", () => {
+  it("el run bloqueado queda activo y el caso refleja el bloqueo; los fallos técnicos nunca se promueven", async () => {
+    const B = await evidenceRun();
+    m.tables.documents[0].processing_status = "procesando"; // DOC_003 bloqueante
+    newParse("p-X", 150, true);
+    const X = await evidenceRun();
+    const body = await X.validate!.json();
+    expect(body.data).toMatchObject({ evidence_run_id: X.runId, validation_status: "bloqueado", can_proceed: false });
+    expect(runById(X.runId)).toMatchObject({ status: "completed" });
+    expect(runById(X.runId).promoted_at).toBeTruthy();
+    expect(pointer()).toBe(X.runId);
+    expect(m.tables.analyses[0]).toMatchObject({ status: "validacion_bloqueada", validation_status: "bloqueado" });
+    expect(rule(X.runId, "DOC_003")).toMatchObject({ status: "failed", blocking_flag: true });
+    expect(runById(B.runId).status).toBe("completed"); // el anterior queda como historial
   });
 });
 
@@ -193,5 +215,28 @@ describe("G/H: legacy y casos calculados", () => {
     expect((await call(validateHandler, { analysis_id: "a1" })).status).toBe(409);
     expect(m.tables.evidence_runs).toEqual([]);
     expect(m.tables.account_homologations).toEqual([]);
+  });
+
+  it("H. el motivo de CASE_ALREADY_CALCULATED es preservar el resultado oficial (ya no 'versionado pendiente')", () => {
+    const d = evaluateEvidenceReprocessing({ calculation_result: { x: 1 } });
+    expect(d).toMatchObject({ allowed: false, httpStatus: 409, code: "CASE_ALREADY_CALCULATED" });
+    if (d.allowed) throw new Error("debía rechazar");
+    expect(d.message).toMatch(/preservar el resultado oficial y su provenance/);
+    expect(d.message).not.toMatch(/versionado|VERSIONING_PENDING/);
+  });
+});
+
+describe("reclamo atómico del run a validar", () => {
+  it("un segundo validate del mismo run no duplica validaciones ni marca fallido el run activo", async () => {
+    const map = await call(mapHandler, { analysis_id: "a1" });
+    const runId = (await map.json()).data.evidence_run_id;
+    const [v1, v2] = await Promise.all([
+      call(validateHandler, { analysis_id: "a1", evidence_run_id: runId }),
+      call(validateHandler, { analysis_id: "a1", evidence_run_id: runId }),
+    ]);
+    expect([v1.status, v2.status].sort()).toEqual([200, 409]);
+    expect(pointer()).toBe(runId);
+    expect(runById(runId).status).toBe("completed");
+    expect(valsOf(runId).length).toBe(new Set(valsOf(runId).map((v) => v.rule_code)).size); // sin duplicados
   });
 });

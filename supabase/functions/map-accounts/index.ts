@@ -121,6 +121,7 @@ serve(async (req) => {
   // failed y el set activo anterior sigue intacto.
   let evidenceRunId: string | null = null;
   let mappingFailureCode = "MAPPING_ERROR";
+  let failedAnalysisId: string | null = null;
   let db: Parameters<typeof failEvidenceRun>[0] | null = null;
   try {
     const authHeader = req.headers.get("Authorization");
@@ -146,8 +147,8 @@ serve(async (req) => {
 
     // Caso con cálculo oficial persistido: este endpoint de Evidence no lo
     // reprocesa. Antes de cualquier escritura; el audit event es la única.
-    // (EVIDENCE_REPROCESSING_VERSIONING_PENDING: no hay versionado de
-    // homologaciones/validaciones, así que no se puede reprocesar sin perder historia.)
+    // Se preserva el resultado oficial y su provenance; el versionado de
+    // Evidence (ADR-009) solo aplica a casos no calculados.
     const reprocessing = evaluateEvidenceReprocessing(analysis);
     if (!reprocessing.allowed) {
       await supabase.from("audit_events").insert(reprocessingRejectedAuditEvent({
@@ -188,6 +189,7 @@ serve(async (req) => {
     // Este run produce un set nuevo; el set activo solo cambia cuando
     // validate-analysis complete y promueva el run (ver ../_shared/evidence-runs.ts).
     const userId = user.id;
+    failedAnalysisId = analysis_id;
     evidenceRunId = await createEvidenceRun(supabase, {
       analysisId: analysis_id, userId,
       previousActiveRunId: (analysis as { active_evidence_run_id?: string | null }).active_evidence_run_id ?? null,
@@ -417,6 +419,10 @@ serve(async (req) => {
     console.error("map-accounts error:", error);
     if (evidenceRunId && db) {
       await failEvidenceRun(db, evidenceRunId, "mapping", mappingFailureCode, error instanceof Error ? error.message : String(error)).catch(() => {});
+      // analyses.status = estado del último intento: no queda "en curso" tras un
+      // fallo directo (mismo estado que fija run-analysis-pipeline). El puntero
+      // activo NO se toca: el set anterior sigue siendo el operacional.
+      if (failedAnalysisId) await db.from("analyses").update({ status: "error_tecnico" }).eq("id", failedAnalysisId).then(() => {}, () => {});
     }
     const mapped = mapErrorToResponse(error, { code: "MAPPING_ERROR", message: "Error en la homologación contable." });
     // El run fallido queda trazable (status failed); el set activo no cambió.

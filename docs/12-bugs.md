@@ -33,6 +33,7 @@ Regla v5.0: **un cálculo financieramente incorrecto es bloqueante absoluto**, p
 | LIM-06 | Dataset Damodaran 2026 hardcodeado en `update-snapshots` | Por diseño | `update-snapshots/index.ts` |
 | LIM-07 | `supabase/functions/_shared` no está cubierto por ningún `tsconfig` | Sin typecheck oficial | [[06-tests-first-plan]] |
 | LIM-08 | El extractor PDF de `parse-document` solo lee PDFs sin comprimir ni cifrar: busca `BT…ET` en los bytes crudos, sin descomprimir FlateDecode ni descifrar. Un PDF moderno (p. ej. el 10-K FY2024 de Tecnoglass, RC4-128 + FlateDecode) da 0 caracteres. Antes el fallback de IA recibía entonces los bytes del archivo; desde el 2026-10-16 falla cerrado con `DOCUMENT_TEXT_UNAVAILABLE` (sin IA, sin `documents_parsed`). Soporte PDF real (descompresión/descifrado/OCR) pendiente de diseño | Abierta | `_shared/document-text-gate.ts`, [[pipeline-documental]] |
+| LIM-09 | `VERSIONED_MANUAL_MAPPING_CORRECTION_PENDING`: la corrección manual de homologaciones (`corregirCuenta`) solo funciona sobre filas legacy. En casos versionados se rechaza antes del UPDATE porque las filas de un evidence run son inmutables. Flujo pendiente: clonar el set activo en un run nuevo (servidor) → aplicar la corrección con provenance → validar → promover. | Abierta (diseño en [[ADR-009-evidence-runs-versionado]]) | `src/lib/manual-review-api.ts`, `_shared/evidence-runs.ts` |
 
 ## Corregidos recientemente (referencia)
 

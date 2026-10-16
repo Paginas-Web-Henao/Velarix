@@ -3,7 +3,7 @@
 // con dobles de serve, supabase-js, xlsx y Deno. Regla: si el caso tiene
 // `calculation_result`, ningún endpoint de reprocesamiento de Evidence lo
 // modifica — 409 CASE_ALREADY_CALCULATED y el audit event de rechazo como
-// ÚNICA escritura (EVIDENCE_REPROCESSING_VERSIONING_PENDING).
+// ÚNICA escritura (se preserva el resultado oficial y su provenance).
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFakeState, createFakeSupabase, type FakeState } from "./test-support/fake-supabase";
 

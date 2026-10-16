@@ -5,7 +5,7 @@ import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-k
 import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent } from "../_shared/evidence-pipeline-guards.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { evaluate, summarizeEvidenceValidation } from "../_shared/validation-rules.ts";
-import { selectRunToValidate, markEvidenceRun, failEvidenceRun, promoteEvidenceRun } from "../_shared/evidence-runs.ts";
+import { selectRunToValidate, claimRunForValidation, markEvidenceRun, failEvidenceRun, promoteEvidenceRun } from "../_shared/evidence-runs.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,6 +19,7 @@ serve(async (req) => {
   // failed (el set activo anterior sigue intacto).
   let evidenceRunId: string | null = null;
   let runFinished = false;
+  let failedAnalysisId: string | null = null;
   let db: Parameters<typeof failEvidenceRun>[0] | null = null;
   try {
     const authHeader = req.headers.get("Authorization");
@@ -44,8 +45,8 @@ serve(async (req) => {
 
     // Caso con cálculo oficial persistido: este endpoint de Evidence no lo
     // reprocesa. Antes de cualquier escritura; el audit event es la única.
-    // (EVIDENCE_REPROCESSING_VERSIONING_PENDING: no hay versionado de
-    // homologaciones/validaciones, así que no se puede reprocesar sin perder historia.)
+    // Se preserva el resultado oficial y su provenance; el versionado de
+    // Evidence (ADR-009) solo aplica a casos no calculados.
     const reprocessing = evaluateEvidenceReprocessing(analysis);
     if (!reprocessing.allowed) {
       await supabase.from("audit_events").insert(reprocessingRejectedAuditEvent({
@@ -62,8 +63,13 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: false, error: { code: pick.error, message: pick.message } }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const run = pick.run;
+    // Reclamo atómico (mapped → validating): un segundo validate concurrente del
+    // mismo run no duplica validaciones ni marca fallido un run ya promovido.
+    if (!(await claimRunForValidation(supabase, run.id))) {
+      return new Response(JSON.stringify({ success: false, error: { code: "EVIDENCE_RUN_ALREADY_CLAIMED", message: "Este evidence run ya se está validando o ya fue validado." } }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     evidenceRunId = run.id;
-    await markEvidenceRun(supabase, run.id, { status: "validating" });
+    failedAnalysisId = analysis_id;
 
     const { data: accounts } = await supabase.from("account_homologations").select("*").eq("analysis_id", analysis_id).eq("evidence_run_id", run.id);
     if (!accounts || accounts.length === 0) {
@@ -166,6 +172,8 @@ serve(async (req) => {
     console.error("validate-analysis error:", error);
     if (evidenceRunId && !runFinished && db) {
       await failEvidenceRun(db, evidenceRunId, "validation", "VALIDATION_ERROR", error instanceof Error ? error.message : String(error)).catch(() => {});
+      // Último intento fallido: no queda "en curso". El puntero activo no se toca.
+      if (failedAnalysisId) await db.from("analyses").update({ status: "error_tecnico" }).eq("id", failedAnalysisId).then(() => {}, () => {});
     }
     const mapped = mapErrorToResponse(error, { code: "VALIDATION_ERROR", message: "Error en la validación." });
     // El run fallido queda trazable; el set activo anterior no cambió.

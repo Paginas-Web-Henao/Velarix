@@ -470,8 +470,8 @@ serve(async (req) => {
 
     // Caso con cálculo oficial persistido: este endpoint de Evidence no lo
     // reprocesa. Antes de cualquier escritura; el audit event es la única.
-    // (EVIDENCE_REPROCESSING_VERSIONING_PENDING: no hay versionado de
-    // homologaciones/validaciones, así que no se puede reprocesar sin perder historia.)
+    // Se preserva el resultado oficial y su provenance; el versionado de
+    // Evidence (ADR-009) solo aplica a casos no calculados.
     const reprocessing = evaluateEvidenceReprocessing(analysis);
     if (!reprocessing.allowed) {
       await supabase.from("audit_events").insert(reprocessingRejectedAuditEvent({

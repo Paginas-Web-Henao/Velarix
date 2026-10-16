@@ -1,5 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
-import { selectActiveRows } from "../../supabase/functions/_shared/evidence-runs";
+import { selectActiveRows, evaluateManualMappingCorrection } from "../../supabase/functions/_shared/evidence-runs";
+
+/** Corrección rechazada: la fila pertenece a un evidence run versionado (inmutable). */
+export class VersionedManualCorrectionError extends Error {
+  constructor(public readonly code: string, message: string) {
+    super(message);
+    this.name = "VersionedManualCorrectionError";
+  }
+}
 
 const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
@@ -189,6 +197,16 @@ export async function corregirCuenta({
     .single();
 
   if (!original) throw new Error("Cuenta no encontrada.");
+
+  // ADR-009: una fila de un evidence run no cambia retrospectivamente. Solo el
+  // modelo legacy (sin run activo ni run en la fila) admite la corrección en
+  // sitio; en un caso versionado se rechaza ANTES de cualquier UPDATE.
+  const { data: analysisRow } = await supabase.from("analyses").select("*").eq("id", original.analysis_id).maybeSingle();
+  const decision = evaluateManualMappingCorrection({
+    activeRunId: (analysisRow as { active_evidence_run_id?: string | null } | null)?.active_evidence_run_id ?? null,
+    rowRunId: (original as { evidence_run_id?: string | null }).evidence_run_id ?? null,
+  });
+  if ("code" in decision) throw new VersionedManualCorrectionError(decision.code, decision.message);
 
   // Update the mapping
   await supabase
