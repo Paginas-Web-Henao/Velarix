@@ -25,6 +25,8 @@ Ingesta de estados financieros (PDF, Excel, CSV): **CREATE CASE → UPLOAD → P
 
 **Casos calculados:** `run-analysis-pipeline`, `parse-document`, `map-accounts` y `validate-analysis` rechazan con 409 `CASE_ALREADY_CALCULATED` un caso con `calculation_result`. Su única escritura es el evento `evidence_reprocessing_rejected`. `upload-document` adjunta el documento sin degradar el estado y lo deja fuera del cálculo oficial. Ver LIM-05 en [[12-bugs]]. `build-structured-input` y `continuar-tras-revision` no se cubrieron en esta fase.
 
+**Fallback de IA fail-closed:** si la extracción estructurada deja menos de 3 filas con valor, el fallback de IA (`SYSTEM_PARSER_FALLBACK`) solo recibe texto realmente extraído que supere `evaluateAiFallbackText` (`_shared/document-text-gate.ts`: ≥ 200 caracteres, ≥ 60 % alfanumérico, sin contenido binario). Nunca recibe los bytes del archivo. Si no pasa, `parse-document` responde 400 `DOCUMENT_TEXT_UNAVAILABLE`, marca el documento `fallido`, registra `parse_failed` (`ai_called: false`) y no crea `documents_parsed`. Los PDFs comprimidos/cifrados caen aquí (LIM-08 en [[12-bugs]]).
+
 ## Frontend
 `src/components/dashboard/DocumentUpload.tsx` (botón «Procesar Evidence»; Workbench → Evidence), `NewAnalysisStepper.tsx` (Nuevo caso: sin campo de crecimiento → `expected_growth = null`; metadata opcional → `null` si vacía; al terminar abre el caso en Accounts), `ProgressPanel.tsx` (solo fases Documentos · Extracción · Cuentas · Validación), `src/hooks/useAnalysisProgress.ts`, `src/lib/evidence-pipeline.ts`, `src/lib/new-case.ts`.
 

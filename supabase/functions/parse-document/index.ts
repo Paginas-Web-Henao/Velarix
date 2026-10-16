@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent } from "../_shared/evidence-pipeline-guards.ts";
+import { evaluateAiFallbackText } from "../_shared/document-text-gate.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { SYSTEM_CLASSIFIER, SYSTEM_PERIOD_DETECTOR, SYSTEM_PARSER_FALLBACK } from "../_shared/parse-document-prompts.ts";
 import { normalizarNumero, explodeAiFallbackRowByPeriod, reconcileDetectedPeriods, UnmappedAiColumnError } from "../_shared/parse-document-ai-fallback.ts";
@@ -488,13 +489,19 @@ serve(async (req) => {
     // AI Fallback if too few rows
     const filasConValor = filas.filter(f => f.valor !== null);
     if (filasConValor.length < 3) {
-      usedAIFallback = true;
-      let contentForAI = textoPlano;
-      if (!contentForAI || contentForAI.length < 50) {
-        contentForAI = new TextDecoder("utf-8", { fatal: false }).decode(bytes).substring(0, 8000);
+      // Fail-closed: la IA solo recibe texto realmente extraído que supere el
+      // gate — nunca los bytes del archivo (antes, con < 50 caracteres se le
+      // enviaba la decodificación utf-8 del binario, p. ej. un PDF comprimido
+      // o cifrado). Sin texto legible no hay IA ni documents_parsed.
+      const gate = evaluateAiFallbackText(textoPlano);
+      if (!gate.allowed) {
+        await supabase.from("documents").update({ processing_status: "fallido" }).eq("id", document_id);
+        await supabase.from("audit_events").insert({ analysis_id, event_type: "parse_failed", event_detail: `Parsing fallido: ${gate.message}`, component: "parse-document", user_id: user.id, metadata: { code: gate.code, reason: gate.reason, formato: formato.tipo, tipo_interno: metadatos.tipo_interno ?? null, text_metrics: gate.metrics, ai_called: false } });
+        throw new BadRequestError(gate.code, gate.message);
       }
+      usedAIFallback = true;
       const parseResult = await callParseAiWith(parseAiConfig, SYSTEM_PARSER_FALLBACK,
-        `Extrae todas las cuentas contables.\n\nContenido:\n${contentForAI.substring(0, 6000)}`, 4000);
+        `Extrae todas las cuentas contables.\n\nContenido:\n${gate.text.substring(0, 6000)}`, 4000);
       const parsed = parseResult ? extractJSON(parseResult) : null;
       if (parsed?.rows?.length > 0) {
         // Bug período AI fallback: una fila IA con varios períodos en
