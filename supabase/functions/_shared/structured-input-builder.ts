@@ -138,6 +138,40 @@ export interface CanonicalStructuredInputAccountRow extends HomologatedAccountRo
  * sintético de `buildDefaultSnapshot`) — mismo criterio que
  * build-structured-input aplicaba con `dbSnapshot?.id || null`.
  */
+/** Fila persistida de `external_snapshots` (solo los campos que entran al input). */
+export interface PersistedExternalSnapshot {
+  id: string;
+  data_payload?: unknown;
+  macro_payload?: unknown;
+}
+
+export type StructuredInputSnapshotSource = "external_snapshot" | "legacy_default" | "unavailable";
+
+/**
+ * Snapshot que acompaña al structured input (provenance; el motor no lo lee).
+ * - Hay fila real en `external_snapshots` → esa fila, con su provenance real.
+ * - Caso VERSIONADO sin fila → ausencia explícita (`id`/`data_payload`/
+ *   `macro_payload` = null). Nunca `buildDefaultSnapshot`: sus valores fijos
+ *   llevan fuentes y fechas que no corresponden a una fuente persistida.
+ * - Legacy sin fila → LEGACY_COMPATIBILITY_DEFAULT: `buildDefaultSnapshot`,
+ *   igual que antes (Alpina y golden cases sin cambios).
+ * No rellena Judgment: los 13 supuestos resueltos siguen siendo la fuente oficial.
+ */
+export function resolveStructuredInputSnapshot(params: {
+  versioned: boolean;
+  dbSnapshot: PersistedExternalSnapshot | null | undefined;
+  sector: string;
+  legacyExchangeRate: number;
+}): CanonicalSnapshotInput & { source: StructuredInputSnapshotSource } {
+  const { dbSnapshot } = params;
+  if (dbSnapshot) {
+    return { id: dbSnapshot.id || null, data_payload: dbSnapshot.data_payload || dbSnapshot, macro_payload: dbSnapshot.macro_payload || null, source: "external_snapshot" };
+  }
+  if (params.versioned) return { id: null, data_payload: null, macro_payload: null, source: "unavailable" };
+  const fallback = buildDefaultSnapshot(params.sector, params.legacyExchangeRate);
+  return { id: null, data_payload: fallback.data_payload || fallback, macro_payload: fallback.macro_payload || null, source: "legacy_default" };
+}
+
 export interface CanonicalSnapshotInput {
   id: string | null;
   data_payload: unknown;

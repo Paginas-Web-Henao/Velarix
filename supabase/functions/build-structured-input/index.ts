@@ -7,7 +7,7 @@ import { resolveActiveEvidenceDocumentMetadata } from "../_shared/evidence-docum
 import { LEGACY_EXCHANGE_RATE_COP_PER_USD, resolveStructuredInputCurrency } from "../_shared/structured-input-currency.ts";
 import {
   buildCanonicalStructuredInput,
-  buildDefaultSnapshot,
+  resolveStructuredInputSnapshot,
   CANONICAL_STRUCTURED_INPUT_VERSION,
 } from "../_shared/structured-input-builder.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
@@ -121,8 +121,15 @@ serve(async (req) => {
       .order("effective_date", { ascending: false })
       .limit(1).single();
 
-    const snapshot = dbSnapshot || buildDefaultSnapshot(analysis.sector, TRM);
-    const snapshotId = dbSnapshot?.id || null;
+    // Versionado sin fila real → snapshot ausente (null), nunca el default con
+    // fuentes/fechas fijas; legacy conserva el default (LEGACY_COMPATIBILITY_DEFAULT).
+    const snapshot = resolveStructuredInputSnapshot({
+      versioned: currency.mode === "versioned",
+      dbSnapshot,
+      sector: analysis.sector,
+      legacyExchangeRate: TRM,
+    });
+    const snapshotId = snapshot.id;
 
     const builtAt = new Date().toISOString();
 
@@ -169,8 +176,8 @@ serve(async (req) => {
       exchangeRate: currency.exchangeRate,
       snapshot: {
         id: snapshotId,
-        data_payload: snapshot.data_payload || snapshot,
-        macro_payload: snapshot.macro_payload || null,
+        data_payload: snapshot.data_payload,
+        macro_payload: snapshot.macro_payload,
       },
       structuredInputId,
       createdAt: builtAt,
