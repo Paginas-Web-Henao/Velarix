@@ -2,9 +2,16 @@ import { useState, useCallback, useEffect, type DragEvent, type ChangeEvent } fr
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Upload, CheckCircle2, AlertTriangle, Loader2, Play, FileText, Info } from "lucide-react";
+import { interpretPipelineResponse, type PipelineOutcome } from "@/lib/evidence-pipeline";
+
 interface Props {
   analysisId: string;
-  onComplete: () => void;
+  /** El pipeline de Evidence se está lanzando (antes de esperar la respuesta). */
+  onStarted?: () => void;
+  /** El servidor respondió (o no hubo respuesta: `uncertain`). */
+  onFinished?: (outcome: PipelineOutcome) => void;
+  /** El caso ya tiene un cálculo oficial: no se reprocesa y los documentos nuevos quedan fuera de él. */
+  calculated?: boolean;
 }
 
 const ALLOWED_TYPES = [
@@ -30,12 +37,13 @@ interface ContentDetection {
   tieneAmbos: boolean;
 }
 
-const DocumentUpload = ({ analysisId, onComplete }: Props) => {
+const DocumentUpload = ({ analysisId, onStarted, onFinished, calculated = false }: Props) => {
   const [uploads, setUploads] = useState<UploadedDoc[]>([]);
   const [uploading, setUploading] = useState(false);
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [contentDetection, setContentDetection] = useState<ContentDetection | null>(null);
   const [conversionNote, setConversionNote] = useState<string | null>(null);
+  const [excludedNotice, setExcludedNotice] = useState<string | null>(null);
 
   const uploadFile = async (file: File, docType: DocType) => {
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -97,6 +105,12 @@ const DocumentUpload = ({ analysisId, onComplete }: Props) => {
       if (result.data?.nota_conversion) {
         setConversionNote(result.data.nota_conversion);
       }
+
+      // Documento subido a un caso ya calculado: queda cargado pero fuera del cálculo oficial existente.
+      if (result.data?.excluded_from_calculation && result.data?.warning) {
+        setExcludedNotice(result.data.warning);
+        toast.warning(result.data.warning);
+      }
     } catch (e: any) {
       toast.error(e.message || "Error de red al cargar el documento.");
     } finally {
@@ -120,15 +134,21 @@ const DocumentUpload = ({ analysisId, onComplete }: Props) => {
   const hasAmbos = contentDetection?.tieneAmbos;
   const canRunPipeline = (hasER && hasBG) || hasAmbos || uploads.length > 0;
 
+  // Pipeline de EVIDENCE: parsea → homologa → valida y se detiene. No construye
+  // el input del motor ni calcula.
   const runPipeline = async () => {
+    if (calculated) return;
     setPipelineRunning(true);
-    // Advance stepper to step 3 immediately
-    onComplete();
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { toast.error("Sesión expirada."); return; }
+      if (!session) {
+        toast.error("Sesión expirada.");
+        onFinished?.({ ok: false, message: "Sesión expirada." });
+        return;
+      }
+      onStarted?.();
 
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-analysis-pipeline`, {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-analysis-pipeline`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -137,9 +157,16 @@ const DocumentUpload = ({ analysisId, onComplete }: Props) => {
         },
         body: JSON.stringify({ analysis_id: analysisId }),
       });
-      // Pipeline result is tracked via ProgressPanel in step 3
+      const body = await resp.json().catch(() => null);
+      const outcome = interpretPipelineResponse(resp.ok, resp.status, body);
+      if (!outcome.ok) toast.error(outcome.message);
+      else toast.success("Evidence procesada.");
+      onFinished?.(outcome);
     } catch (e: any) {
-      toast.error(e.message || "Error al ejecutar el pipeline.");
+      // Sin respuesta HTTP (red/timeout): el pipeline pudo seguir en el servidor;
+      // el progreso real lo da el estado del caso.
+      toast.warning("No se recibió respuesta del servidor. El avance se sigue por el estado del caso.");
+      onFinished?.({ ok: false, uncertain: true, message: e?.message });
     } finally {
       setPipelineRunning(false);
     }
@@ -190,6 +217,19 @@ const DocumentUpload = ({ analysisId, onComplete }: Props) => {
         </p>
       </div>
 
+      {calculated && (
+        <div className="rounded-lg border border-amber-800/30 bg-amber-950/20 p-4 flex items-start gap-3">
+          <AlertTriangle className="text-amber-400 mt-0.5 shrink-0" size={18} />
+          <p className="font-body text-xs text-amber-300">
+            Este caso ya tiene un cálculo oficial. Los documentos que cargues ahora NO forman parte de ese cálculo hasta una futura
+            ejecución o versionado explícitos, y el pipeline de Evidence no reprocesa casos calculados.
+          </p>
+        </div>
+      )}
+      {excludedNotice && (
+        <div className="rounded-lg border border-amber-800/30 bg-amber-950/10 p-3 text-xs text-amber-300" role="status">{excludedNotice}</div>
+      )}
+
       {/* Content detection message */}
       {hasAmbos && (
         <div className="rounded-lg border border-green-800/30 bg-green-950/20 p-4 flex items-start gap-3">
@@ -199,7 +239,7 @@ const DocumentUpload = ({ analysisId, onComplete }: Props) => {
               ✓ Tu archivo contiene tanto el Estado de Resultados como el Balance General.
             </p>
             <p className="font-body text-[11px] text-muted-foreground mt-1">
-              No necesitas cargar un segundo archivo. Puedes ejecutar el pipeline directamente.
+              No necesitas cargar un segundo archivo. Puedes procesar la Evidence directamente.
             </p>
           </div>
         </div>
@@ -229,22 +269,23 @@ const DocumentUpload = ({ analysisId, onComplete }: Props) => {
 
       {/* Pipeline execution */}
       <div className="metallic-border rounded-lg bg-card p-6">
-        <h3 className="font-display text-sm font-semibold text-foreground mb-3">Procesamiento automático</h3>
+        <h3 className="font-display text-sm font-semibold text-foreground mb-3">Procesar Evidence</h3>
         <p className="font-body text-xs text-muted-foreground mb-4">
-          El sistema: parsea documentos → homologa cuentas (IA) → valida consistencia → construye input para el motor de cálculo.
+          El sistema: parsea documentos → homologa cuentas (IA) → valida consistencia, y se detiene ahí. No construye el input
+          del motor ni calcula: el Judgment y el cálculo son pasos posteriores y explícitos.
         </p>
 
         <div className="flex items-center gap-4">
           <button
             onClick={runPipeline}
-            disabled={!canRunPipeline || pipelineRunning}
+            disabled={!canRunPipeline || pipelineRunning || calculated}
             className="flex items-center gap-2 bg-primary text-primary-foreground font-body text-sm px-5 py-2.5 rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {pipelineRunning ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-            {pipelineRunning ? "Procesando..." : "Ejecutar pipeline de análisis"}
+            {pipelineRunning ? "Procesando..." : "Procesar Evidence"}
           </button>
 
-          {!canRunPipeline && (
+          {!canRunPipeline && !calculated && (
             <p className="font-body text-xs text-muted-foreground flex items-center gap-1">
               <AlertTriangle size={12} className="text-yellow-400" />
               Sube al menos un documento para continuar

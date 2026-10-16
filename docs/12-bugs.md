@@ -28,6 +28,7 @@ Regla v5.0: **un cálculo financieramente incorrecto es bloqueante absoluto**, p
 | LIM-02 | Sin lógica de stub period | CONDITIONAL (no aplica si fecha de valoración = cierre) | §18.3 #11 |
 | LIM-03 | Dos motores DCF (cliente vs. canónico) pueden divergir | Unificación `NOT BUILDING` | D-06 en [[REGISTRO-DE-DECISIONES]] |
 | LIM-04 | Rama legacy de `capital-structure.ts` conserva el fallback 70/30 cuando no hay `resolved_assumptions` | Compatibilidad con golden cases A/B/C | [[05-financial-engine-audit]] §4 |
+| LIM-05 | `EVIDENCE_REPROCESSING_VERSIONING_PENDING`: reprocesar Evidence no tiene versionado. `map-accounts` **borra** las `account_homologations` previas y `validate-analysis` **borra** los `validation_results` previos al reejecutarse, así que reprocesar un caso perdería la Evidence en la que se basa su cálculo. Mientras no exista versionado (que puede requerir schema), un caso con `calculation_result` queda protegido: pipeline, parse, map y validate responden 409 `CASE_ALREADY_CALCULATED` sin escribir nada salvo el audit event de rechazo. | Abierta (requiere diseño; no se resolvió en esta fase) | [[04-flujos]] §1, `_shared/evidence-pipeline-guards.ts` |
 | LIM-05 | Modelo de Anthropic fijo en `anthropic-client.ts` | Decisión D-03 | [[REGISTRO-DE-DECISIONES]] |
 | LIM-06 | Dataset Damodaran 2026 hardcodeado en `update-snapshots` | Por diseño | `update-snapshots/index.ts` |
 | LIM-07 | `supabase/functions/_shared` no está cubierto por ningún `tsconfig` | Sin typecheck oficial | [[06-tests-first-plan]] |

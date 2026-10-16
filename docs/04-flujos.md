@@ -1,6 +1,6 @@
 ---
 tipo: flujos
-actualizado: 2026-10-15
+actualizado: 2026-10-16
 tags: [velarix, flujos, system]
 ---
 
@@ -8,40 +8,52 @@ tags: [velarix, flujos, system]
 
 Volver a [[00-home]] · Relacionado: [[06-api]], [[05-base-de-datos]]
 
-## 1. Pipeline de análisis (end-to-end)
+## 1. Pipeline de Evidence
 
-Orquestado por `supabase/functions/run-analysis-pipeline/index.ts`; el frontend lo dispara desde `src/components/dashboard/DocumentUpload.tsx` (Workbench → Evidence → Cargar, o Nuevo caso).
+> **Evidence ≠ Judgment ≠ Calculation.** El pipeline automático solo procesa **Evidence**:
+>
+> **CREATE CASE → UPLOAD → PARSE → MAP ACCOUNTS → VALIDATE → STOP**
+>
+> `build-structured-input` y `ejecutar-calculo` **ya no forman parte** del pipeline automático. El input del motor necesita Judgment (los 13 `resolved_assumptions` y el crecimiento esperado), que todavía no existe al terminar la Evidence. El cálculo es un paso posterior y explícito (§2).
+
+Orquestado por `supabase/functions/run-analysis-pipeline/index.ts`. El frontend lo dispara con el botón **«Procesar Evidence»** de `src/components/dashboard/DocumentUpload.tsx` (Workbench → Nuevo caso, o Workbench → Evidence → Cargar).
 
 ```mermaid
 sequenceDiagram
   actor U as Usuario
-  participant FE as Dashboard
+  participant FE as Workbench
   participant UP as upload-document
   participant PL as run-analysis-pipeline
   participant PD as parse-document
   participant MA as map-accounts
   participant VA as validate-analysis
-  participant BS as build-structured-input
-  participant EC as ejecutar-calculo
-  U->>FE: crea análisis (NewAnalysisStepper)
+  U->>FE: crea el caso (NewAnalysisStepper)<br/>expected_growth = null · metadata vacía = null
   FE->>UP: sube archivo (PDF/Excel/CSV)
-  FE->>PL: inicia pipeline
+  FE->>PL: «Procesar Evidence»
+  Note over PL: caso con calculation_result → 409 CASE_ALREADY_CALCULATED
   PL->>PD: status = parsing_en_curso
   PL->>MA: status = homologacion_en_curso
   Note over PL,MA: pipeline-guards: aborta si la homologación falla o tiene bloqueos
-  PL->>VA: validación
+  PL->>VA: validación (fija el estado final)
   alt validación bloqueada
     PL-->>FE: status = validacion_bloqueada (+ notificación)
+  else aprobada / con advertencias
+    PL-->>FE: STOP · status = validacion_aprobada | validacion_con_advertencias<br/>audit event evidence_pipeline_complete
   end
-  PL->>BS: status = calculo_en_curso
-  PL->>EC: cálculo
-  Note over EC: Checkpoint del Expediente → Preflight → Motor (409 si falla un gate)
-  PL-->>FE: status = informe_generado
+  FE->>U: abre el caso (Accounts)
 ```
+
+- **Estado final:** el que deja `validate-analysis`. No hay un estado nuevo; el pipeline no escribe `calculo_en_curso` ni `informe_generado`, ni `analyses.input_payload`.
+- **Eventos:** se registra `evidence_pipeline_complete`. Los `pipeline_complete` históricos se conservan tal cual.
+- **Casos ya calculados:** si `analyses.calculation_result` existe, ningún endpoint de reprocesamiento de Evidence (`run-analysis-pipeline`, `parse-document`, `map-accounts`, `validate-analysis`) modifica el caso. Responden 409 `CASE_ALREADY_CALCULATED` y su única escritura es el audit event `evidence_reprocessing_rejected`. El motivo es la limitación LIM-05 (`EVIDENCE_REPROCESSING_VERSIONING_PENDING`, [[12-bugs]]).
+- **Excepción, `upload-document`:** puede adjuntar un documento a un caso calculado. No cambia su estado ni su `calculation_result`, y el documento queda marcado fuera del cálculo oficial existente (`excluded_from_calculation`).
+- **Lógica pura:** `supabase/functions/_shared/evidence-pipeline-guards.ts`, compartida por las cinco funciones y probada contra el código real de los `index.ts` (`evidence-*.edge.test.ts`, `upload-document.edge.test.ts`).
 
 Estados posibles (`analysis_status`): `creado`, `documentos_cargados`, `parsing_en_curso`, `parsing_completado`, `homologacion_en_curso`, `validacion_aprobada`, `validacion_con_advertencias`, `validacion_bloqueada`, `revision_manual_requerida`, `calculo_en_curso`, `calculo_completo`, `interpretacion_en_curso`, `informe_generado`, `error_tecnico`. El progreso visible se mapea en `src/hooks/useAnalysisProgress.ts`.
 
 ## 2. Cálculo (`ejecutar-calculo`)
+
+Paso **explícito**, separado de la Evidence: no lo dispara el pipeline. Hoy se invoca directamente (Alpina: `npm run materialize:alpina -- --calculate`). El Workbench todavía no tiene un botón de cálculo ni un editor de Judgment.
 
 ```mermaid
 flowchart TB

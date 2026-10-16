@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveBasePeriod } from "../_shared/period-resolution.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
+import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent } from "../_shared/evidence-pipeline-guards.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { evaluate } from "../_shared/validation-rules.ts";
 
@@ -33,6 +34,18 @@ serve(async (req) => {
     const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
     if (lookup === "not_found") throw new NotFoundError();
     if (lookup === "technical_error") throw analysisError;
+
+    // Caso con cálculo oficial persistido: este endpoint de Evidence no lo
+    // reprocesa. Antes de cualquier escritura; el audit event es la única.
+    // (EVIDENCE_REPROCESSING_VERSIONING_PENDING: no hay versionado de
+    // homologaciones/validaciones, así que no se puede reprocesar sin perder historia.)
+    const reprocessing = evaluateEvidenceReprocessing(analysis);
+    if (!reprocessing.allowed) {
+      await supabase.from("audit_events").insert(reprocessingRejectedAuditEvent({
+        analysisId: analysis_id, userId: user.id, component: "validate-analysis", status: (analysis as { status?: string }).status, decision: reprocessing,
+      }));
+      return new Response(JSON.stringify({ success: false, error: { code: reprocessing.code, message: reprocessing.message } }), { status: reprocessing.httpStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const { data: accounts } = await supabase.from("account_homologations").select("*").eq("analysis_id", analysis_id);
     if (!accounts || accounts.length === 0) {

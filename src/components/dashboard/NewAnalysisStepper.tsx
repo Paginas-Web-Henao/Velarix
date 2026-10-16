@@ -6,19 +6,22 @@ import DocumentUpload from "./DocumentUpload";
 import { SECTOR_BENCHMARKS, SECTOR_KEYS } from "@/lib/financial-engine";
 import { useAnalysisProgress } from "@/hooks/useAnalysisProgress";
 import ProgressPanel from "./ProgressPanel";
+import { buildNewCaseRow } from "@/lib/new-case";
+import type { PipelineOutcome } from "@/lib/evidence-pipeline";
 
 const SECTORS = SECTOR_KEYS;
 
 interface Props {
   userId: string;
-  onComplete: () => void;
+  /** Evidence procesada: el Workbench abre el caso creado. */
+  onComplete: (analysisId: string) => void;
 }
 
 const steps = [
   { num: 1, label: "Datos de la empresa" },
   { num: 2, label: "Cargar documentos" },
-  { num: 3, label: "Procesamiento" },
-  { num: 4, label: "Análisis listo" },
+  { num: 3, label: "Procesar Evidence" },
+  { num: 4, label: "Evidence lista" },
 ];
 
 const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
@@ -31,7 +34,12 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
   const [company, setCompany] = useState("");
   const [sector, setSector] = useState(SECTORS[0]);
   const [moneda, setMoneda] = useState("COP");
-  const [growth, setGrowth] = useState(25);
+  // Metadata opcional del caso: vacío = null (pendiente), nunca inventado.
+  const [valuationDate, setValuationDate] = useState("");
+  const [basePeriod, setBasePeriod] = useState("");
+  const [basisOfValue, setBasisOfValue] = useState("");
+  const [valuedInterest, setValuedInterest] = useState("");
+  const [calcArchitecture, setCalcArchitecture] = useState("");
 
   const sectorKey = Object.keys(SECTOR_BENCHMARKS).find(
     k => SECTOR_BENCHMARKS[k].label === sector
@@ -43,7 +51,10 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
     setCreating(true);
     const { data, error } = await supabase
       .from("analyses")
-      .insert({ user_id: userId, company_name: company.trim(), sector, expected_growth: growth, moneda_analisis: moneda, status: "creado" as const } as any)
+      .insert(buildNewCaseRow({
+        userId, company, sector, moneda,
+        valuationDate, basePeriod, basisOfValue, valuedInterest, calculationArchitecture: calcArchitecture,
+      }))
       .select()
       .single();
     setCreating(false);
@@ -53,10 +64,17 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
     toast.success("Datos guardados. Ahora carga los documentos financieros.");
   };
 
-  // Called when DocumentUpload triggers pipeline start (onComplete from DocumentUpload)
-  const handleDocumentsComplete = () => {
-    // Move to step 3 immediately when pipeline starts
+  // DocumentUpload lanzó el pipeline de Evidence: pasar al seguimiento.
+  const handlePipelineStarted = () => {
+    setPipelineError(null);
     setStep(3);
+  };
+
+  // El servidor respondió: un fallo HTTP (p. ej. 409/400) no cambia el estado del
+  // caso, así que el sondeo de ProgressPanel no lo vería. Sin respuesta (red) no
+  // se asume fallo: el progreso sigue por el estado del caso.
+  const handlePipelineFinished = (outcome: PipelineOutcome) => {
+    if (!outcome.ok && !outcome.uncertain) setPipelineError(outcome.message ?? "El pipeline de Evidence falló.");
   };
 
   const handlePipelineComplete = () => {
@@ -112,7 +130,7 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
               <label className="font-body text-xs text-muted-foreground block mb-1">Nombre de la empresa *</label>
               <input type="text" value={company} onChange={e => setCompany(e.target.value)}
                 className="w-full bg-background metallic-border rounded px-3 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50"
-                placeholder="Ej: Alpina Productos Alimenticios S.A.S. BIC" />
+                placeholder="Nombre legal de la empresa" />
             </div>
             <div>
               <label className="font-body text-xs text-muted-foreground block mb-1">Sector *</label>
@@ -141,12 +159,41 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
                 <option value="USD">USD — Dólar estadounidense (convertir a USD)</option>
               </select>
             </div>
-            <div>
-              <label className="font-body text-xs text-muted-foreground block mb-1">Crecimiento esperado de ingresos (%) *</label>
-              <input type="number" value={growth} onChange={e => setGrowth(Number(e.target.value))}
-                className="w-full bg-background metallic-border rounded px-3 py-2.5 text-sm font-body text-foreground focus:outline-none focus:border-primary/50"
-                min={-50} max={200} />
-            </div>
+            <fieldset className="space-y-3 border-t border-border pt-4">
+              <legend className="font-body text-xs text-muted-foreground pr-2">
+                Metadata del caso (opcional — vacío queda «pendiente»)
+              </legend>
+              <p className="font-body text-[10px] text-muted-foreground">
+                El crecimiento esperado y los supuestos son Judgment: se registran después, no al crear el caso.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="valuation_date" className="font-body text-xs text-muted-foreground block mb-1">Fecha de valoración</label>
+                  <input id="valuation_date" type="date" value={valuationDate} onChange={e => setValuationDate(e.target.value)}
+                    className="w-full bg-background metallic-border rounded px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50" />
+                </div>
+                <div>
+                  <label htmlFor="base_period" className="font-body text-xs text-muted-foreground block mb-1">Período base</label>
+                  <input id="base_period" type="text" value={basePeriod} onChange={e => setBasePeriod(e.target.value)} placeholder="Ej: FY2024"
+                    className="w-full bg-background metallic-border rounded px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50" />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="basis_of_value" className="font-body text-xs text-muted-foreground block mb-1">Basis of value</label>
+                <input id="basis_of_value" type="text" value={basisOfValue} onChange={e => setBasisOfValue(e.target.value)}
+                  className="w-full bg-background metallic-border rounded px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50" />
+              </div>
+              <div>
+                <label htmlFor="valued_interest" className="font-body text-xs text-muted-foreground block mb-1">Interés valorado / perímetro</label>
+                <input id="valued_interest" type="text" value={valuedInterest} onChange={e => setValuedInterest(e.target.value)}
+                  className="w-full bg-background metallic-border rounded px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50" />
+              </div>
+              <div>
+                <label htmlFor="calculation_architecture" className="font-body text-xs text-muted-foreground block mb-1">Arquitectura del cálculo</label>
+                <input id="calculation_architecture" type="text" value={calcArchitecture} onChange={e => setCalcArchitecture(e.target.value)}
+                  className="w-full bg-background metallic-border rounded px-3 py-2 text-sm font-body text-foreground focus:outline-none focus:border-primary/50" />
+              </div>
+            </fieldset>
             <button onClick={handleStep1} disabled={creating}
               className="bg-primary text-primary-foreground font-body text-sm px-6 py-2.5 rounded hover:bg-primary/90 disabled:opacity-50 transition-colors active:scale-[0.97]">
               {creating ? <><Loader2 size={14} className="inline animate-spin mr-2" />Guardando...</> : "Continuar →"}
@@ -157,7 +204,7 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
 
       {/* Step 2 — Document upload */}
       {step === 2 && analysisId && (
-        <DocumentUpload analysisId={analysisId} onComplete={handleDocumentsComplete} />
+        <DocumentUpload analysisId={analysisId} onStarted={handlePipelineStarted} onFinished={handlePipelineFinished} />
       )}
 
       {/* Step 3 — Processing (ProgressPanel) */}
@@ -184,13 +231,14 @@ const NewAnalysisStepper = ({ userId, onComplete }: Props) => {
       {step === 4 && (
         <div className="metallic-border rounded-lg bg-card p-8 text-center max-w-lg mx-auto">
           <CheckCircle2 size={40} className="text-emerald-400 mx-auto mb-4" />
-          <h2 className="font-display text-lg font-bold text-foreground mb-2">¡Análisis completado!</h2>
+          <h2 className="font-display text-lg font-bold text-foreground mb-2">Evidence procesada</h2>
           <p className="font-body text-sm text-muted-foreground mb-6">
-            Los documentos de <strong>{company}</strong> han sido procesados exitosamente. Ya puedes ver los resultados completos.
+            Los documentos de <strong>{company}</strong> fueron extraídos, homologados y validados. El proceso se detiene aquí:
+            el Judgment y el cálculo son pasos posteriores y explícitos.
           </p>
-          <button onClick={onComplete}
+          <button onClick={() => analysisId && onComplete(analysisId)}
             className="bg-primary text-primary-foreground font-body text-sm px-6 py-2.5 rounded hover:bg-primary/90 active:scale-[0.97]">
-            Ver mi análisis completo →
+            Abrir caso →
           </button>
         </div>
       )}

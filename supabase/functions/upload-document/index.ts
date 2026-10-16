@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse } from "../_shared/user-auth.ts";
+import { statusAfterUpload, uploadWarning } from "../_shared/evidence-pipeline-guards.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,7 +39,7 @@ serve(async (req) => {
 
     // Verify analysis belongs to user
     const { data: analysis, error: analysisError } = await supabase
-      .from("analyses").select("id, user_id, status").eq("id", analysisId).single();
+      .from("analyses").select("id, user_id, status, calculation_result").eq("id", analysisId).single();
     const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
     if (lookup === "not_found") throw new NotFoundError();
     if (lookup === "technical_error") throw analysisError;
@@ -84,23 +85,27 @@ serve(async (req) => {
       .single();
     if (docError) throw new Error(`Document record failed: ${docError.message}`);
 
-    // Update analysis status
-    await supabase.from("analyses").update({ status: "documentos_cargados" }).eq("id", analysisId);
+    // Update analysis status. Un caso con cálculo oficial persistido conserva
+    // su estado: subir un documento no degrada ese cálculo, y el documento
+    // NO forma parte de él hasta una futura ejecución/versionado explícitos.
+    const newStatus = statusAfterUpload(analysis);
+    if (newStatus) await supabase.from("analyses").update({ status: newStatus }).eq("id", analysisId);
+    const warning = uploadWarning(analysis);
 
     // Audit event
     await supabase.from("audit_events").insert({
       analysis_id: analysisId,
       event_type: "upload_document",
-      event_detail: `Documento cargado: ${file.name} (${docType})`,
+      event_detail: `Documento cargado: ${file.name} (${docType})${warning ? " — caso ya calculado: fuera del cálculo oficial existente" : ""}`,
       component: "upload-document",
       user_id: user.id,
-      metadata: { document_id: document.id, filename: file.name, mime_type: file.type, size_bytes: file.size, checksum },
+      metadata: { document_id: document.id, filename: file.name, mime_type: file.type, size_bytes: file.size, checksum, ...(warning ? { excluded_from_official_calculation: true } : {}) },
     });
 
     return new Response(JSON.stringify({
       success: true,
-      data: { document_id: document.id, filename: file.name, doc_type: docType, checksum },
-      meta: { analysis_id: analysisId, status: "documentos_cargados", timestamp: new Date().toISOString() },
+      data: { document_id: document.id, filename: file.name, doc_type: docType, checksum, excluded_from_calculation: !!warning, ...(warning ? { warning } : {}) },
+      meta: { analysis_id: analysisId, status: newStatus ?? analysis.status, timestamp: new Date().toISOString() },
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (error) {

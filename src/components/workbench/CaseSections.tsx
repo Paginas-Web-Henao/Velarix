@@ -60,8 +60,12 @@ export function EvidenceSection({ data, reload }: SectionProps) {
 
   if (uploading && data.analysis) {
     return (
-      <Panel title="Cargar estados financieros" layer="EVIDENCE" right={<button onClick={() => setUploading(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancelar</button>}>
-        <DocumentUpload analysisId={data.analysis.id} onComplete={() => { setUploading(false); reload(); }} />
+      <Panel title="Cargar estados financieros" layer="EVIDENCE" right={<button onClick={() => { setUploading(false); reload(); }} className="text-xs text-muted-foreground hover:text-foreground">Cerrar</button>}>
+        <DocumentUpload
+          analysisId={data.analysis.id}
+          calculated={!!data.calculation}
+          onFinished={() => { setUploading(false); reload(); }}
+        />
       </Panel>
     );
   }

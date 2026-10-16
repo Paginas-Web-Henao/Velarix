@@ -3,15 +3,9 @@ import { useAnalysisProgress } from "@/hooks/useAnalysisProgress";
 import { CheckCircle2, AlertTriangle, Loader2, Info } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import { EVIDENCE_PHASES } from "@/lib/evidence-pipeline";
 
-const FASES = [
-  { numero: 1, nombre: "Documentos", icono: "📄" },
-  { numero: 2, nombre: "Extracción", icono: "🔍" },
-  { numero: 3, nombre: "Validación", icono: "✓" },
-  { numero: 4, nombre: "Cálculo", icono: "⚡" },
-  { numero: 5, nombre: "Narrativa", icono: "📝" },
-  { numero: 6, nombre: "Informe", icono: "📊" },
-];
+const FASES = EVIDENCE_PHASES;
 
 const TIEMPO_ESTIMADO = 120;
 
@@ -52,11 +46,11 @@ const ProgressPanel = ({ analysisId, onCompletado, onError }: Props) => {
   };
 
   const getMensajeTimer = () => {
-    if (completado) return `✓ Completado en ${formatTiempo(tiempoTranscurrido)} — ¡más rápido de lo esperado!`;
+    if (completado) return `✓ Evidence procesada en ${formatTiempo(tiempoTranscurrido)}`;
     if (error) return `Falló después de ${formatTiempo(tiempoTranscurrido)}`;
     if (tiempoTranscurrido < 30) return `Tiempo estimado: ${formatTiempo(tiempoRestante)}`;
     if (tiempoTranscurrido < 60) return `Procesando... ${formatTiempo(tiempoRestante)} restantes`;
-    if (tiempoTranscurrido < 90) return `Casi listo, generando el análisis... ${formatTiempo(tiempoRestante)}`;
+    if (tiempoTranscurrido < 90) return `Casi listo, validando la Evidence... ${formatTiempo(tiempoRestante)}`;
     if (tiempoRestante > 0) return `Tomando un poco más de lo usual, ya casi... ${formatTiempo(tiempoRestante)}`;
     return `Procesando documento complejo, por favor espera...`;
   };
@@ -100,7 +94,7 @@ const ProgressPanel = ({ analysisId, onCompletado, onError }: Props) => {
   return (
     <div className="metallic-border rounded-lg bg-card p-8">
       <h3 className="font-display text-lg font-bold text-foreground mb-6">
-        Ejecutando análisis financiero
+        Procesando Evidence
       </h3>
 
       {/* Phase indicators */}

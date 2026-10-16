@@ -19,8 +19,8 @@ No hay servidor propio: la "API" son **Supabase Edge Functions** (`supabase/func
 | `parse-document` | Pipeline | JWT usuario | documents, documents_parsed | [[pipeline-documental]] |
 | `map-accounts` | Pipeline | JWT usuario | account_homologations | [[pipeline-documental]] |
 | `validate-analysis` | Pipeline | JWT usuario | validation_results | [[pipeline-documental]] |
-| `build-structured-input` | Pipeline | JWT usuario | structured_inputs, external_snapshots | [[pipeline-documental]] |
-| `ejecutar-calculo` | Pipeline | JWT usuario o secret key interna | analyses, structured_inputs, valuation_files, account_notes, expedient_* | [[motor-canonico]] |
+| `build-structured-input` | `continuar-tras-revision` / llamada explícita (**no** el pipeline de Evidence) | JWT usuario | structured_inputs, external_snapshots | [[pipeline-documental]] |
+| `ejecutar-calculo` | Explícito (**no** el pipeline de Evidence) | JWT usuario o secret key interna | analyses, structured_inputs, valuation_files, account_notes, expedient_* | [[motor-canonico]] |
 | `continuar-tras-revision` | Frontend (admin) | JWT o secret key interna | manual_reviews, structured_inputs | [[revision-manual]] |
 | `generate-narrative` | `api-client.generateNarrative` | JWT usuario | report_narratives | [[narrativa-ia]] |
 | `enviar-notificacion` | Pipeline / narrativa | Solo interna (`apikey`) | analyses, profiles | [[notificaciones]] |

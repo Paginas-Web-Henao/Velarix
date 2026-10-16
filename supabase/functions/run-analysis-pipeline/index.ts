@@ -3,6 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { evaluateMapAccountsResult } from "../_shared/pipeline-guards.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, mapErrorToResponse, shouldNotifyPipelineError } from "../_shared/user-auth.ts";
+import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent, resolveEvidenceFinalStatus } from "../_shared/evidence-pipeline-guards.ts";
+
+// Pipeline de EVIDENCE: PARSE → MAP ACCOUNTS → VALIDATE → STOP.
+// Termina antes de build-structured-input y de ejecutar-calculo: el input
+// del motor necesita Judgment (resolved_assumptions) y el cálculo es un
+// paso posterior y explícito. Evidence ≠ Judgment ≠ Calculation.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +46,17 @@ serve(async (req) => {
     const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
     if (lookup === "not_found") throw new NotFoundError();
     if (lookup === "technical_error") throw analysisError;
+
+    // Un caso con cálculo oficial persistido no se reprocesa automáticamente
+    // (homologaciones/validaciones/estado cambiarían bajo ese cálculo).
+    // Antes de tomar el lock y de tocar cualquier estado.
+    const reprocessing = evaluateEvidenceReprocessing(analysis);
+    if (!reprocessing.allowed) {
+      await supabase.from("audit_events").insert(reprocessingRejectedAuditEvent({
+        analysisId: analysis_id, userId: user.id, component: "run-analysis-pipeline", status: analysis.status, decision: reprocessing,
+      }));
+      return new Response(JSON.stringify({ success: false, error: { code: reprocessing.code, message: reprocessing.message } }), { status: reprocessing.httpStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // Check for existing running pipeline (idempotency)
     const { data: existingLock } = await supabase
@@ -167,6 +184,7 @@ serve(async (req) => {
 
     // Step 3: Validate
     await updateJob("validacion", 55, "Ejecutando validaciones contables...");
+    let validationStatus: string | null = null;
     try {
       const valResp = await fetch(`${supabaseUrl}/functions/v1/validate-analysis`, {
         method: "POST",
@@ -197,112 +215,54 @@ serve(async (req) => {
           data: { steps, validation: valResult.data },
         }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      validationStatus = valResult.data?.validation_status ?? null;
       await updateJob("validacion", 100, "Validaciones aprobadas.", "completado");
     } catch (e) {
-      steps.push({ step: "validate", success: false, detail: e instanceof Error ? e.message : "Error" });
-      await updateJob("validacion", 0, "Error en validación", "error");
-    }
-
-    // Step 4: Build structured input (with 55s timeout)
-    await updateJob("calculo", 65, "Construyendo input estructurado para el motor...");
-    await supabase.from("analyses").update({ status: "calculo_en_curso" }).eq("id", analysis_id);
-
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 55000);
-
-      const buildResp = await fetch(`${supabaseUrl}/functions/v1/build-structured-input`, {
-        method: "POST",
-        headers: { Authorization: authHeader, "Content-Type": "application/json" },
-        body: JSON.stringify({ analysis_id }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      const buildResult = await buildResp.json();
-      steps.push({ step: "build-structured-input", success: buildResult.success, detail: buildResult.success ? "Input estructurado construido" : buildResult.error?.message });
-
-      if (buildResult.success) {
-        // Validate that we got meaningful data
-        const si = buildResult.data;
-        const revenue = si?.income_statement?.revenue;
-        console.log("[calculo] Structured input keys:", Object.keys(si || {}));
-        console.log("[calculo] Revenue:", revenue);
-
-        if (!si || revenue === null || revenue === undefined || revenue === 0) {
-          const errMsg = "Los datos financieros no llegaron al motor de cálculo. Verifica que los documentos contienen ingresos identificables.";
-          await updateJob("calculo", 0, errMsg, "error");
-          await supabase.from("analyses").update({ status: "error_tecnico" }).eq("id", analysis_id);
-          await releaseLock(supabase, analysis_id);
-          return new Response(JSON.stringify({ success: false, error: { code: "EMPTY_INPUT", message: errMsg }, data: { steps } }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-
-        await supabase.from("analyses").update({ status: "calculo_en_curso", input_payload: buildResult.data }).eq("id", analysis_id);
-      } else {
-        const errMsg = buildResult.error?.message || "Error construyendo input estructurado";
-        await updateJob("calculo", 0, errMsg, "error");
-        await supabase.from("analyses").update({ status: "error_tecnico" }).eq("id", analysis_id);
-        await releaseLock(supabase, analysis_id);
-        return new Response(JSON.stringify({ success: false, error: { code: "BUILD_FAILED", message: errMsg }, data: { steps } }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      await updateJob("calculo", 70, "Input listo. Ejecutando motor de valoración...", "completado");
-    } catch (e) {
-      const isTimeout = e instanceof DOMException && e.name === "AbortError";
-      const errMsg = isTimeout ? "El cálculo tardó más de 55 segundos. Intenta con un documento más pequeño." : (e instanceof Error ? e.message : "Error construyendo input");
-      steps.push({ step: "build-structured-input", success: false, detail: errMsg });
-      await updateJob("calculo", 0, errMsg, "error");
+      // Antes la excepción de validación se ignoraba y el pipeline seguía hacia
+      // el cálculo. Ahora no hay paso posterior: sin validación no hay un final
+      // exitoso, así que se corta de forma explícita.
+      const errMsg = e instanceof Error ? e.message : "Error técnico durante la validación.";
+      steps.push({ step: "validate", success: false, detail: errMsg });
+      await updateJob("validacion", 0, errMsg, "error");
       await supabase.from("analyses").update({ status: "error_tecnico" }).eq("id", analysis_id);
       await releaseLock(supabase, analysis_id);
-      return new Response(JSON.stringify({ success: false, error: { code: "CALC_ERROR", message: errMsg }, data: { steps } }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({
+        success: false,
+        error: { code: "VALIDATE_ERROR", message: errMsg },
+        data: { steps },
+      }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Step 5: Run calculation engine
-    await updateJob("motor_calculo", 75, "Ejecutando motor de valoración DCF...");
-    try {
-      const calcResp = await fetch(`${supabaseUrl}/functions/v1/ejecutar-calculo`, {
-        method: "POST",
-        headers: { Authorization: authHeader, "Content-Type": "application/json" },
-        body: JSON.stringify({ analysis_id }),
-      });
-      const calcResult = await calcResp.json();
-      steps.push({ step: "ejecutar-calculo", success: calcResult.success, detail: calcResult.success ? `EV: ${calcResult.data?.enterprise_value?.toFixed(0)}` : calcResult.error?.message });
-
-      if (!calcResult.success) {
-        await updateJob("motor_calculo", 0, calcResult.error?.message || "Error en motor de cálculo", "error");
-        await supabase.from("analyses").update({ status: "error_tecnico" }).eq("id", analysis_id);
-        await releaseLock(supabase, analysis_id);
-        return new Response(JSON.stringify({ success: false, error: calcResult.error, data: { steps } }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      await updateJob("motor_calculo", 100, "Valoración DCF completada.", "completado");
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : "Error en motor de cálculo";
-      steps.push({ step: "ejecutar-calculo", success: false, detail: errMsg });
-      await updateJob("motor_calculo", 0, errMsg, "error");
+    // FIN DEL PIPELINE DE EVIDENCE. `validate-analysis` ya dejó el estado final
+    // (`validacion_aprobada` o `validacion_con_advertencias`); aquí NO se
+    // construye el input estructurado, NO se calcula y NO se cambia el estado.
+    const finalStatus = resolveEvidenceFinalStatus(validationStatus);
+    if (!finalStatus) {
+      const errMsg = `Estado de validación inesperado (${validationStatus ?? "sin dato"}): el pipeline de Evidence no puede darse por terminado.`;
+      steps.push({ step: "validate", success: false, detail: errMsg });
+      await updateJob("validacion", 0, errMsg, "error");
       await supabase.from("analyses").update({ status: "error_tecnico" }).eq("id", analysis_id);
       await releaseLock(supabase, analysis_id);
-      return new Response(JSON.stringify({ success: false, error: { code: "CALC_ENGINE_ERROR", message: errMsg }, data: { steps } }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ success: false, error: { code: "VALIDATE_UNEXPECTED_STATUS", message: errMsg }, data: { steps } }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    // Update final status
-    await supabase.from("analyses").update({ status: "informe_generado" }).eq("id", analysis_id);
     await releaseLock(supabase, analysis_id);
 
-    // Audit
+    // Evento nuevo; los `pipeline_complete` históricos no se tocan ni se reinterpretan.
     await supabase.from("audit_events").insert({
       analysis_id,
-      event_type: "pipeline_complete",
-      event_detail: `Pipeline completado: ${steps.length} pasos ejecutados`,
+      event_type: "evidence_pipeline_complete",
+      event_detail: `Evidence procesada (${steps.length} pasos): ${finalStatus}. Sin input estructurado ni cálculo.`,
       component: "run-analysis-pipeline",
       user_id: user.id,
-      metadata: { steps },
+      metadata: { steps, final_status: finalStatus, validation_status: validationStatus, stopped_before: ["build-structured-input", "ejecutar-calculo"] },
     });
 
     return new Response(JSON.stringify({
       success: true,
       data: {
         steps,
-        status: "informe_generado",
-        message: "Pipeline completo. El análisis financiero está listo.",
+        status: finalStatus,
+        message: "Evidence procesada. El cálculo requiere Judgment y una ejecución explícita.",
       },
       meta: { analysis_id, timestamp: new Date().toISOString() },
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });

@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
 import { matchAccount, normalizeLabel } from "../_shared/account-taxonomy.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
+import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent } from "../_shared/evidence-pipeline-guards.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { selectLatestParsedDocumentPerDocument, AmbiguousDocumentParseError } from "../_shared/latest-parsed-document.ts";
 
@@ -129,10 +130,22 @@ serve(async (req) => {
     const { analysis_id } = await req.json();
     if (!analysis_id) throw new Error("analysis_id required");
 
-    const { data: analysis, error: analysisError } = await supabase.from("analyses").select("id, user_id").eq("id", analysis_id).single();
+    const { data: analysis, error: analysisError } = await supabase.from("analyses").select("id, user_id, status, calculation_result").eq("id", analysis_id).single();
     const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
     if (lookup === "not_found") throw new NotFoundError();
     if (lookup === "technical_error") throw analysisError;
+
+    // Caso con cálculo oficial persistido: este endpoint de Evidence no lo
+    // reprocesa. Antes de cualquier escritura; el audit event es la única.
+    // (EVIDENCE_REPROCESSING_VERSIONING_PENDING: no hay versionado de
+    // homologaciones/validaciones, así que no se puede reprocesar sin perder historia.)
+    const reprocessing = evaluateEvidenceReprocessing(analysis);
+    if (!reprocessing.allowed) {
+      await supabase.from("audit_events").insert(reprocessingRejectedAuditEvent({
+        analysisId: analysis_id, userId: user.id, component: "map-accounts", status: (analysis as { status?: string }).status, decision: reprocessing,
+      }));
+      return new Response(JSON.stringify({ success: false, error: { code: reprocessing.code, message: reprocessing.message } }), { status: reprocessing.httpStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     await supabase.from("analyses").update({ status: "homologacion_en_curso" }).eq("id", analysis_id);
 

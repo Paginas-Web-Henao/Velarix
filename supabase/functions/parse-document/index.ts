@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
+import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent } from "../_shared/evidence-pipeline-guards.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { SYSTEM_CLASSIFIER, SYSTEM_PERIOD_DETECTOR, SYSTEM_PARSER_FALLBACK } from "../_shared/parse-document-prompts.ts";
 import { normalizarNumero, explodeAiFallbackRowByPeriod, reconcileDetectedPeriods, UnmappedAiColumnError } from "../_shared/parse-document-ai-fallback.ts";
@@ -408,6 +409,18 @@ serve(async (req) => {
     const lookup = classifyOwnedResourceLookup(analysisError, analysis, user.id);
     if (lookup === "not_found") throw new NotFoundError();
     if (lookup === "technical_error") throw analysisError;
+
+    // Caso con cálculo oficial persistido: este endpoint de Evidence no lo
+    // reprocesa. Antes de cualquier escritura; el audit event es la única.
+    // (EVIDENCE_REPROCESSING_VERSIONING_PENDING: no hay versionado de
+    // homologaciones/validaciones, así que no se puede reprocesar sin perder historia.)
+    const reprocessing = evaluateEvidenceReprocessing(analysis);
+    if (!reprocessing.allowed) {
+      await supabase.from("audit_events").insert(reprocessingRejectedAuditEvent({
+        analysisId: analysis_id, userId: user.id, component: "parse-document", status: (analysis as { status?: string }).status, decision: reprocessing,
+      }));
+      return new Response(JSON.stringify({ success: false, error: { code: reprocessing.code, message: reprocessing.message } }), { status: reprocessing.httpStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const { data: document, error: documentError } = await supabase.from("documents").select("*").eq("id", document_id).eq("analysis_id", analysis_id).single();
     const documentLookup = classifyResourceLookup(documentError, document);

@@ -130,7 +130,7 @@ export default function Workbench() {
             <CaseWorkbench key={caseId} caseId={caseId} tab={tab} onTabChange={(t) => openCase(caseId, t)} onArchive={archiveCase} />
           ) : view === "new" ? (
             <div className="p-4 max-w-3xl">
-              <NewAnalysisStepper userId={user!.id} onComplete={() => { setParams({}); loadCases(); }} />
+              <NewAnalysisStepper userId={user!.id} onComplete={(id) => { openCase(id, "accounts"); loadCases(); }} />
             </div>
           ) : view === "reviews" ? (
             <div className="p-4"><AdminReviews embedded /></div>
