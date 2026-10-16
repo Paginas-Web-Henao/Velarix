@@ -302,6 +302,10 @@ export function extractFinancialStatementsWorkbook(sheets: SheetInput[]): Workbo
     let rows = 0, withValues = 0, dimensionalRows = 0;
     const members: string[] = [];
     let inMembers = false;
+    // Sección: el encabezado sin valores más cercano anterior de la misma hoja
+    // ("Current assets:", "CASH FLOWS FROM OPERATING ACTIVITIES"…), literal.
+    // Un encabezado nuevo sustituye al anterior; no se infiere si no existe.
+    let section: string | null = null;
     for (let r = headerRow + 1; headerRow >= 0 && r < sheet.matrix.length; r++) {
       const row = sheet.matrix[r] ?? [];
       const rawLabel = row[0];
@@ -316,9 +320,10 @@ export function extractFinancialStatementsWorkbook(sheets: SheetInput[]): Workbo
       if (inMembers) { dimensionalRows++; continue; }
       const texto = normalizarTexto(labelText);
       const unidad = unitOfLabel(labelText);
-      const base = { posicion: offset + r, texto, etiqueta_literal: labelText, hoja: sheet.name, estado: category!, unidad, linea_original: row.map((x) => (x === null ? "" : String(x))).join("\t") };
+      const base = { posicion: offset + r, texto, etiqueta_literal: labelText, hoja: sheet.name, estado: category!, unidad, seccion: section, linea_original: row.map((x) => (x === null ? "" : String(x))).join("\t") };
       if (valueCells.length === 0) {
-        filas.push({ ...base, valor_raw: null, valor: null, es_encabezado: true });
+        section = labelText;
+        filas.push({ ...base, seccion: section, valor_raw: null, valor: null, es_encabezado: true });
         rows++;
         continue;
       }

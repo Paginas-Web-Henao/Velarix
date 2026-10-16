@@ -695,7 +695,7 @@ serve(async (req) => {
         posicion: f.posicion,
         es_comparativo: f.es_comparativo || false,
         convencion_signos: f.convencion_signos,
-        ...(f.hoja ? { source_sheet: f.hoja, source_label: f.etiqueta_literal ?? null, statement: f.estado, unit: f.unidad, period_label: f.periodo_etiqueta ?? null } : {}),
+        ...(f.hoja ? { source_sheet: f.hoja, source_label: f.etiqueta_literal ?? null, source_section: f.seccion ?? null, statement: f.estado, unit: f.unidad, period_label: f.periodo_etiqueta ?? null } : {}),
       })),
       column_headers: metadatos.column_headers || periodsDetected,
       total_rows_extracted: filas.length,

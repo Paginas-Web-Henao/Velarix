@@ -24,6 +24,8 @@ export interface ParsedRow {
   unidad?: "monetaria" | "por_accion" | "acciones";
   periodo_etiqueta?: string;
   etiqueta_literal?: string;
+  /** Encabezado de sección más cercano anterior en la misma hoja (texto literal), o null. */
+  seccion?: string | null;
 }
 
 export function normalizarTexto(texto: string | null): string {

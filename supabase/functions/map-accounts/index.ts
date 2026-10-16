@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callAnthropic } from "../_shared/anthropic-client.ts";
-import { matchAccount, normalizeLabel } from "../_shared/account-taxonomy.ts";
+import { normalizeLabel } from "../_shared/account-taxonomy.ts";
+import { buildRuleMappings, evaluateAiProposalForContextRows } from "../_shared/statement-aware-mapping.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent } from "../_shared/evidence-pipeline-guards.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
@@ -193,48 +194,23 @@ serve(async (req) => {
         const label = row.original_label || row.label || row.account || row.name || "";
         if (!label || typeof label !== "string" || label.length < 2) continue;
         const valuesObj = row.values || {};
-        allRows.push({ label, values: valuesObj, documentId, docType, posicion: row.posicion });
+        allRows.push({
+          label, values: valuesObj, documentId, docType, posicion: row.posicion,
+          // Lineage del extractor multi-estado (ausente en CSV/PDF/Excel de una hoja).
+          statement: row.statement ?? null, section: row.source_section ?? null, unit: row.unit ?? null,
+          sheet: row.source_sheet ?? null, sourceLabel: row.source_label ?? null,
+        });
       }
     }
 
     // ──── PASS 1: Rule-based matching ────
-    const mappings: any[] = [];
-    const foundAccounts = new Set<string>();
-
-    for (const row of allRows) {
-      const periods = Object.keys(row.values).filter(k => row.values[k] != null && typeof row.values[k] === "number");
-      if (periods.length > 0) {
-        for (const period of periods) {
-          const val = row.values[period];
-          const { canonical, category, score } = matchAccount(row.label);
-          if (canonical) foundAccounts.add(canonical);
-          mappings.push({
-            analysis_id, document_id: row.documentId,
-            original_label: row.label,
-            canonical_account: canonical || "unclassified",
-            category: category === "unknown" ? (row.docType === "estado_resultados" ? "income_statement" : "balance_sheet") : category,
-            period, value: typeof val === "number" ? val : null,
-            confidence_score: score >= 0.90 ? "alta" : score >= 0.75 ? "media" : "baja",
-            ambiguity_flag: score < 0.75 || canonical === null,
-            mapping_notes: canonical ? `Regla: ${canonical} (${score.toFixed(2)})` : `Regla: no clasificado (${score.toFixed(2)})`,
-          });
-        }
-      } else {
-        const val = row.values.col_1 || null;
-        const { canonical, category, score } = matchAccount(row.label);
-        if (canonical) foundAccounts.add(canonical);
-        mappings.push({
-          analysis_id, document_id: row.documentId,
-          original_label: row.label,
-          canonical_account: canonical || "unclassified",
-          category: category === "unknown" ? (row.docType === "estado_resultados" ? "income_statement" : "balance_sheet") : category,
-          period: null, value: typeof val === "number" ? val : null,
-          confidence_score: score >= 0.90 ? "alta" : score >= 0.75 ? "media" : "baja",
-          ambiguity_flag: score < 0.75 || canonical === null,
-          mapping_notes: canonical ? `Regla: ${canonical} (${score.toFixed(2)})` : `Regla: no clasificado (${score.toFixed(2)})`,
-        });
-      }
-    }
+    // Filas sin contexto: regla previa idéntica. Filas con contexto de estado:
+    // compatibilidad estado/sección/unidad y sin duplicados operacionales —
+    // ver ../_shared/statement-aware-mapping.ts.
+    const drafts = buildRuleMappings(analysis_id, allRows);
+    const mappings: any[] = drafts.map(d => d.record);
+    const foundAccounts = new Set<string>(mappings.filter(m => m.canonical_account !== "unclassified").map(m => m.canonical_account));
+    const contextual = drafts.some(d => d.contextual);
 
     // Insert pass 1
     if (mappings.length > 0) {
@@ -244,6 +220,7 @@ serve(async (req) => {
 
     // ──── PASS 2: AI Consolidation-based mapping ────
     const unclassifiedCount = mappings.filter(m => m.canonical_account === "unclassified").length;
+    const aiRejected: { canonical_account: string; period: string; reason: string }[] = [];
 
     if (unclassifiedCount > 0) {
       // Send FULL document to AI for structural understanding
@@ -290,7 +267,33 @@ serve(async (req) => {
                   )
                 );
 
-                if (matchingUnclassified.length > 0) {
+                if (contextual) {
+                  // Lineage con contexto de estado: la IA solo puede CLASIFICAR una
+                  // única fila fuente compatible (estado/sección/unidad), sin cambiar
+                  // su valor ni resolver conflictos determinísticos; tampoco crea
+                  // filas consolidadas con cifras propias.
+                  const targets = drafts.filter(d => matchingUnclassified.includes(d.record));
+                  const decision = targets.length > 0
+                    ? evaluateAiProposalForContextRows(targets, aiMap.canonical_account, value)
+                    : { accepted: false as const, reason: "sin fila fuente: la IA no crea homologaciones con cifras propias" };
+                  if (!decision.accepted) {
+                    aiRejected.push({ canonical_account: aiMap.canonical_account, period, reason: decision.reason });
+                    continue;
+                  }
+                  const t = targets[0].record;
+                  await supabase.from("account_homologations")
+                    .update({
+                      canonical_account: aiMap.canonical_account,
+                      confidence_score: aiMap.confidence >= 0.90 ? "alta" : "media",
+                      ambiguity_flag: aiMap.confidence < 0.75,
+                      mapping_notes: `IA (clasificación, valor de la fila fuente): ${aiMap.nota || aiMap.canonical_account} · ${t.mapping_notes}`,
+                    })
+                    .eq("analysis_id", analysis_id)
+                    .eq("original_label", t.original_label)
+                    .eq("category", t.category)
+                    .eq("period", period);
+                  t.canonical_account = aiMap.canonical_account;
+                } else if (matchingUnclassified.length > 0) {
                   // Update the first match
                   await supabase.from("account_homologations")
                     .update({
@@ -339,7 +342,14 @@ serve(async (req) => {
       analysis_id, event_type: "mapping_end",
       event_detail: `Homologación: ${mappings.length} filas, ${unclassifiedCount} revisadas por IA, ${stillMissing.length} críticas faltantes`,
       component: "map-accounts", user_id: user.id,
-      metadata: { total_mapped: mappings.length, ai_reviewed: unclassifiedCount, missing_critical: stillMissing, found_accounts: Array.from(foundAccounts) },
+      metadata: {
+        total_mapped: mappings.length, ai_reviewed: unclassifiedCount, missing_critical: stillMissing, found_accounts: Array.from(foundAccounts),
+        ...(contextual ? {
+          statement_context: true,
+          rejected_by_rule: drafts.reduce((acc, d) => (d.rejection && d.rejection !== "NO_MATCH" ? { ...acc, [d.rejection]: (acc[d.rejection] ?? 0) + 1 } : acc), {} as Record<string, number>),
+          ai_rejected: aiRejected,
+        } : {}),
+      },
     });
 
     return new Response(JSON.stringify({

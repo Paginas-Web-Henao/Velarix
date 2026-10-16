@@ -168,6 +168,21 @@ describe("extractFinancialStatementsWorkbook — libro SEC sintético", () => {
     expect(out.sheets[0]).toMatchObject({ dimensional_rows_excluded: 1, dimensional_members: ["Related Party [Member]"] });
   });
 
+  it("source_section: el encabezado sin valores más cercano anterior, literal; uno nuevo sustituye al anterior", () => {
+    const bs: SheetInput = { name: "Balance Sheet", matrix: [
+      ["Balance Sheet - USD ($) $ in Thousands", "Dec. 31, 2024"],
+      ["Current assets:", " "], ["Cash", 10],
+      ["Long-term assets:", " "], ["Deferred income taxes", 3],
+      ["Long-term liabilities:", " "], ["Deferred income taxes", 7],
+      ["Related Party [Member]", " "], ["Other current liabilities", 1],
+    ] };
+    const res = extractFinancialStatementsWorkbook([bs, OPERATIONS])!;
+    const rows = res.filas.filter((f) => f.hoja === "Balance Sheet" && f.valor !== null).map((f) => [f.texto, f.valor, f.seccion]);
+    expect(rows).toEqual([["Cash", 10, "Current assets:"], ["Deferred income taxes", 3, "Long-term assets:"], ["Deferred income taxes", 7, "Long-term liabilities:"]]);
+    // Antes del primer encabezado no hay sección: no se infiere.
+    expect(out.filas.find((f) => f.texto === "Net sales")?.seccion).toBeNull();
+  });
+
   it("EPS y número de acciones quedan marcados por unidad (la escala monetaria no es suya)", () => {
     expect(out.filas.find((f) => f.texto === "Basic income per share")?.unidad).toBe("por_accion");
     expect(out.filas.find((f) => f.texto.startsWith("Basic weighted average"))?.unidad).toBe("acciones");
