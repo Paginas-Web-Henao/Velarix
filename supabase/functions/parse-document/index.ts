@@ -4,6 +4,7 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
 import { evaluateEvidenceReprocessing, reprocessingRejectedAuditEvent } from "../_shared/evidence-pipeline-guards.ts";
 import { evaluateAiFallbackText } from "../_shared/document-text-gate.ts";
+import { extractFinancialStatementsWorkbook, detectDeclaredScale, DeclaredScaleConflictError } from "../_shared/xlsx-workbook-extractor.ts";
 import { requireAuthenticatedUser, classifyOwnedResourceLookup, classifyResourceLookup, NotFoundError, BadRequestError, mapErrorToResponse } from "../_shared/user-auth.ts";
 import { SYSTEM_CLASSIFIER, SYSTEM_PERIOD_DETECTOR, SYSTEM_PARSER_FALLBACK } from "../_shared/parse-document-prompts.ts";
 import { normalizarNumero, explodeAiFallbackRowByPeriod, reconcileDetectedPeriods, UnmappedAiColumnError } from "../_shared/parse-document-ai-fallback.ts";
@@ -63,13 +64,61 @@ function detectarFormato(bytes: Uint8Array, filename: string, mimeType: string |
 // EXCEL READER — cellFormula:false forces cached values only
 // ═══════════════════════════════════════════════════════════════
 
-const HOJAS_IGNORAR = ["control", "hoja1", "nomina", "nómina", "estacionalidad", "ventas_anuales", "hoja de trabajo"];
+// Matriz de valores cacheados de una hoja: números finitos y textos (nunca
+// fórmulas); el resto, null. Mismo criterio de celda que la ruta clásica.
+function leerMatriz(ws: Record<string, unknown> | undefined): (string | number | null)[][] {
+  const ref = ws?.["!ref"];
+  if (!ws || typeof ref !== "string") return [];
+  const rango = XLSX.utils.decode_range(ref);
+  const matriz: (string | number | null)[][] = [];
+  for (let r = rango.s.r; r <= rango.e.r; r++) {
+    const fila: (string | number | null)[] = [];
+    for (let c = rango.s.c; c <= rango.e.c; c++) {
+      const v = (ws[XLSX.utils.encode_cell({ r, c })] as { v?: unknown } | undefined)?.v;
+      if (typeof v === "number" && isFinite(v)) fila.push(v);
+      else if (typeof v === "string" && !v.startsWith("=")) fila.push(v);
+      else fila.push(null);
+    }
+    matriz.push(fila);
+  }
+  return matriz;
+}
+
+const HOJAS_IGNORAR =["control", "hoja1", "nomina", "nómina", "estacionalidad", "ventas_anuales", "hoja de trabajo"];
 
 function extraerExcel(bytes: Uint8Array): { filas: ParsedRow[]; metadatos: Record<string, any>; textoCompleto: string } {
   // cellFormula:false → XLSX drops formulas and keeps only cached .v values
   const wb = XLSX.read(bytes, { type: "array", cellFormula: false, cellNF: false, raw: true });
   const nombreHojas = wb.SheetNames;
   if (!nombreHojas.length) throw new Error("El archivo Excel no contiene hojas.");
+
+  // Libro con varios estados principales (p. ej. Financial_Report.xlsx de
+  // EDGAR): balance + resultados + flujo de caja, con escala declarada y
+  // períodos anuales resueltos — ver ../_shared/xlsx-workbook-extractor.ts.
+  // Con menos de dos estados principales sigue la ruta clásica de una hoja.
+  const libro = extractFinancialStatementsWorkbook(
+    nombreHojas.map(n => ({ name: n, matrix: leerMatriz(wb.Sheets[n]), merges: wb.Sheets[n]?.["!merges"] })),
+  );
+  if (libro) {
+    const textoTitulos = libro.sheets.map(s => s.title).join(" ");
+    const monedaLibro = /\bUSD\b|\bUS\$|dolares|dólares/i.test(textoTitulos) ? "USD" : /\bCOP\b|pesos/i.test(textoTitulos) ? "COP" : null;
+    const resueltos = [...new Set(libro.sheets.flatMap(s => s.periods))].sort().reverse();
+    return {
+      filas: libro.filas,
+      metadatos: {
+        hojas: nombreHojas, hoja_usada: libro.sheets.map(s => s.sheet).join(" | "), multiple_hojas: true,
+        tipo_interno: "excel_multi_estado", column_headers: libro.column_headers,
+        hojas_seleccionadas: libro.sheets, hojas_detectadas_no_extraidas: libro.detected_not_extracted,
+        moneda_documento: monedaLibro, moneda_documento_detectada: monedaLibro !== null,
+        ...(libro.declaredScale
+          ? { escala_origen: "DECLARED", escala_documento: libro.declaredScale.name, factor_escala: libro.declaredScale.factor, escala_texto: libro.declaredScale.text, escala_hojas: libro.declaredScale.sheets }
+          : {}),
+        periodos_deterministicos: resueltos,
+        periodos_no_resueltos: libro.sheets.flatMap(s => s.unresolved_periods.map(etiqueta => ({ hoja: s.sheet, etiqueta }))),
+      },
+      textoCompleto: libro.filas.map(f => `${f.texto} ${f.valor_raw ?? ""}`).join("\n"),
+    };
+  }
 
   // Filter out non-financial sheets
   const hojasFiltradas = nombreHojas.filter(n => !HOJAS_IGNORAR.includes(n.toLowerCase()));
@@ -139,6 +188,10 @@ function extraerExcel(bytes: Uint8Array): { filas: ParsedRow[]; metadatos: Recor
     monedaDoc = "COP"; escalaDoc = "unidades"; factorEscala = 1;
   }
   const monedaDocumentoDetectada = monedaDoc !== null;
+  // Escala declarada explícitamente ("$ in Thousands", "miles de pesos"…):
+  // manda sobre la inferencia por magnitud del handler (valores crudos +
+  // factor_escala). Sin declaración, la inferencia sigue como antes.
+  const escalaDeclarada = detectDeclaredScale(textoHeader);
 
   // Detect header row (years)
   const patronAnio = /\b(19|20)\d{2}\b/;
@@ -211,6 +264,9 @@ function extraerExcel(bytes: Uint8Array): { filas: ParsedRow[]; metadatos: Recor
       moneda_documento: monedaDoc, moneda_documento_detectada: monedaDocumentoDetectada,
       escala_documento: escalaDoc, factor_escala: factorEscala,
       contenido_por_hoja: contenidoPorHoja,
+      ...(escalaDeclarada
+        ? { escala_origen: "DECLARED", escala_documento: escalaDeclarada.name, factor_escala: escalaDeclarada.factor, escala_texto: escalaDeclarada.text, escala_hojas: [hojaUsada] }
+        : {}),
     },
     textoCompleto,
   };
@@ -484,7 +540,16 @@ serve(async (req) => {
         metadatos = result.metadatos;
         textoPlano = result.textoPlano;
       }
-    } catch (e) { console.error("Extraction error, falling back to AI:", e); }
+    } catch (e) {
+      // Escalas declaradas incompatibles entre hojas: no se elige una ni se
+      // infiere otra — fail-closed, sin IA.
+      if (e instanceof DeclaredScaleConflictError) {
+        await supabase.from("documents").update({ processing_status: "fallido" }).eq("id", document_id);
+        await supabase.from("audit_events").insert({ analysis_id, event_type: "parse_failed", event_detail: `Parsing fallido: ${e.message}`, component: "parse-document", user_id: user.id, metadata: { code: "XLSX_DECLARED_SCALE_CONFLICT", formato: formato.tipo, ai_called: false } });
+        throw new BadRequestError("XLSX_DECLARED_SCALE_CONFLICT", e.message);
+      }
+      console.error("Extraction error, falling back to AI:", e);
+    }
 
     // AI Fallback if too few rows
     const filasConValor = filas.filter(f => f.valor !== null);
@@ -550,7 +615,16 @@ serve(async (req) => {
     // moneda detectada (o `null` si no hay evidencia) de forma
     // incondicional, igual que la escala.
     const yaConvertido = metadatos.factor_conversion_aplicado !== undefined;
-    if (!yaConvertido) {
+    if (metadatos.escala_origen === "DECLARED") {
+      // Escala declarada por el documento: manda. Los valores quedan CRUDOS
+      // y `factor_escala` la lleva a build-structured-input, que la aplica
+      // una sola vez (BL-03). No se infiere otra escala por magnitud.
+      if (!metadatos.moneda_documento) {
+        const { moneda, nota } = detectarMoneda(filas, textoPlano);
+        metadatos = { ...metadatos, moneda_documento: moneda, moneda_documento_detectada: moneda !== null, nota_moneda: nota };
+      }
+      metadatos = { ...metadatos, nota_escala: `Escala declarada "${metadatos.escala_texto}": valores crudos, factor_escala ${metadatos.factor_escala}` };
+    } else if (!yaConvertido) {
       const { moneda: monedaDetectadaTexto, nota: notaMoneda } = detectarMoneda(filas, textoPlano);
       const { escala, nota: notaEscala } = detectarEscala(filas);
       if (escala !== 1) {
@@ -562,6 +636,7 @@ serve(async (req) => {
         moneda_documento_detectada: monedaDetectadaTexto !== null,
         escala_documento: escala !== 1 ? String(escala) : "",
         factor_escala: escala,
+        escala_origen: escala !== 1 ? "INFERRED" : "NONE",
         nota_moneda: notaMoneda,
         nota_escala: notaEscala,
       };
@@ -601,7 +676,13 @@ serve(async (req) => {
     // en metadatos.column_headers (extraerExcel/extraerCSV, o
     // parsed.column_headers de SYSTEM_PARSER_FALLBACK). Se reconcilia con
     // esa evidencia ya observada — ver reconcileDetectedPeriods().
-    const periodsDetected = reconcileDetectedPeriods(aiPeriodsDetected, metadatos.column_headers || []);
+    // Si la extracción ya resolvió los períodos de forma determinística
+    // (libro multi-estado), la respuesta de IA no se convierte en Evidence:
+    // queda solo como referencia en parsing_metadata.periods_info.
+    const deterministicPeriods: string[] = Array.isArray(metadatos.periodos_deterministicos) ? metadatos.periodos_deterministicos : [];
+    const periodsDetected = deterministicPeriods.length > 0
+      ? reconcileDetectedPeriods([], deterministicPeriods)
+      : reconcileDetectedPeriods(aiPeriodsDetected, metadatos.column_headers || []);
 
     const tiempoMs = Date.now() - inicio;
 
@@ -614,6 +695,7 @@ serve(async (req) => {
         posicion: f.posicion,
         es_comparativo: f.es_comparativo || false,
         convencion_signos: f.convencion_signos,
+        ...(f.hoja ? { source_sheet: f.hoja, source_label: f.etiqueta_literal ?? null, statement: f.estado, unit: f.unidad, period_label: f.periodo_etiqueta ?? null } : {}),
       })),
       column_headers: metadatos.column_headers || periodsDetected,
       total_rows_extracted: filas.length,
@@ -642,6 +724,13 @@ serve(async (req) => {
         moneda_documento_detectada: metadatos.moneda_documento_detectada ?? false,
         escala_documento: metadatos.escala_documento ?? "",
         factor_escala: metadatos.factor_escala ?? 1,
+        escala_origen: metadatos.escala_origen ?? null,
+        escala_texto: metadatos.escala_texto ?? null,
+        escala_hojas: metadatos.escala_hojas ?? null,
+        valores: metadatos.escala_origen === "DECLARED" ? "crudos_sin_escalar" : null,
+        hojas_seleccionadas: metadatos.hojas_seleccionadas ?? null,
+        hojas_detectadas_no_extraidas: metadatos.hojas_detectadas_no_extraidas ?? null,
+        periodos_no_resueltos: metadatos.periodos_no_resueltos ?? null,
       },
     });
 
@@ -664,6 +753,8 @@ serve(async (req) => {
         moneda_documento_detectada: metadatos.moneda_documento_detectada ?? false,
         escala_documento: metadatos.escala_documento ?? "",
         factor_escala: metadatos.factor_escala ?? 1,
+        escala_origen: metadatos.escala_origen ?? null,
+        escala_texto: metadatos.escala_texto ?? null,
       },
     });
 

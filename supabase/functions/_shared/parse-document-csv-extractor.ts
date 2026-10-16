@@ -18,6 +18,12 @@ export interface ParsedRow {
   es_comparativo?: boolean;
   convencion_signos?: string;
   linea_original?: string;
+  /** Procedencia en libros con varios estados (xlsx-workbook-extractor). */
+  hoja?: string;
+  estado?: string;
+  unidad?: "monetaria" | "por_accion" | "acciones";
+  periodo_etiqueta?: string;
+  etiqueta_literal?: string;
 }
 
 export function normalizarTexto(texto: string | null): string {
