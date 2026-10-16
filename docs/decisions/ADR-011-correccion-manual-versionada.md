@@ -30,6 +30,7 @@ Las homologaciones de un evidence run son inmutables (ADR-009). `corregirCuenta`
 - Extender `continuar-tras-revision` / `manual_reviews`: acopla la corrección de Evidence a la revisión manual legacy y a su máquina de estados.
 
 ## Consecuencias
+- Inmutabilidad garantizada por PostgreSQL (migración `20261016160000`, trigger `guard_versioned_homologation_history`, aplica también a service_role): filas versionadas sin DELETE; sin UPDATE salvo la metadata de mapping (`canonical_account`, `confidence_score`, `ambiguity_flag`, `mapping_notes`) mientras el run está en `mapping`. Legacy (sin run) sin cambios. `map-accounts` registra como propuesta IA rechazada la consolidación que intentaba reescribir `value`.
 - Edge Function nueva `create-manual-mapping-run`; helper cliente `crearCorreccionMappingVersionada` (sin UI).
 - Un nuevo evidence run activo deja obsoleto el judgment set activo (ADR-010: `JUDGMENT_STALE_FOR_EVIDENCE_RUN`); reutilizarlo es una acción humana explícita.
 - Si `account_homologations` gana columnas de Evidence, la copia de la RPC debe ampliarse en la misma migración.

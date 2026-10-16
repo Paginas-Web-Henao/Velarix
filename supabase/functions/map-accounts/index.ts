@@ -337,8 +337,10 @@ serve(async (req) => {
                   t.canonical_account = aiMap.canonical_account;
                   ai.classifications_applied++;
                 } else if (matchingUnclassified.length > 0) {
-                  // Update the first match
-                  await supabase.from("account_homologations")
+                  // Update the first match. En un run versionado la base rechaza
+                  // reescribir `value` (Evidence) aunque el run esté en mapping
+                  // (20261016160000): la propuesta queda registrada como rechazada.
+                  const { error: consolidationError } = await supabase.from("account_homologations")
                     .update({
                       canonical_account: aiMap.canonical_account,
                       confidence_score: aiMap.confidence >= 0.90 ? "alta" : "media",
@@ -350,6 +352,10 @@ serve(async (req) => {
                     .eq("evidence_run_id", runId)
                     .eq("original_label", matchingUnclassified[0].original_label)
                     .eq("period", period);
+                  if (consolidationError) {
+                    aiRejected.push({ canonical_account: aiMap.canonical_account, period, reason: `la IA no reescribe la Evidence observada: ${consolidationError.message}` });
+                    continue;
+                  }
                   ai.classifications_applied++;
                 } else {
                   // Check if we already have this account from rule-based
