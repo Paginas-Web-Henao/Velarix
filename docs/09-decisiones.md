@@ -29,6 +29,7 @@ Volver a [[00-home]] · Anterior: [[13-testing]] · Siguiente: [[10-roadmap]] ·
 | [[ADR-008-single-owner-private-mode]] | Single-owner private mode: sin login en el flujo normal; Auth + RLS se conservan (LOCAL_PRIVATE / DEPLOYED_PRIVATE) | 2026-10-15 |
 | [[ADR-009-evidence-runs-versionado]] | Evidence runs: homologación + validación versionadas, build then promote, lectores solo del set activo | 2026-10-16 |
 | [[ADR-010-judgment-sets-versionados]] | Judgment versionado: judgment sets ligados a un evidence run, build then promote, input del cálculo solo desde Evidence activa + Judgment activo | 2026-10-16 |
+| [[ADR-011-correccion-manual-versionada]] | Corrección manual de homologaciones versionadas: run nuevo derivado del activo (copia exacta + corrección, RPC transaccional), validar y promover con ADR-009 | 2026-10-16 |
 
 ## Principios metodológicos cerrados (P-01 … P-14)
 

@@ -15,7 +15,9 @@ export interface MemoryDb {
   insertErrorOnce: Map<string, { code?: string; message: string }>;
   /** Se ejecuta justo antes de cada insert/update: simula una escritura concurrente intercalada. */
   hooks: { before?: (table: string, op: string, payload: unknown) => void };
-  client: { from: (t: string) => unknown; auth: { getUser: () => Promise<unknown> }; storage: { from: () => unknown } };
+  /** Emulaciones de funciones SQL (`client.rpc`). La versión real se prueba contra Postgres. */
+  rpcs: Record<string, (tables: Record<string, Row[]>, args: Record<string, unknown>) => { data: unknown; error: { message: string; code?: string } | null }>;
+  client: { from: (t: string) => unknown; rpc: (name: string, args: Record<string, unknown>) => Promise<unknown>; auth: { getUser: () => Promise<unknown> }; storage: { from: () => unknown } };
 }
 
 export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: string; file?: Uint8Array } = {}): MemoryDb {
@@ -23,6 +25,7 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
   const failInsertOnce = new Set<string>();
   const insertErrorOnce = new Map<string, { code?: string; message: string }>();
   const hooks: MemoryDb["hooks"] = {};
+  const rpcs: MemoryDb["rpcs"] = {};
   let seq = 0;
 
   const from = (table: string) => {
@@ -76,9 +79,14 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
   };
 
   return {
-    tables, failInsertOnce, insertErrorOnce, hooks,
+    tables, failInsertOnce, insertErrorOnce, hooks, rpcs,
     client: {
       from,
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        const fn = rpcs[name];
+        if (!fn) return { data: null, error: { message: `function ${name} does not exist` } };
+        return fn(tables, args);
+      },
       auth: { getUser: async () => ({ data: { user: { id: opts.userId ?? "owner-1" } }, error: null }) },
       storage: { from: () => ({ download: async () => ({ data: new Blob([(opts.file ?? new Uint8Array()) as BlobPart]), error: null }) }) },
     },

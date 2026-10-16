@@ -21,6 +21,7 @@ No hay servidor propio: la "API" son **Supabase Edge Functions** (`supabase/func
 | `validate-analysis` | Pipeline | JWT usuario | validation_results | [[pipeline-documental]] |
 | `build-structured-input` | `continuar-tras-revision` / llamada explícita (**no** el pipeline de Evidence) | JWT usuario | structured_inputs, external_snapshots | [[pipeline-documental]] |
 | `judgment-sets` | Explícito (`create_draft`, `add_entry`, `complete`, `fail`, `promote`) | JWT usuario (dueño) | judgment_sets, judgment_entries, analyses | [[supuestos-y-preflight]] |
+| `create-manual-mapping-run` | Explícito (corrección de homologación versionada; después `validate-analysis` con el run devuelto) | JWT usuario (dueño, rol analyst/admin) | evidence_runs, account_homologations (RPC `create_manual_mapping_run`) | [[revision-manual]] |
 | `expediente` | Explícito (`ensure_valuation_file`, `add_account_note`, `add_question`, `add_answer`) | JWT usuario (dueño, rol analyst/admin) | valuation_files, account_notes, expedient_questions, expedient_answers | [[expediente]] |
 | `ejecutar-calculo` | Explícito (**no** el pipeline de Evidence) | JWT usuario o secret key interna | analyses, structured_inputs, valuation_files, account_notes, expedient_* | [[motor-canonico]] |
 | `continuar-tras-revision` | Frontend (admin) | JWT o secret key interna | manual_reviews, structured_inputs | [[revision-manual]] |

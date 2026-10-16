@@ -24,5 +24,8 @@ Requiere rol `analyst`/`admin` (RLS + `authorization.ts`); el owner lo cumple co
 
 Single-owner: no hay analistas ni admins. Es la **revisión de Judgment del owner**, con etiquetas de UI sobre los mismos valores de `manual_reviews.estado`: `pendiente` → Abierta, `en_revision` → En revisión, `aprobado` → Aceptada, `bloqueado` → Rechazada. Valor metodológico conservado: nada continúa sin una aceptación explícita, con notas mínimas y registrada en `audit_events`. Ver [[07-autenticacion]].
 
+## Evidence versionada
+`corregirCuenta` solo corrige filas legacy. En casos con evidence run activo: `crearCorreccionMappingVersionada` → Edge Function `create-manual-mapping-run` (run nuevo derivado, copia exacta + corrección, sin UPDATE) → `validate-analysis(evidence_run_id)` → promoción CAS. Ver [[ADR-011-correccion-manual-versionada]].
+
 ## Tests
 `continuar-tras-revision.regression.test.ts`, `authorization.test.ts`.

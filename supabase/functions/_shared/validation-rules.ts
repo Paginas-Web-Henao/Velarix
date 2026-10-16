@@ -139,6 +139,30 @@ export function evaluate(
   const hasEBIT = hasAccount(accounts, "ebit", basePeriod) || (hasAccount(accounts, "revenue", basePeriod) && (hasAccount(accounts, "cost_of_sales", basePeriod) || hasAccount(accounts, "opex", basePeriod)));
   r.push({ code: "MAP_007", severity: "informativa", description: "EBIT derivable", passed: hasEBIT, detail: !hasEBIT ? "EBIT no derivable. Algunos KPIs estarán incompletos." : null, blocking: false });
 
+  // MAP_008 / MAP_009 — solo en sets con una corrección manual de mapping
+  // (ADR-011). La corrección no pasa por map-accounts, así que sus
+  // invariantes se re-verifican aquí. Detectan; no corrigen nada.
+  type MappingRow = { id?: string; original_label?: string | null; category?: string | null; canonical_account: string; period?: string | null; manual_correction_by?: string | null };
+  const mappingRows = accounts as unknown as MappingRow[];
+  const corrected = mappingRows.filter((a) => a.manual_correction_by);
+  if (corrected.length) {
+    const classified = mappingRows.filter((a) => a.canonical_account !== "unclassified");
+    const byContext = new Map<string, number>();
+    for (const a of classified) {
+      const k = `${a.original_label ?? ""}|${a.category ?? ""}|${a.canonical_account}|${a.period ?? ""}`;
+      byContext.set(k, (byContext.get(k) ?? 0) + 1);
+    }
+    const dupContexts = [...byContext].filter(([, n]) => n > 1).map(([k]) => k.split("|"));
+    r.push({ code: "MAP_008", severity: "media", description: "Sin duplicados de etiqueta y contexto tras corrección manual", passed: dupContexts.length === 0,
+      detail: dupContexts.length ? `Misma etiqueta, estado, cuenta y período más de una vez: ${dupContexts.map(([l, c, acc, per]) => `"${l}" (${c}) → ${acc} ${per}`).join("; ")}.` : null, blocking: false });
+    const consolidated = corrected
+      .filter((c) => c.canonical_account !== "unclassified")
+      .map((c) => ({ c, others: classified.filter((o) => o.id !== c.id && o.canonical_account === c.canonical_account && (o.period ?? "") === (c.period ?? "")) }))
+      .filter((x) => x.others.length > 0);
+    r.push({ code: "MAP_009", severity: "media", description: "Cuenta corregida manualmente sin consolidarse con otras filas del período", passed: consolidated.length === 0,
+      detail: consolidated.length ? `La corrección suma varias filas en la misma cuenta y período (revisar doble conteo): ${consolidated.map((x) => `${x.c.canonical_account} ${x.c.period ?? ""}: "${x.c.original_label ?? ""}" + ${x.others.map((o) => `"${o.original_label ?? ""}"`).join(", ")}`).join("; ")}.` : null, blocking: false });
+  }
+
   // ── BAL rules — NEVER BLOCKING ──
   const totalAssets = getVal(accounts, "total_assets", basePeriod);
   const totalLiab = getVal(accounts, "total_liabilities", basePeriod);

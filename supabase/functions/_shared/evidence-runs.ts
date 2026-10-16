@@ -132,15 +132,15 @@ export type ManualCorrectionDecision =
 /**
  * Las filas de un evidence run son inmutables. Una corrección manual solo se
  * permite sobre el modelo legacy (caso sin run activo y fila sin run). En un
- * caso versionado la corrección correcta es: clonar el set activo en un run
- * nuevo (servidor) → aplicar la corrección con provenance → validar →
- * promover. Ese flujo todavía no existe (VERSIONED_MANUAL_MAPPING_CORRECTION_PENDING).
+ * caso versionado la corrección crea un run nuevo derivado del activo
+ * (Edge Function create-manual-mapping-run, ADR-011) → validate-analysis →
+ * promoción CAS. El código se conserva por compatibilidad de clientes.
  */
 export function evaluateManualMappingCorrection(params: { activeRunId: string | null | undefined; rowRunId: string | null | undefined }): ManualCorrectionDecision {
   if (!params.activeRunId && !params.rowRunId) return { allowed: true };
   return {
     allowed: false,
     code: VERSIONED_MANUAL_MAPPING_CORRECTION_PENDING,
-    message: "Las homologaciones versionadas son inmutables. La corrección manual debe crear un nuevo Evidence run; ese flujo todavía no está implementado.",
+    message: "Las homologaciones versionadas son inmutables. La corrección manual crea un nuevo Evidence run: create-manual-mapping-run (crearCorreccionMappingVersionada) y después validate-analysis con ese run.",
   };
 }

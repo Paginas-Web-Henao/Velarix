@@ -70,6 +70,9 @@ verify_jwt = false
 [functions.expediente]
 verify_jwt = false
 
+[functions.create-manual-mapping-run]
+verify_jwt = false
+
 [functions.build-structured-input]
 verify_jwt = false
 

@@ -361,3 +361,33 @@ export async function bloquearRevision({
 
   return { bloqueado: true };
 }
+
+// ── Corrección de homologación sobre Evidence VERSIONADA (ADR-011) ──
+// Nunca UPDATE: el servidor crea un evidence run nuevo derivado del activo
+// (estado `mapped`). Para que sea operacional hay que validarlo después con
+// validate-analysis(evidence_run_id); la promoción es la de ADR-009.
+export async function crearCorreccionMappingVersionada(params: {
+  analysisId: string;
+  expectedActiveEvidenceRunId: string;
+  homologationId: string;
+  nuevoCanonicalAccount: string;
+  motivo: string;
+}): Promise<{ evidence_run_id: string; evidence_run_status: "mapped"; previous_active_run_id: string; homologations_copied: number }> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${FUNCTIONS_URL}/create-manual-mapping-run`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      analysis_id: params.analysisId,
+      expected_active_evidence_run_id: params.expectedActiveEvidenceRunId,
+      homologation_id: params.homologationId,
+      new_canonical_account: params.nuevoCanonicalAccount,
+      reason: params.motivo,
+    }),
+  });
+  const body = await res.json();
+  if (!res.ok || !body?.success) {
+    throw new VersionedManualCorrectionError(body?.error?.code ?? "MANUAL_CORRECTION_FAILED", body?.error?.message ?? "La corrección no se aplicó.");
+  }
+  return body.data;
+}
