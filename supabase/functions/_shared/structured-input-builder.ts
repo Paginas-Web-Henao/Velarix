@@ -145,7 +145,8 @@ export interface CanonicalSnapshotInput {
 export interface BuildCanonicalStructuredInputParams {
   analysisId: string;
   sector: string;
-  expectedGrowth: number;
+  /** Judgment (`analyses.expected_growth`); `null` = no resuelto (nunca se sustituye por un valor por defecto). */
+  expectedGrowth: number | null;
   accounts: readonly CanonicalStructuredInputAccountRow[];
   basePeriod: string | null;
   periods: readonly string[];
@@ -189,7 +190,7 @@ export interface CanonicalBalanceSheet {
 export interface CanonicalStructuredInput {
   analysis_id: string;
   sector: string;
-  expected_growth: number;
+  expected_growth: number | null;
   moneda_analisis: CurrencyCode;
   moneda_documento: CurrencyCode | null;
   factor_conversion: number;
@@ -245,6 +246,7 @@ export function buildCanonicalStructuredInput(
   } = core;
 
   const qualityFlags: string[] = [];
+  if (expectedGrowth === null || !Number.isFinite(expectedGrowth)) qualityFlags.push("expected_growth_no_resuelto");
   if (inventory == null) qualityFlags.push("sin_inventario_declarado");
   if (accountsReceivable == null) qualityFlags.push("sin_cartera_declarada");
   if (interestExpense == null) qualityFlags.push("sin_gastos_financieros");

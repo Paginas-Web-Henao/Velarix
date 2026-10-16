@@ -20,6 +20,8 @@ Regla v5.0: **un cálculo financieramente incorrecto es bloqueante absoluto**, p
 | BUG-04 | `npx tsc --noEmit -p tsconfig.app.json` falla en `pdf-canonical-calculation.regression.test.ts` (`node:fs`, `node:path`, `__dirname` sin tipos de Node). No afecta a `npm run build` ni a `npm test` | `src/lib/pdf-canonical-calculation.regression.test.ts` | Baja | Verificado el 2026-10-15; ya existía antes de retirar la landing |
 | BUG-05 | `npm run lint` da 266 errores y 25 warnings (sobre todo `no-explicit-any`; incluye `velarix-code-latest/`, que eslint no ignora). Línea base previa: 268/25; los 2 errores menos son del `Dashboard.tsx` eliminado | varios | Baja | Comparación regla por regla, 2026-10-15: 0 introducidos |
 
+| ~~BUG-06~~ | ✅ Corregido el 2026-10-16: `expected_growth || 25` convertía un crecimiento sin resolver (y también un `0` explícito) en 25 % en el motor, el fingerprint, `build-structured-input` y `continuar-tras-revision`. Ahora es null-aware: `null` = Judgment no resuelto (preflight `JUDGMENT_REQUIRED`, el motor falla cerrado), `0` = crecimiento cero válido | `_shared/canonical-input-normalization.ts`, `_shared/calculation-preflight.ts` | — | `expected-growth-null-aware.test.ts` |
+
 ## Limitaciones de diseño (documentadas, no bugs)
 
 | ID | Limitación | Clasificación | Fuente |

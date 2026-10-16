@@ -241,7 +241,8 @@ serve(async (req) => {
     const structuredInput = buildCanonicalStructuredInput({
       analysisId: analysis_id,
       sector: analysis.sector,
-      expectedGrowth: analysis.expected_growth || 25,
+      // Judgment: null = no resuelto (el preflight de cálculo lo bloquea); nunca 25 por defecto.
+      expectedGrowth: analysis.expected_growth ?? null,
       accounts: cuentas,
       basePeriod,
       periods,

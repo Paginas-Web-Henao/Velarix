@@ -139,9 +139,29 @@ export function resolveEffectiveSectorBenchmark(sector: string) {
   return SECTOR_BENCHMARKS[sector] || SECTOR_BENCHMARKS["Software / Tecnología"];
 }
 
-/** Misma regla exacta que antes vivía inline: `expectedGrowth || 25` (nota: `0` es falsy, cae al fallback — comportamiento preservado, no decidido de nuevo aquí). */
+/**
+ * `analyses.expected_growth` es Judgment (crecimiento de ingresos del
+ * horizonte explícito, en %). Semántica null-aware:
+ * - número finito (incluido `0`, crecimiento cero explícito) → se usa tal cual;
+ * - `null`/`undefined`/no finito → NO resuelto: falla cerrado.
+ * Antes era `expectedGrowth || 25`: un Judgment ausente (y también un `0`
+ * explícito) se convertía en silencio en 25 %. El preflight de cálculo
+ * bloquea antes de llegar aquí; esta excepción es la última barrera.
+ */
+export class UnresolvedGrowthError extends Error {
+  constructor(value: unknown) {
+    super(`expected_growth no resuelto (Judgment requerido): ${JSON.stringify(value ?? null)}. No se usa ningún crecimiento por defecto.`);
+    this.name = "UnresolvedGrowthError";
+  }
+}
+
+export function isResolvedGrowth(expectedGrowth: unknown): expectedGrowth is number {
+  return typeof expectedGrowth === "number" && Number.isFinite(expectedGrowth);
+}
+
 export function resolveEffectiveGrowth(expectedGrowth: number | null | undefined): number {
-  return expectedGrowth || 25;
+  if (!isResolvedGrowth(expectedGrowth)) throw new UnresolvedGrowthError(expectedGrowth);
+  return expectedGrowth;
 }
 
 /** Misma regla exacta que antes vivía inline: `input.moneda_analisis || "COP"`. */

@@ -123,9 +123,11 @@ describe("computeInputFingerprint — fingerprint del input EFECTIVO (normalizad
       .not.toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 45));
   });
 
-  it("7. expectedGrowth: 0 y el valor fallback actual (25) producen el mismo fingerprint — el motor usa expectedGrowth || 25", () => {
+  it("7. expectedGrowth: 0 es un crecimiento explícito distinto de 25 (sin fallback); null/undefined no producen fingerprint", () => {
     expect(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 0))
-      .toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 25));
+      .not.toBe(computeInputFingerprint(BASE_INPUT, "Software / Tecnología", 25));
+    expect(() => computeInputFingerprint(BASE_INPUT, "Software / Tecnología", null)).toThrow(/expected_growth no resuelto/);
+    expect(() => computeInputFingerprint(BASE_INPUT, "Software / Tecnología", undefined)).toThrow(/expected_growth no resuelto/);
   });
 
   it("cambiar expectedGrowth a un valor distinto del fallback sí cambia el fingerprint", () => {

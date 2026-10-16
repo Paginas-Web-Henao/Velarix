@@ -225,6 +225,8 @@ serve(async (req) => {
       incomeStatement: input.income_statement,
       balanceSheet: input.balance_sheet,
       ...(isV5Input ? { resolvedAssumptions: inputResolvedAssumptions } : {}),
+      // Judgment del caso: sin crecimiento resuelto no se calcula (nunca 25 por defecto).
+      expectedGrowth: analysis.expected_growth ?? null,
     });
     if (!preflight.passed) {
       await supabase.from("audit_events").insert({

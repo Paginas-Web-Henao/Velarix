@@ -90,6 +90,8 @@ export interface CalculationPreflightResult {
   passed: boolean;
   missing_inputs: string[];
   unapproved_assumptions: string[];
+  /** Judgment del caso fuera del contrato de supuestos resueltos (hoy: `expected_growth`) que sigue sin resolver. */
+  unresolved_judgments: string[];
   blockers: string[];
 }
 
@@ -369,8 +371,22 @@ export function evaluateCalculationPreflight(params: {
    * falta o es inválido vía `findResolvedAssumptionBlockers`).
    */
   resolvedAssumptions?: Partial<ResolvedCalculationAssumptions> | null;
+  /**
+   * `analyses.expected_growth` (Judgment). Solo se evalúa si la clave está
+   * presente: `null`/`undefined`/no finito → bloqueo explícito (nunca 25 por
+   * defecto); `0` es un crecimiento cero válido.
+   */
+  expectedGrowth?: number | null;
 }): CalculationPreflightResult {
   const missing_inputs = findMissingRequiredInputs(params.incomeStatement, params.balanceSheet);
+  const unresolved_judgments =
+    Object.prototype.hasOwnProperty.call(params, "expectedGrowth") &&
+    !(typeof params.expectedGrowth === "number" && Number.isFinite(params.expectedGrowth))
+      ? ["expected_growth"]
+      : [];
+  const judgmentBlockers = unresolved_judgments.map(
+    (field) => `JUDGMENT_REQUIRED: "${field}" no está resuelto — no se usa ningún valor por defecto.`,
+  );
 
   // Distinción legacy vs. v5 — corregida en esta revisión: por
   // PRESENCIA de la propiedad `resolvedAssumptions` en `params`, no por
@@ -394,11 +410,13 @@ export function evaluateCalculationPreflight(params: {
       ...unapproved_assumptions.map(
         (name) => `METHODOLOGY_APPROVAL_REQUIRED: el supuesto "${name}" no tiene aprobación humana registrada.`,
       ),
+      ...judgmentBlockers,
     ];
     return {
-      passed: missing_inputs.length === 0 && unapproved_assumptions.length === 0,
+      passed: missing_inputs.length === 0 && unapproved_assumptions.length === 0 && unresolved_judgments.length === 0,
       missing_inputs,
       unapproved_assumptions,
+      unresolved_judgments,
       blockers,
     };
   }
@@ -418,12 +436,14 @@ export function evaluateCalculationPreflight(params: {
       (field) => `INPUT_MISSING: "${field}" ausente en structured_input — no se puede calcular sin fabricar un valor.`,
     ),
     ...resolved_assumption_blockers,
+    ...judgmentBlockers,
   ];
 
   return {
-    passed: missing_inputs.length === 0 && resolved_assumption_blockers.length === 0,
+    passed: missing_inputs.length === 0 && resolved_assumption_blockers.length === 0 && unresolved_judgments.length === 0,
     missing_inputs,
     unapproved_assumptions,
+    unresolved_judgments,
     blockers,
   };
 }

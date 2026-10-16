@@ -74,7 +74,10 @@ describe("Legacy vs. v5 — distinción por presencia de la propiedad, no por su
     // Objeto completo, no solo `passed` — extraído ejecutando el archivo
     // real tal como existía en 884173d contra este mismo fixture
     // (verificación puntual documentada en el reporte de este bloque).
-    expect(r).toEqual({
+    // Único cambio aditivo posterior: `unresolved_judgments` (vacío si no se pasa `expectedGrowth`).
+    expect(r.unresolved_judgments).toEqual([]);
+    const { unresolved_judgments: _added, ...legacyShape } = r;
+    expect(legacyShape).toEqual({
       passed: false,
       missing_inputs: [],
       unapproved_assumptions: [
