@@ -67,6 +67,9 @@ verify_jwt = false
 [functions.judgment-sets]
 verify_jwt = false
 
+[functions.expediente]
+verify_jwt = false
+
 [functions.build-structured-input]
 verify_jwt = false
 

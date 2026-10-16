@@ -42,7 +42,7 @@ Detalle de acceso, secretos y rutas: [[07-autenticacion]].
 
 - `migrations/`: 10 migraciones SQL (2026-03-20 → 2026-08-17). Ver [[05-base-de-datos]].
 - `rollback/` — rollback manual de la migración de protección de roles.
-- `functions/<nombre>/index.ts` — 13 Edge Functions (incluida `judgment-sets`, write path del Judgment versionado, [[ADR-010-judgment-sets-versionados]]). Ver [[06-api]].
+- `functions/<nombre>/index.ts` — 14 Edge Functions (incluidas `judgment-sets`, write path del Judgment versionado, [[ADR-010-judgment-sets-versionados]], y `expediente`, write path del Minimum Expediente). Ver [[06-api]].
 - `functions/_shared/` — lógica pura (sin Supabase, sin `serve()`, sin env) importable desde Deno **y** desde Vitest. Es donde vive el motor canónico y casi todos los tests.
 - `config.toml` — todas las funciones con `verify_jwt = false`; cada una verifica autenticación explícitamente en su código (ver comentarios del archivo y [[07-autenticacion]]).
 
