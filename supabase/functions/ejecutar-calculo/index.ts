@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { canExecuteCalculation, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
-import { requireAuthenticatedUser, mapErrorToResponse, type MinimalUser } from "../_shared/user-auth.ts";
+import { requireAuthenticatedUser, mapErrorToResponse, classifyResourceLookup, type MinimalUser } from "../_shared/user-auth.ts";
 import { runCanonicalFinancialEngine, type CanonicalStructuredInput } from "../_shared/canonical-financial-engine.ts";
 import { computeInputFingerprint } from "../_shared/calculation-fingerprint.ts";
 import { buildCalculationVersionInfo } from "../_shared/calculation-versioning.ts";
@@ -98,7 +98,19 @@ serve(async (req) => {
       .select("*")
       .eq("id", analysis_id)
       .single();
-    const analysisOwnerId = (!fetchErr && analysis) ? analysis.user_id : null;
+    // Existencia ANTES de la decisión de acceso: un rol privilegiado o una
+    // llamada interna pueden saltarse ownership, pero no convertir un recurso
+    // inexistente en válido. Ausencia legítima (PGRST116) → mismo 404 que
+    // "ajeno"; error técnico real → 500 (catch, sin escrituras: authorized = false).
+    const lookup = classifyResourceLookup(fetchErr, analysis);
+    if (lookup === "technical_error") throw new Error(`Error consultando analyses: ${fetchErr?.message ?? "desconocido"}`);
+    if (lookup === "not_found") {
+      return new Response(JSON.stringify({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: "Análisis no encontrado." },
+      }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const analysisOwnerId: string = analysis.user_id;
 
     const decision = canExecuteCalculation({ actor, isInternalCall, analysisOwnerId });
     if (!decision.allowed) {
@@ -110,7 +122,6 @@ serve(async (req) => {
       }), { status: decision.httpStatus, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if (!analysis) throw new Error("Analysis not found");
     authorized = true;
 
     // Regla canónica (manual-mapping-review.ts): una corrección manual con

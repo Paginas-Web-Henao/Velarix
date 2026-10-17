@@ -11,6 +11,8 @@ export interface MemoryDb {
   tables: Record<string, Row[]>;
   /** Tablas cuyo próximo insert falla (simula un error de escritura). */
   failInsertOnce: Set<string>;
+  /** Próxima lectura de la tabla devuelve ESTE error (fallo técnico real de la consulta). */
+  selectErrorOnce: Map<string, { code?: string; message: string }>;
   /** Próximo insert de la tabla devuelve ESTE error (p. ej. el rechazo de un trigger). */
   insertErrorOnce: Map<string, { code?: string; message: string }>;
   /** Se ejecuta justo antes de cada insert/update: simula una escritura concurrente intercalada. */
@@ -28,6 +30,7 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
   const tables: Record<string, Row[]> = Object.fromEntries(Object.entries(initial).map(([k, v]) => [k, structuredClone(v)]));
   const failInsertOnce = new Set<string>();
   const insertErrorOnce = new Map<string, { code?: string; message: string }>();
+  const selectErrorOnce = new Map<string, { code?: string; message: string }>();
   const hooks: MemoryDb["hooks"] = {};
   const rpcs: MemoryDb["rpcs"] = {};
   const ops: MemoryDb["ops"] = [];
@@ -66,6 +69,8 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
         return { data: q.returning ? hit.map((r) => structuredClone(r)) : null, error: null };
       }
       if (q.op === "delete") { tables[table] = rows.filter((r) => !match(r)); return { data: null, error: null }; }
+      const selectError = selectErrorOnce.get(table);
+      if (selectError) { selectErrorOnce.delete(table); return { data: null, error: selectError }; }
       const hits = rows.filter(match).map((r) => structuredClone(r));
       if (single && maybe) return { data: hits[0] ?? null, error: null };
       return single ? { data: hits[0] ?? null, error: hits[0] ? null : { code: "PGRST116", message: "no rows" } } : { data: hits, error: null };
@@ -86,7 +91,7 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
   };
 
   return {
-    tables, failInsertOnce, insertErrorOnce, hooks, rpcs, ops, auth,
+    tables, failInsertOnce, insertErrorOnce, selectErrorOnce, hooks, rpcs, ops, auth,
     client: {
       from,
       rpc: async (name: string, args: Record<string, unknown>) => {

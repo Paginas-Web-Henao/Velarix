@@ -121,3 +121,71 @@ describe("el catch de ejecutar-calculo no escribe para requests no autorizadas",
     expect(writes()).toEqual([]);
   });
 });
+
+describe("P12.1 ejecutar-calculo: existencia ANTES de la decisión de acceso (privilegio ≠ existencia)", () => {
+  const noSideEffects = () => {
+    expect(writes()).toEqual([]);
+    expect(m.tables.audit_events).toEqual([]);
+    expect(m.tables.analysis_jobs ?? []).toEqual([]);
+    expect(m.tables.analyses.map((a) => a.status)).toEqual(["revision_manual_requerida", "revision_manual_requerida"]);
+    expect(m.tables.analyses.every((a) => a.calculation_result === null)).toBe(true);
+  };
+  for (const role of ["user", "admin", "analyst"]) {
+    it(`1-3. rol ${role} + análisis inexistente → 404, solo lecturas post-auth, 0 escrituras`, async () => {
+      setup(role);
+      const r = await req(ejecutar, { analysis_id: "missing" });
+      expect(r.status).toBe(404);
+      expect(reads()).toEqual(["profiles", "analyses"]);
+      noSideEffects();
+    });
+  }
+  it("4. llamada interna confiable + inexistente → 404, 0 escrituras", async () => {
+    const r = await req(ejecutar, { analysis_id: "missing" }, { apikey: SECRET });
+    expect(r.status).toBe(404);
+    expect(reads()).toEqual(["analyses"]);
+    noSideEffects();
+  });
+  it("4b. el 404 de inexistente es indistinguible del 404 de ajeno", async () => {
+    const missing = await (await req(ejecutar, { analysis_id: "missing" })).json();
+    const foreign = await (await req(ejecutar, { analysis_id: "foreign" })).json();
+    expect(missing).toEqual(foreign);
+  });
+  it("5. ajeno + rol user → 404, 0 escrituras", async () => {
+    const r = await req(ejecutar, { analysis_id: "foreign" });
+    expect(r.status).toBe(404);
+    noSideEffects();
+  });
+  it("6. ajeno + rol admin → política privilegiada existente: NO 404 por ownership, alcanza la lógica posterior", async () => {
+    setup("admin");
+    const r = await req(ejecutar, { analysis_id: "foreign" });
+    expect(r.status).not.toBe(404);
+    expect(r.status).not.toBe(401);
+    expect(reads()).toEqual(expect.arrayContaining(["profiles", "analyses", "structured_inputs"]));
+  });
+  it("7. error técnico real del lookup de analyses → 500 (no 404), 0 escrituras", async () => {
+    setup("admin");
+    m.selectErrorOnce.set("analyses", { code: "08006", message: "connection failure" });
+    const r = await req(ejecutar, { analysis_id: "own" });
+    expect(r.status).toBe(500);
+    noSideEffects();
+    m.selectErrorOnce.set("analyses", { code: "08006", message: "connection failure" });
+    expect((await req(ejecutar, { analysis_id: "own" }, { apikey: SECRET })).status).toBe(500);
+    noSideEffects();
+  });
+});
+
+describe("P12.1 continuar-tras-revision: confirmación (sin cambios de código)", () => {
+  for (const role of ["admin", "analyst"]) {
+    it(`rol ${role} + inexistente → 404, 0 escrituras`, async () => {
+      setup(role);
+      const r = await req(continuar, { analysis_id: "missing" });
+      expect(r.status).toBe(404);
+      expect(writes()).toEqual([]);
+    });
+  }
+  it("llamada interna + inexistente → 404, 0 escrituras", async () => {
+    const r = await req(continuar, { analysis_id: "missing" }, { apikey: SECRET });
+    expect(r.status).toBe(404);
+    expect(writes()).toEqual([]);
+  });
+});
