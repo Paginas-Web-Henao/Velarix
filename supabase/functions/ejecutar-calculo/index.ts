@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { canExecuteCalculation, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
+import { requireAuthenticatedUser, mapErrorToResponse, type MinimalUser } from "../_shared/user-auth.ts";
 import { runCanonicalFinancialEngine, type CanonicalStructuredInput } from "../_shared/canonical-financial-engine.ts";
 import { computeInputFingerprint } from "../_shared/calculation-fingerprint.ts";
 import { buildCalculationVersionInfo } from "../_shared/calculation-versioning.ts";
@@ -41,8 +42,30 @@ serve(async (req) => {
   const anonKey = resolvePublishableKey();
   const supabase = createClient(supabaseUrl, secretKey);
 
+  // ── Autenticación ANTES de cualquier acceso a la base ──
+  // Con verify_jwt = false, la función autentica sola: invocación interna real
+  // (secret key en `apikey`) o JWT de usuario verificado con Supabase Auth.
+  // Sin credenciales válidas → 401 sin ninguna lectura/escritura (ni audit).
+  const authHeader = req.headers.get("Authorization");
+  const apiKeyHeader = req.headers.get("apikey");
+  const isInternalCall = isInternalServiceCall(apiKeyHeader, secretKey);
+  let authUser: MinimalUser | null = null;
+  if (!isInternalCall) {
+    try {
+      const anonClient = createClient(supabaseUrl, anonKey);
+      authUser = await requireAuthenticatedUser(authHeader, async (token) => {
+        const { data, error } = await anonClient.auth.getUser(token);
+        return { user: data.user, error };
+      });
+    } catch (error) {
+      const mapped = mapErrorToResponse(error, { code: "UNAUTHORIZED", message: "Autenticación requerida." });
+      return new Response(JSON.stringify(mapped.body), { status: mapped.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+  }
+  // Solo una request autorizada puede marcar el caso como error técnico en el catch.
+  let authorized = false;
+
   try {
-    const authHeader = req.headers.get("Authorization");
     // Corrección de autenticación mixta (Bloque 1D, 2026-07-30):
     // `verify_jwt = false` en esta función (ver supabase/config.toml) —
     // la puerta de entrada de Supabase no reconoce el formato de la
@@ -51,7 +74,6 @@ serve(async (req) => {
     // (nunca en `Authorization`, porque no es un JWT); una llamada de
     // usuario envía la publishable key en `apikey` y el JWT real en
     // `Authorization`.
-    const apiKeyHeader = req.headers.get("apikey");
     const { analysis_id } = await req.json();
     if (!analysis_id) throw new Error("analysis_id required");
 
@@ -62,15 +84,10 @@ serve(async (req) => {
     // (auth.getUser) o de una invocación interna real (comparación
     // contra la secret key real vía `apikey`, no un campo público como
     // {internal:true}).
-    const isInternalCall = isInternalServiceCall(apiKeyHeader, secretKey);
     let actor: AuthenticatedActor | null = null;
-    if (!isInternalCall && authHeader) {
-      const anonClient = createClient(supabaseUrl, anonKey);
-      const { data: { user } } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
-      if (user) {
-        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-        actor = { userId: user.id, role: (profile?.role as ActorRole) || "user" };
-      }
+    if (authUser) {
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", authUser.id).single();
+      actor = { userId: authUser.id, role: (profile?.role as ActorRole) || "user" };
     }
 
     // Get analysis with input_payload (siempre con service role, para
@@ -85,13 +102,8 @@ serve(async (req) => {
 
     const decision = canExecuteCalculation({ actor, isInternalCall, analysisOwnerId });
     if (!decision.allowed) {
-      await supabase.from("audit_events").insert({
-        analysis_id: analysisOwnerId ? analysis_id : null, // evita violar la FK si el análisis no existe
-        user_id: actor?.userId || null,
-        event_type: "acceso_rechazado_ejecutar_calculo",
-        event_detail: `Motivo: ${decision.reasonCode}`,
-        component: "ejecutar-calculo",
-      });
+      // Inexistente o ajeno (mismo 404): sin escrituras — no se registra nada en
+      // el trail de un caso que el actor no posee ni se revela su existencia.
       return new Response(JSON.stringify({
         success: false,
         error: { code: "UNAUTHORIZED", message: decision.publicMessage },
@@ -99,6 +111,7 @@ serve(async (req) => {
     }
 
     if (!analysis) throw new Error("Analysis not found");
+    authorized = true;
 
     // Regla canónica (manual-mapping-review.ts): una corrección manual con
     // MAP_008/MAP_009 FAILED en el evidence run ACTIVO impide Calculation hasta
@@ -418,9 +431,9 @@ serve(async (req) => {
   } catch (error) {
     console.error("[ejecutar-calculo] Error:", error);
 
-    // Try to update status on failure
+    // Try to update status on failure — solo si la request fue autorizada para este caso.
     try {
-      const { analysis_id: aid } = await req.clone().json().catch(() => ({ analysis_id: null }));
+      const { analysis_id: aid } = authorized ? await req.clone().json().catch(() => ({ analysis_id: null })) : { analysis_id: null };
       if (aid) {
         const supabase = createClient(Deno.env.get("SUPABASE_URL")!, resolveAdminSecretKey());
         await supabase.from("analyses").update({ status: "error_tecnico" }).eq("id", aid);

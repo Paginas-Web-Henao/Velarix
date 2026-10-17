@@ -15,6 +15,10 @@ export interface MemoryDb {
   insertErrorOnce: Map<string, { code?: string; message: string }>;
   /** Se ejecuta justo antes de cada insert/update: simula una escritura concurrente intercalada. */
   hooks: { before?: (table: string, op: string, payload: unknown) => void };
+  /** Registro de TODA operación contra la base (lecturas incluidas), en orden. */
+  ops: { table: string; op: string }[];
+  /** Usuario que devuelve auth.getUser (null = token inválido → AuthApiError). */
+  auth: { user: { id: string } | null };
   /** Emulaciones de funciones SQL (`client.rpc`). La versión real se prueba contra Postgres. */
   rpcs: Record<string, (tables: Record<string, Row[]>, args: Record<string, unknown>) => { data: unknown; error: { message: string; code?: string } | null }>;
   client: { from: (t: string) => unknown; rpc: (name: string, args: Record<string, unknown>) => Promise<unknown>; auth: { getUser: () => Promise<unknown> }; storage: { from: () => unknown } };
@@ -26,6 +30,8 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
   const insertErrorOnce = new Map<string, { code?: string; message: string }>();
   const hooks: MemoryDb["hooks"] = {};
   const rpcs: MemoryDb["rpcs"] = {};
+  const ops: MemoryDb["ops"] = [];
+  const auth: MemoryDb["auth"] = { user: { id: opts.userId ?? "owner-1" } };
   let seq = 0;
 
   const from = (table: string) => {
@@ -36,6 +42,7 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
       Object.entries(q.in).every(([k, vs]) => vs.includes(r[k]));
     // single: exige una fila (PGRST116 si no hay). maybeSingle: 0 filas = { data: null, error: null }, como supabase-js.
     const run = (single: boolean, maybe = false) => {
+      ops.push({ table, op: q.op });
       if (q.op !== "select" && q.op !== "delete") hooks.before?.(table, q.op, q.payload);
       const rows = (tables[table] ??= []);
       if (q.op === "insert") {
@@ -79,15 +86,16 @@ export function createMemoryDb(initial: Record<string, Row[]>, opts: { userId?: 
   };
 
   return {
-    tables, failInsertOnce, insertErrorOnce, hooks, rpcs,
+    tables, failInsertOnce, insertErrorOnce, hooks, rpcs, ops, auth,
     client: {
       from,
       rpc: async (name: string, args: Record<string, unknown>) => {
+        ops.push({ table: `rpc:${name}`, op: "rpc" });
         const fn = rpcs[name];
         if (!fn) return { data: null, error: { message: `function ${name} does not exist` } };
         return fn(tables, args);
       },
-      auth: { getUser: async () => ({ data: { user: { id: opts.userId ?? "owner-1" } }, error: null }) },
+      auth: { getUser: async () => (auth.user ? { data: { user: { ...auth.user } }, error: null } : { data: { user: null }, error: { name: "AuthApiError", status: 401, message: "invalid JWT" } }) },
       storage: { from: () => ({ download: async () => ({ data: new Blob([(opts.file ?? new Uint8Array()) as BlobPart]), error: null }) }) },
     },
   };

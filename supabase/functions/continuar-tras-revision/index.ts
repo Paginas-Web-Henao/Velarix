@@ -12,6 +12,7 @@ import {
 } from "../_shared/structured-input-builder.ts";
 import { canContinueAfterReview, isInternalServiceCall, type ActorRole, type AuthenticatedActor } from "../_shared/authorization.ts";
 import { resolveAdminSecretKey, resolvePublishableKey } from "../_shared/admin-key.ts";
+import { requireAuthenticatedUser, mapErrorToResponse, type MinimalUser } from "../_shared/user-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,8 +35,28 @@ serve(async (req) => {
   const anonKey = resolvePublishableKey();
   const supabase = createClient(supabaseUrl, secretKey);
 
+  // ── Autenticación ANTES de cualquier acceso a la base ──
+  // Invocación interna real (secret key en `apikey`) o JWT de usuario
+  // verificado con Supabase Auth. Sin credenciales válidas → 401 sin
+  // ninguna lectura/escritura (ni audit, ni lookup del análisis).
+  const authHeader = req.headers.get("Authorization");
+  const apiKeyHeader = req.headers.get("apikey");
+  const isInternalCall = isInternalServiceCall(apiKeyHeader, secretKey);
+  let authUser: MinimalUser | null = null;
+  if (!isInternalCall) {
+    try {
+      const anonClient = createClient(supabaseUrl, anonKey);
+      authUser = await requireAuthenticatedUser(authHeader, async (token) => {
+        const { data, error } = await anonClient.auth.getUser(token);
+        return { user: data.user, error };
+      });
+    } catch (error) {
+      const mapped = mapErrorToResponse(error, { code: "UNAUTHORIZED", message: "Autenticación requerida." });
+      return new Response(JSON.stringify(mapped.body), { status: mapped.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+  }
+
   try {
-    const authHeader = req.headers.get("Authorization");
     // Corrección de autenticación mixta (Bloque 1D, 2026-07-30):
     // `verify_jwt = false` en esta función (ver supabase/config.toml) —
     // la puerta de entrada de Supabase no reconoce el formato de la
@@ -44,7 +65,6 @@ serve(async (req) => {
     // (nunca en `Authorization`, porque no es un JWT); una llamada de
     // usuario envía la publishable key en `apikey` y el JWT real en
     // `Authorization`.
-    const apiKeyHeader = req.headers.get("apikey");
     const { analysis_id } = await req.json();
     if (!analysis_id) {
       return new Response(
@@ -59,15 +79,10 @@ serve(async (req) => {
     // revisión. Se requiere analista, admin, o invocación interna real
     // (comparación contra la secret key real vía `apikey`, nunca un
     // campo público como {internal:true}).
-    const isInternalCall = isInternalServiceCall(apiKeyHeader, secretKey);
     let actor: AuthenticatedActor | null = null;
-    if (!isInternalCall && authHeader) {
-      const anonClient = createClient(supabaseUrl, anonKey);
-      const { data: { user } } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
-      if (user) {
-        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-        actor = { userId: user.id, role: (profile?.role as ActorRole) || "user" };
-      }
+    if (authUser) {
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", authUser.id).single();
+      actor = { userId: authUser.id, role: (profile?.role as ActorRole) || "user" };
     }
 
     // 1. Get analysis
@@ -77,7 +92,12 @@ serve(async (req) => {
       .eq("id", analysis_id)
       .single();
 
-    if (aErr || !analysis) {
+    // Ownership antes de leer nada más del caso: un actor no privilegiado sobre
+    // un análisis ajeno recibe la misma respuesta que "no existe" (sin audit,
+    // sin revelar existencia). analyst/admin e invocación interna siguen la
+    // política existente de canContinueAfterReview.
+    const privileged = isInternalCall || actor?.role === "analyst" || actor?.role === "admin";
+    if (aErr || !analysis || (!privileged && analysis.user_id !== actor?.userId)) {
       return new Response(
         JSON.stringify({ success: false, error: { message: "Análisis no encontrado" } }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
